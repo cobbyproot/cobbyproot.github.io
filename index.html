@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobby - Person Card</title>
+    <meta name="description" content="Digital Creator • Fursuiter • VRChat Editor. Check out my gallery and projects.">
+
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&family=Inter:wght@400;600;800&display=swap"
+        rel="stylesheet">
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="./css/style.css">
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+
+    <script>
+        const imgAlt = './assets/avatar_alt.jpg';
+        const imgMain = './assets/avatar_main.jpg';
+        [imgAlt, imgMain].forEach(src => {
+            const img = new Image();
+            img.src = src;
+        });
+    </script>
+</head>
+
+<body class="lang-en">
+
+
+    <div id="special-greet-overlay" class="special-overlay hidden">
+        <div class="g-blob gb1"></div>
+        <div class="g-blob gb2"></div>
+        <div id="card-anim-wrapper" class="card-animator">
+            <div id="tilt-card" class="special-card">
+                <div class="card-shine"></div>
+                <div class="special-content">
+                    <i class="fas fa-fingerprint"
+                        style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;"></i>
+                    <h3>Welcome, VIP</h3>
+                    <p style="margin-top: 10px;">Private link detected.</p>
+                    <p>Accessing specialized user interface...</p>
+                    <button id="close-greet" class="enter-btn" data-sticky>Enter System</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="bg-slideshow" class="bg-slideshow"></div>
+    <div class="bg-overlay"></div>
+    <div class="noise-bg"></div>
+    <canvas id="particle-canvas"></canvas>
+    <div class="cursor-dot"></div>
+    <div class="cursor-follower"></div>
+
+
+    <nav class="nav-dock">
+        <a href="javascript:void(0)" class="nav-brand" data-sticky title="Home">
+            <div class="flip-inner">
+                <div class="flip-front"></div>
+                <div class="flip-back"></div>
+            </div>
+        </a>
+        <div class="nav-divider"></div>
+        <a href="javascript:void(0)" onclick="switchView('profile')" class="nav-item active" id="btn-profile"
+            data-sticky>
+            <i class="fas fa-paw"></i>
+            <span class="nav-text" lang="en">Profile</span>
+            <span class="nav-text" lang="vi">Hồ Sơ</span>
+        </a>
+        <a href="javascript:void(0)" onclick="switchView('gallery')" class="nav-item" id="btn-gallery" data-sticky>
+            <i class="fas fa-palette"></i>
+            <span class="nav-text" lang="en">Gallery</span>
+            <span class="nav-text" lang="vi">Ảnh</span>
+        </a>
+        <a href="javascript:void(0)" onclick="switchView('projects')" class="nav-item" id="btn-projects" data-sticky>
+            <i class="fas fa-id-card"></i>
+            <span class="nav-text" lang="en">Cards</span>
+            <span class="nav-text" lang="vi">Thẻ</span>
+        </a>
+        <div class="nav-divider"></div>
+        <div class="lang-container" data-sticky>
+            <div class="lang-btn" onclick="toggleLang()">
+                <div class="lang-face lang-front"><img src="https://flagcdn.com/w80/us.png" alt="English"></div>
+                <div class="lang-face lang-back"><img src="https://flagcdn.com/w80/vn.png" alt="Vietnamese"></div>
+            </div>
+        </div>
+    </nav>
+
+
+    <main class="main-wrapper">
+        <header class="persistent-hero">
+            <div class="hero-avatar" data-sticky>
+                <div class="flip-inner">
+                    <div class="flip-front"></div>
+                    <div class="flip-back"></div>
+                </div>
+            </div>
+            <h1>Cobby</h1>
+            <p class="hero-desc">Fursuiter • Commissioner • VRChat Editor</p>
+
+            <div class="tags">
+                <span class="tag" data-sticky>He/Him</span>
+                <span class="tag" data-sticky>Protogen / Wolf</span>
+            </div>
+
+            <div class="socials">
+                <a href="https://facebook.com/BasicallyCobby" target="_blank" class="social-btn" data-sticky
+                    title="Facebook"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://x.com/ItsJacobUwU" target="_blank" class="social-btn" data-sticky title="Twitter"><i
+                        class="fab fa-twitter"></i></a>
+                <a href="https://discordapp.com/users/1119272682953900034" target="_blank" class="social-btn"
+                    data-sticky title="Discord"><i class="fab fa-discord"></i></a>
+                <a href="http://t.me/cobbyproto" target="_blank" class="social-btn" data-sticky title="Telegram"><i
+                        class="fab fa-telegram-plane"></i></a>
+                <a href="mailto:basicallybao1401@gmail.com" class="social-btn" data-sticky title="Mail"><i
+                        class="fas fa-envelope"></i></a>
+            </div>
+
+            <div class="scroll-hint"><i class="fas fa-chevron-down"></i></div>
+        </header>
+
+        <div class="content-container">
+
+            <section id="view-profile" class="view-section active">
+
+
+                <div class="profile-dashboard game-panel" data-speed="0.8">
+                    <div class="dashboard-header">
+                        <h2>
+                            <span lang="en">PROFILE</span>
+                            <span lang="vi">HỒ SƠ</span>
+                        </h2>
+                        <div class="status-indicator">
+                            <div class="dot blinking"></div> ONLINE
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="db-info">
+                            <div class="stat-row">
+                                <span class="stat-label">ROLE</span>
+                                <span class="stat-value text-primary">Content Creator / Fursuiter</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">LOCATION</span>
+                                <span class="stat-value">Vietnam</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">LANGUAGES</span>
+                                <span class="stat-value">ENG // VIE</span>
+                            </div>
+
+                            <hr class="tech-divider">
+
+                            <div lang="en" class="bio-desc">
+                                <p>A furry from Vietnam who loves to make friends. Maybe a bit shy but
+                                    feel free to talk to me! I really like arts, from drawings to music, dancing
+                                    to singing and movies. Hope I can be friend with ya~!!!.</p>
+                            </div>
+                            <div lang="vi" class="bio-desc">
+                                <p>Một con lông xanh thích tìm tòi và kết bạn. Mình hơi hướng nội nhưng cứ
+                                    thoải mái bắt chuyện với mình nhé! Mình rất yêu thích nghệ thuật, từ tranh vẽ tới âm
+                                    nhạc,
+                                    nhảy múa và cả điện ảnh. Hy vọng mình sẽ được làm bạn với bạn nè~</p>
+                            </div>
+                        </div>
+
+                        <div class="db-traits">
+                            <h4 class="tech-subheading">FAVORITE</h4>
+                            <div class="vibe-cloud">
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-desktop"></i> VRChat
+                                </div>
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-pencil-ruler"></i> Drawing
+                                </div>
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-music"></i> Music</div>
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-gamepad"></i> FPS</div>
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-drum"></i> Rhythm</div>
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-shoe-prints"></i> Dance
+                                </div>
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-film"></i> Movie</div>
+                                <div class="vibe-pill tech-pill" data-sticky><i class="fas fa-utensils"></i> Food</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="game-panel" data-speed="0.85">
+                    <div class="dashboard-header">
+                        <h2><span>GAME ACCOUNTS</span></h2>
+                        <div class="status-indicator" style="color: #a78bfa;">
+                            <div class="dot blinking" style="background: #a78bfa;"></div> GAMING
+                        </div>
+                    </div>
+                    <div class="game-accounts-grid">
+
+                        <div class="game-account-row">
+                            <div class="game-icon-wrap" style="background: rgba(100,200,255,0.1); border-color: rgba(100,200,255,0.3);">
+                                <i class="fas fa-vr-cardboard" style="color: #64c8ff;"></i>
+                            </div>
+                            <div class="game-info">
+                                <span class="game-label">VRChat</span>
+                                <span class="game-id">JacobUwU</span>
+                            </div>
+                        </div>
+
+                        <div class="game-account-row">
+                            <div class="game-icon-wrap" style="background: rgba(200,170,40,0.1); border-color: rgba(200,170,40,0.3);">
+                                <i class="fas fa-chess-knight" style="color: #c8aa28;"></i>
+                            </div>
+                            <div class="game-info">
+                                <span class="game-label">League of Legends / TFT (VN)</span>
+                                <span class="game-id">Cobbi<span style="color: var(--primary);">#GRRR</span></span>
+                            </div>
+                        </div>
+
+                        <div class="game-account-row">
+                            <div class="game-icon-wrap" style="background: rgba(255,70,85,0.1); border-color: rgba(255,70,85,0.3);">
+                                <i class="fas fa-crosshairs" style="color: #ff4655;"></i>
+                            </div>
+                            <div class="game-info">
+                                <span class="game-label">Valorant</span>
+                                <span class="game-id">Con Cobbi Báo<span style="color: var(--primary);">#PROOT</span></span>
+                            </div>
+                        </div>
+
+                        <div class="game-account-row">
+                            <div class="game-icon-wrap" style="background: rgba(255,50,50,0.1); border-color: rgba(255,50,50,0.3);">
+                                <i class="fas fa-cube" style="color: #ff3232;"></i>
+                            </div>
+                            <div class="game-info">
+                                <span class="game-label">Roblox</span>
+                                <span class="game-id">CobbyProto</span>
+                            </div>
+                        </div>
+
+                        <div class="game-account-row" data-sticky>
+                            <a href="https://steamcommunity.com/id/BasicallyJacob/" target="_blank" class="game-account-link">
+                                <div class="game-icon-wrap" style="background: rgba(102,192,244,0.1); border-color: rgba(102,192,244,0.3);">
+                                    <i class="fab fa-steam" style="color: #66c0f4;"></i>
+                                </div>
+                                <div class="game-info">
+                                    <span class="game-label">Steam</span>
+                                    <span class="game-id">Cobby <i class="fas fa-external-link-alt" style="font-size:0.65rem; opacity:0.6; margin-left:4px;"></i></span>
+                                </div>
+                            </a>
+                        </div>
+
+
+                        <div class="game-account-row pong-easter-row">
+                            <canvas id="pong-canvas"></canvas>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="showcase-title-row">
+                    <h3 class="glitch-text" data-text="FURSONA">FURSONA</h3>
+                </div>
+
+
+                <div class="character-select-layout game-panel terminal-theme" id="proto-select-panel" data-speed="1">
+                    <div class="crt-overlay"></div>
+
+
+                    <div class="cs-side-panel cs-left cs-info-left">
+                        <div class="char-lore">
+                            <h4 class="tech-subheading" style="margin-bottom: 8px;">INFORMATION</h4>
+                            <p style="font-size: 0.9rem; margin-bottom: 12px;">A ice cube protogen with ice magic. With
+                                the ability to freeze and make frost weapons, he plays an important role in combat. His
+                                body is made from half flesh and half nanobots. Don't be scare to go close to him, he
+                                can makes you blueberry ice cream hehe~ 💙</p>
+                            <p class="proto-quote">"beep...boop...ehe~"</p>
+                        </div>
+
+                        <div class="tech-attributes proto-attrs">
+                            <div class="attr-bar">
+                                <span>AGILITY</span>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width: 85%;"></div>
+                                </div>
+                            </div>
+                            <div class="attr-bar">
+                                <span>STAMINA</span>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width: 95%;"></div>
+                                </div>
+                            </div>
+                            <div class="attr-bar">
+                                <span>POWER</span>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width: 70%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ref-overlay-data cs-tag" style="margin-top: 10px; font-size: 0.8rem;">
+                            <span id="proto-ref-label">PROOT 3.0 [AWA]</span>
+                        </div>
+                    </div>
+
+
+                    <div class="cs-center-panel">
+                        <div class="character-glow"></div>
+                        <img id="proto-ref-img"
+                            src="https://i.postimg.cc/ZqD3QWBZ/2df3be35-804a-4c48-9df7-ca7ea1ef44c3.png"
+                            alt="Protogen Character Select" class="cs-character-img loaded">
+                    </div>
+
+
+                    <div class="cs-side-panel cs-right">
+                        <div class="char-header">
+                            <div class="char-id">ID: CP01</div>
+                            <h2 class="char-name">COBBY</h2>
+                            <div class="char-class">ICE CUBE PROTOGEN</div>
+                        </div>
+
+                        <div class="char-stats-stack">
+                            <div class="c-stat">
+                                <div class="sl">HEIGHT</div>
+                                <div class="sv">1.78m</div>
+                            </div>
+                            <div class="c-stat">
+                                <div class="sl">ELEMENT</div>
+                                <div class="sv">Ice ❄️ / Electrical⚡</div>
+                            </div>
+                            <div class="c-stat">
+                                <div class="sl">ROLE</div>
+                                <div class="sv">Scout / Support</div>
+                            </div>
+                        </div>
+
+                        <div class="version-selector-container"
+                            style="margin-top: 20px; width: 100%; max-width: 220px; text-align: left;">
+                            <h4 class="tech-subheading" style="margin-bottom: 8px;">VERSION</h4>
+                            <div class="version-buttons" style="display:flex; justify-content: flex-start; gap:6px;">
+                                <button class="v-btn" onclick="switchProtoVersion('v1')"
+                                    style="padding: 6px 12px; font-size: 0.8rem;" data-sticky>V1</button>
+                                <button class="v-btn" onclick="switchProtoVersion('v2')"
+                                    style="padding: 6px 12px; font-size: 0.8rem;" data-sticky>V2</button>
+                                <button class="v-btn active" onclick="switchProtoVersion('v3')"
+                                    style="padding: 6px 12px; font-size: 0.8rem;" data-sticky>V3</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="character-select-layout game-panel terminal-theme" id="wolf-select-panel" data-speed="1.1">
+                    <div class="crt-overlay"></div>
+
+
+                    <div class="cs-side-panel cs-left">
+                        <div class="char-header">
+                            <div class="char-id">ID: CW01</div>
+                            <h2 class="char-name">COBBIE</h2>
+                            <div class="char-class">WOLF CANINE</div>
+                        </div>
+
+                        <div class="char-stats-stack">
+                            <div class="c-stat">
+                                <div class="sl">HEIGHT</div>
+                                <div class="sv">1.82m</div>
+                            </div>
+                            <div class="c-stat">
+                                <div class="sl">ELEMENT</div>
+                                <div class="sv">Electrical ⚡</div>
+                            </div>
+                            <div class="c-stat">
+                                <div class="sl">ROLE</div>
+                                <div class="sv">Duelist / Assassin</div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="cs-center-panel">
+                        <div class="character-glow"></div>
+                        <img src="https://i.postimg.cc/gcybfxHq/Khong-Co-Tieu-De869-20260117211746.png"
+                            alt="Wolf Character Select" class="cs-character-img loaded">
+                    </div>
+
+
+                    <div class="cs-side-panel cs-right">
+                        <div class="char-lore">
+                            <h4 class="tech-subheading">INFORMATION</h4>
+                            <p>After giving up his protogen form, Cobbie is now a wolf that master in electricity power.
+                                He is faster than light. You might get electrocuted when touching him.</p>
+                            <p style="margin-top: 10px; font-style: italic; color: var(--primary);">"Howdy, the name's
+                                Cobbie, nice to meet you!"</p>
+                        </div>
+
+                        <div class="tech-attributes">
+                            <div class="attr-bar">
+                                <span>AGILITY</span>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width: 90%;"></div>
+                                </div>
+                            </div>
+                            <div class="attr-bar">
+                                <span>STAMINA</span>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width: 80%;"></div>
+                                </div>
+                            </div>
+                            <div class="attr-bar">
+                                <span>POWER</span>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ref-overlay-data cs-tag">
+                            <span>FOCUSED // FULLY AWAKE</span>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+
+            <section id="view-gallery" class="view-section">
+                <h2>
+                    <span lang="en">Gallery</span>
+                    <span lang="vi">Thư Viện</span>
+                </h2>
+                <div class="gallery-controls">
+                    <button class="gallery-tab-btn active" onclick="filterGallery('all')" data-sticky>All</button>
+                    <button class="gallery-tab-btn" onclick="filterGallery('fursuit')" data-sticky>Fursuit</button>
+                    <button class="gallery-tab-btn" onclick="filterGallery('commission')"
+                        data-sticky>Commissions</button>
+                </div>
+                <div class="gallery-grid" id="dynamic-gallery-grid"></div>
+            </section>
+
+
+            <section id="view-projects" class="view-section">
+                <h2>
+                    <span lang="en">Cards</span>
+                    <span lang="vi">Thẻ</span>
+                </h2>
+
+                <div id="namecard-display" style="width: 100%;">
+
+
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 60px; align-items: center; max-width: 1000px; margin: 0 auto 100px auto;">
+
+
+                        <div class="namecard-info" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+                            <h3 class="project-title glitch-text"
+                                style="font-size: 3.5rem; margin: 0; text-transform: uppercase;"
+                                data-text="THAITAILS 2025">THAITAILS 2025</h3>
+                            <div class="card-credit">
+                                <i class="fas fa-camera"></i>
+                                <span>Photo by </span>
+                                <a href="https://www.facebook.com/VNFC.LAB.Itami.Fujimoto" target="_blank" class="credit-link">Itami</a>
+                            </div>
+                        </div>
+
+
+                        <div class="card-scene"
+                            style="width: 100%; max-width: 380px; height: 538px; margin: 0 auto; perspective: 1500px;">
+                            <div class="card-item" onclick="this.classList.toggle('is-flipped')"
+                                style="border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.6);" data-sticky>
+                                <div class="card-face card-front"
+                                    style="background: transparent; transform: translateZ(1px);">
+                                    <img src="https://i.postimg.cc/VLfzTDjC/2.png" alt="Thaitails 2025 Front"
+                                        style="border-radius: 20px; width: 100%; height: 100%; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover;">
+                                </div>
+                                <div class="card-face card-back"
+                                    style="background: transparent; padding: 0; transform: rotateY(180deg) translateZ(1px);">
+                                    <img src="https://i.postimg.cc/9FmcSJGM/1.png" alt="Thaitails 2025 Back"
+                                        style="border-radius: 20px; width: 100%; height: 100%; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover;">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        style="width: 100%; max-width: 800px; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); margin: 0 auto 100px auto;">
+                    </div>
+
+
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 60px; align-items: center; max-width: 1000px; margin: 0 auto 60px auto;">
+
+
+                        <div class="card-scene"
+                            style="width: 100%; max-width: 380px; height: 538px; margin: 0 auto; perspective: 1500px;">
+                            <div class="card-item" onclick="this.classList.toggle('is-flipped')"
+                                style="border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.6);" data-sticky>
+                                <div class="card-face card-front"
+                                    style="background: transparent; transform: translateZ(1px);">
+                                    <img src="https://i.postimg.cc/pTvDMwW1/2.png" alt="FUVE 2025 Front"
+                                        style="border-radius: 20px; width: 100%; height: 100%; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover;">
+                                </div>
+                                <div class="card-face card-back"
+                                    style="background: transparent; padding: 0; transform: rotateY(180deg) translateZ(1px);">
+                                    <img src="https://i.postimg.cc/yNcF51KC/1.png" alt="FUVE 2025 Back"
+                                        style="border-radius: 20px; width: 100%; height: 100%; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover;">
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <div class="namecard-info" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+                            <h3 class="project-title glitch-text"
+                                style="font-size: 3.5rem; margin: 0; text-transform: uppercase;" data-text="FUVE 2025">
+                                FUVE 2025</h3>
+                            <div class="card-credit">
+                                <i class="fas fa-palette"></i>
+                                <span>Art by </span>
+                                <a href="https://www.facebook.com/banh.nep.498119" target="_blank" class="credit-link">Bánh Nếp</a>
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        style="width: 100%; max-width: 800px; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); margin: 60px auto 100px auto;">
+                    </div>
+
+
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 60px; align-items: start; max-width: 1000px; margin: 0 auto 100px auto;">
+
+
+                        <div class="namecard-info"
+                            style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; height: 100%;">
+                            <h3 class="project-title glitch-text"
+                                style="font-size: 3.5rem; margin: 0; text-transform: uppercase;" data-text="FUVE 2024">
+                                FUVE 2024</h3>
+                            <div class="card-credit">
+                                <i class="fas fa-palette"></i>
+                                <span>Card 1 by </span>
+                                <a href="https://www.facebook.com/gon.kane.kawa" target="_blank" class="credit-link">Gon</a>
+                            </div>
+                            <div class="card-credit">
+                                <i class="fas fa-palette"></i>
+                                <span>Card 2 by </span>
+                                <a href="https://www.facebook.com/tuanhuynh1995" target="_blank" class="credit-link">Tuan Huynh</a>
+                            </div>
+                        </div>
+
+
+                        <div
+                            style="display: flex; flex-direction: column; gap: 60px; align-items: center; width: 100%;">
+
+
+                            <div class="card-scene"
+                                style="width: 100%; max-width: 340px; height: 538px; perspective: 1500px;">
+                                <div class="card-item" onclick="this.classList.toggle('is-flipped')"
+                                    style="border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.6);" data-sticky>
+                                    <div class="card-face card-front"
+                                        style="background: transparent; transform: translateZ(1px);">
+                                        <img src="https://i.postimg.cc/LX0LgnBf/Mat-truoc-(4).png"
+                                            alt="FUVE 2024 Front 1"
+                                            style="border-radius: 20px; width: 100%; height: 100%; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover;">
+                                    </div>
+                                    <div class="card-face card-back"
+                                        style="background: transparent; padding: 0; transform: rotateY(180deg) translateZ(1px);">
+                                        <img src="https://i.postimg.cc/wMyJXg0N/Mat-truoc.png" alt="FUVE 2024 Back 1"
+                                            style="border-radius: 20px; width: 100%; height: 100%; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover;">
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <div class="card-scene"
+                                style="width: 100%; max-width: 380px; height: 240px; perspective: 1500px;">
+                                <div class="card-item" onclick="this.classList.toggle('is-flipped')"
+                                    style="border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.6);" data-sticky>
+                                    <div class="card-face card-front"
+                                        style="background: transparent; transform: translateZ(1px);">
+                                        <img src="https://i.postimg.cc/NF9T6Bpm/Mat-truoc-(2).png"
+                                            alt="FUVE 2024 Front 2"
+                                            style="border-radius: 20px; width: 100%; height: 100%; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover;">
+                                    </div>
+                                    <div class="card-face card-back"
+                                        style="background: transparent; padding: 0; transform: rotateY(180deg) translateZ(1px); overflow: hidden; position: relative; border-radius: 20px;">
+
+                                        <img src="https://i.postimg.cc/wMyJXg0N/Mat-truoc.png" alt="FUVE 2024 Back 2"
+                                            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-90deg); width: 240px; height: 380px; display: block; image-rendering: -webkit-optimize-contrast; object-fit: cover; border-radius: 20px;">
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+        </div>
+    </main>
+
+
+    <div class="modal" id="artModal" onclick="closeModal()">
+        <div class="modal-loader"><i class="fas fa-spinner fa-spin"></i></div>
+        <img id="modalImg" src="" alt="Gallery Preview">
+    </div>
+
+
+    <script src="./js/main.js"></script>
+</body>
+
+</html>
