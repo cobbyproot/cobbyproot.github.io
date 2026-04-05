@@ -507,13 +507,13 @@ body.lang-vi [lang="en"] { display: none; }
 }
 
 .flip-front {
-    background-image: url('../assets/avatar_main.jpg');
+    background-image: url('https://i.postimg.cc/mg1CD35h/avatar-main.jpg');
     z-index: 2;
     transform: rotateY(0deg);
 }
 
 .flip-back {
-    background-image: url('../assets/avatar_alt.jpg');
+    background-image: url('https://i.postimg.cc/XvZHnyww/avatar-alt.jpg');
     transform: rotateY(180deg);
 }
 
