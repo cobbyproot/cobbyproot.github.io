@@ -950,6 +950,7 @@ h1 {
     min-height: 550px;
     background: radial-gradient(circle at center, rgba(var(--primary-rgb), 0.08), rgba(0,0,0,0.4));
     overflow: visible;
+    contain: layout;
 }
 
 .cs-side-panel {
@@ -960,6 +961,7 @@ h1 {
     justify-content: center;
     transform-style: preserve-3d;
     z-index: 2;
+    will-change: transform;
 }
 
 .cs-left { text-align: right; align-items: flex-end; }
@@ -999,6 +1001,7 @@ h1 {
     filter: drop-shadow(0 0 25px rgba(var(--primary-rgb),0.3));
     position: relative;
     top: 5px;
+    will-change: transform;
 }
 
 .char-stats-stack { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 220px; }
@@ -1172,7 +1175,7 @@ h1 {
     pointer-events: none;
     z-index: 10;
     opacity: 0.4;
-    animation: flickerLine 0.15s infinite;
+    animation: flickerLine 3s infinite;
 }
 
 @keyframes flickerLine {

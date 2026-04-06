@@ -41,6 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const lerp = (start, end, f) => start + (end - start) * f;
 
+    let cachedStuckRadius = '50%';
+
     function animateCursor() {
         if (isStuck && stuckEl) {
             const rect = stuckEl.getBoundingClientRect();
@@ -50,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
             follower.style.transform = `translate3d(${followerX}px, ${followerY}px, 0) translate3d(-50%, -50%, 0)`;
             follower.style.width = `${rect.width + 10}px`;
             follower.style.height = `${rect.height + 10}px`;
-            follower.style.borderRadius = window.getComputedStyle(stuckEl).borderRadius;
+            follower.style.borderRadius = cachedStuckRadius;
         } else {
 
             followerX = lerp(followerX, mouseX, 0.15);
@@ -79,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function onMouseEnter(e) {
         isStuck = true;
         stuckEl = e.currentTarget;
+        cachedStuckRadius = window.getComputedStyle(stuckEl).borderRadius;
         follower.classList.add('sticky');
         dot.classList.add('hidden');
     }
@@ -751,24 +754,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const chars = title.querySelectorAll('.name-char');
 
-        document.addEventListener('mousemove', (e) => {
-            const mouseX = e.clientX;
-            const mouseY = e.clientY;
-
-            chars.forEach(char => {
+        // Cache char positions and refresh on resize/scroll
+        let charRects = [];
+        const updateCharRects = () => {
+            charRects = Array.from(chars).map(char => {
                 const rect = char.getBoundingClientRect();
-                const charX = rect.left + rect.width / 2;
-                const charY = rect.top + rect.height / 2;
+                return { el: char, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2 };
+            });
+        };
+        window.addEventListener('resize', updateCharRects);
+        window.addEventListener('scroll', updateCharRects, { passive: true });
+        lenis.on('scroll', updateCharRects);
+        setTimeout(updateCharRects, 300);
 
-                const distX = mouseX - charX;
-                const distY = mouseY - charY;
+        let titleMouseX = -9999, titleMouseY = -9999;
+        let titleRafPending = false;
+
+        const processTitleMouse = () => {
+            titleRafPending = false;
+            const maxDist = 140;
+            charRects.forEach(({ el: char, cx: charX, cy: charY }) => {
+                const distX = titleMouseX - charX;
+                const distY = titleMouseY - charY;
                 const distance = Math.sqrt(distX * distX + distY * distY);
-
-                const maxDist = 140;
 
                 if (distance < maxDist) {
                     const factor = (maxDist - distance) / maxDist;
-
                     gsap.to(char, {
                         y: -factor * 35,
                         rotation: (distX / maxDist) * 20 * factor,
@@ -788,6 +799,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                 }
             });
+        };
+
+        document.addEventListener('mousemove', (e) => {
+            titleMouseX = e.clientX;
+            titleMouseY = e.clientY;
+            if (!titleRafPending) {
+                titleRafPending = true;
+                requestAnimationFrame(processTitleMouse);
+            }
         });
     };
 
@@ -801,14 +821,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (!leftPanel || !rightPanel || !characterImg) return;
 
-                selectPanel.addEventListener('mousemove', (e) => {
-                    const rect = selectPanel.getBoundingClientRect();
-                    const x = (e.clientX - rect.left - rect.width / 2) / (rect.width / 2);
-                    const y = (e.clientY - rect.top - rect.height / 2) / (rect.height / 2);
+                let csRafPending = false;
+                let csMouseX = 0, csMouseY = 0;
 
+                const processCSMouse = () => {
+                    csRafPending = false;
+                    const rect = selectPanel.getBoundingClientRect();
+                    const x = (csMouseX - rect.left - rect.width / 2) / (rect.width / 2);
+                    const y = (csMouseY - rect.top - rect.height / 2) / (rect.height / 2);
                     gsap.to(leftPanel, { rotationY: 15 + x * -8, rotationX: y * 4, x: x * -10, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
                     gsap.to(rightPanel, { rotationY: -15 + x * -8, rotationX: y * 4, x: x * 10, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
                     gsap.to(characterImg, { x: x * -15, y: y * -10, rotationY: x * 15, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
+                };
+
+                selectPanel.addEventListener('mousemove', (e) => {
+                    csMouseX = e.clientX;
+                    csMouseY = e.clientY;
+                    if (!csRafPending) {
+                        csRafPending = true;
+                        requestAnimationFrame(processCSMouse);
+                    }
                 });
 
                 selectPanel.addEventListener('mouseleave', () => {
