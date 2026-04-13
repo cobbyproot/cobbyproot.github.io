@@ -24,14 +24,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js" defer></script>
 
-    <script defer>
-        const imgAlt = 'https://i.postimg.cc/XvZHnyww/avatar-alt.jpg';
-        const imgMain = 'https://i.postimg.cc/mg1CD35h/avatar-main.jpg';
-        [imgAlt, imgMain].forEach(src => {
-            const img = new Image();
-            img.src = src;
-        });
-    </script>
+    <link rel="preload" as="image" href="https://i.postimg.cc/mg1CD35h/avatar-main.jpg">
+    <link rel="preload" as="image" href="https://i.postimg.cc/XvZHnyww/avatar-alt.jpg">
 </head>
 
 <body class="lang-en">
@@ -214,6 +208,9 @@
                                 <span class="game-label">VRChat</span>
                                 <span class="game-id">JacobUwU</span>
                             </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('JacobUwU', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
                         </div>
 
                         <div class="game-account-row">
@@ -225,6 +222,9 @@
                                 <span class="game-label">League of Legends / TFT (VN)</span>
                                 <span class="game-id">Cobbi<span style="color: var(--primary);">#GRRR</span></span>
                             </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('Cobbi#GRRR', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
                         </div>
 
                         <div class="game-account-row">
@@ -237,6 +237,9 @@
                                 <span class="game-id">Con Cobbi Báo<span
                                         style="color: var(--primary);">#PROOT</span></span>
                             </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('Con Cobbi Báo#PROOT', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
                         </div>
 
                         <div class="game-account-row">
@@ -248,6 +251,9 @@
                                 <span class="game-label">Roblox</span>
                                 <span class="game-id">CobbyProto</span>
                             </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('CobbyProto', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
                         </div>
 
                         <div class="game-account-row" data-sticky>

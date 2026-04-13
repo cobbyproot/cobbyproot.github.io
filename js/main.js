@@ -25,6 +25,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     gsap.ticker.lagSmoothing(0);
 
+    // Detect touch/mobile — disable mouse-only features
+    const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768;
+
     const dot = document.querySelector('.cursor-dot');
     const follower = document.querySelector('.cursor-follower');
     let mouseX = 0, mouseY = 0;
@@ -32,42 +35,42 @@ document.addEventListener("DOMContentLoaded", () => {
     let isStuck = false;
     let stuckEl = null;
 
-    document.addEventListener('mousemove', (e) => {
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-
-        dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
-    });
+    if (!isMobile) {
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+        });
+    }
 
     const lerp = (start, end, f) => start + (end - start) * f;
 
     let cachedStuckRadius = '50%';
 
-    function animateCursor() {
-        if (isStuck && stuckEl) {
-            const rect = stuckEl.getBoundingClientRect();
-            followerX = lerp(followerX, rect.left + rect.width / 2, 0.15);
-            followerY = lerp(followerY, rect.top + rect.height / 2, 0.15);
-
-            follower.style.transform = `translate3d(${followerX}px, ${followerY}px, 0) translate3d(-50%, -50%, 0)`;
-            follower.style.width = `${rect.width + 10}px`;
-            follower.style.height = `${rect.height + 10}px`;
-            follower.style.borderRadius = cachedStuckRadius;
-        } else {
-
-            followerX = lerp(followerX, mouseX, 0.15);
-            followerY = lerp(followerY, mouseY, 0.15);
-
-            follower.style.width = '24px';
-            follower.style.height = '24px';
-            follower.style.borderRadius = '50%';
-            follower.style.transform = `translate3d(${followerX}px, ${followerY}px, 0) translate3d(-50%, -50%, 0)`;
-        }
-        requestAnimationFrame(animateCursor);
+    if (!isMobile) {
+        (function animateCursor() {
+            if (isStuck && stuckEl) {
+                const rect = stuckEl.getBoundingClientRect();
+                followerX = lerp(followerX, rect.left + rect.width / 2, 0.15);
+                followerY = lerp(followerY, rect.top + rect.height / 2, 0.15);
+                follower.style.transform = `translate3d(${followerX}px, ${followerY}px, 0) translate3d(-50%, -50%, 0)`;
+                follower.style.width = `${rect.width + 10}px`;
+                follower.style.height = `${rect.height + 10}px`;
+                follower.style.borderRadius = cachedStuckRadius;
+            } else {
+                followerX = lerp(followerX, mouseX, 0.15);
+                followerY = lerp(followerY, mouseY, 0.15);
+                follower.style.width = '24px';
+                follower.style.height = '24px';
+                follower.style.borderRadius = '50%';
+                follower.style.transform = `translate3d(${followerX}px, ${followerY}px, 0) translate3d(-50%, -50%, 0)`;
+            }
+            requestAnimationFrame(animateCursor);
+        })();
     }
-    animateCursor();
 
     const refreshSticky = () => {
+        if (isMobile) return; // no hover events on touch
         document.querySelectorAll('[data-sticky]').forEach(el => {
 
             el.removeEventListener('mouseenter', onMouseEnter);
@@ -257,30 +260,35 @@ document.addEventListener("DOMContentLoaded", () => {
             card.setAttribute('data-sticky', '');
             card.onclick = () => openModal(`${cleanSrc}&w=1600&q=90&output=webp`);
 
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(40px)';
+            card.style.opacity = isMobile ? '1' : '0';
+            card.style.transform = isMobile ? 'none' : 'translateY(40px)';
+            const imgWidth = isMobile ? 400 : 600;
             card.innerHTML = `
-                <img src="${cleanSrc}&w=600&q=75&output=webp" loading="lazy" onload="this.classList.add('loaded')">
+                <img src="${cleanSrc}&w=${imgWidth}&q=75&output=webp" loading="lazy" onload="this.classList.add('loaded')">
                 <div class="art-badge">${item.type === 'fursuit' ? 'Fursuit' : 'Comm'}</div>
             `;
             grid.appendChild(card);
             cards.push(card);
 
-            const anim = gsap.fromTo(card,
-                { opacity: 0, y: 40 },
-                {
-                    opacity: 1,
-                    y: 0,
-                    duration: 0.8,
-                    ease: "power2.out",
-                    scrollTrigger: {
-                        trigger: card,
-                        start: "top 95%",
-                        toggleActions: "play none none reverse"
+            if (isMobile) {
+                gsap.set(card, { opacity: 1, y: 0 });
+            } else {
+                const anim = gsap.fromTo(card,
+                    { opacity: 0, y: 40 },
+                    {
+                        opacity: 1,
+                        y: 0,
+                        duration: 0.8,
+                        ease: "power2.out",
+                        scrollTrigger: {
+                            trigger: card,
+                            start: "top 95%",
+                            toggleActions: "play none none reverse"
+                        }
                     }
-                }
-            );
-            galleryScrollTriggers.push(anim.scrollTrigger);
+                );
+                galleryScrollTriggers.push(anim.scrollTrigger);
+            }
         });
 
         setTimeout(() => ScrollTrigger.refresh(), 100);
@@ -455,6 +463,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    window.copyGameUsername = (text, btn) => {
+        navigator.clipboard.writeText(text).then(() => {
+            const icon = btn.querySelector('i');
+            icon.className = 'fas fa-check';
+            icon.style.color = 'var(--primary)';
+            setTimeout(() => {
+                icon.className = 'far fa-copy';
+                icon.style.color = '';
+            }, 2000);
+        });
+    };
+
     const initBgSlideshow = () => {
         const bgContainer = document.getElementById('bg-slideshow');
         if (!bgContainer || !galleryData || galleryData.length === 0) return;
@@ -463,8 +483,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const selected = shuffled.slice(0, 10);
         let currentIndex = 0;
 
+        const bgImgWidth = isMobile ? 800 : 1920;
         selected.forEach((item, index) => {
-            const imgUrl = parseImgUrl(item.src) + '&w=1920&q=50&output=webp';
+            const imgUrl = parseImgUrl(item.src) + `&w=${bgImgWidth}&q=50&output=webp`;
             const img = document.createElement('img');
             img.className = 'bg-slide';
 
@@ -563,72 +584,79 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const revealElements = gsap.utils.toArray('.showcase-title-row, .gallery-tab-btn, .project-card, .namecard-grid');
 
-        revealElements.forEach(el => {
-            gsap.fromTo(el,
-                { autoAlpha: 0, y: 40, scale: 0.98 },
-                {
-                    autoAlpha: 1,
-                    y: 0,
-                    scale: 1,
-                    duration: 0.8,
-                    ease: "power2.out",
-                    scrollTrigger: {
-                        trigger: el,
-                        start: "top 90%",
-                        toggleActions: "play none none reverse",
+        if (isMobile) {
+            gsap.set(revealElements, { autoAlpha: 1, y: 0, scale: 1 });
+        } else {
+            revealElements.forEach(el => {
+                gsap.fromTo(el,
+                    { autoAlpha: 0, y: 40, scale: 0.98 },
+                    {
+                        autoAlpha: 1,
+                        y: 0,
+                        scale: 1,
+                        duration: 0.8,
+                        ease: "power2.out",
+                        scrollTrigger: {
+                            trigger: el,
+                            start: "top 90%",
+                            toggleActions: "play none none reverse",
+                        }
                     }
-                }
-            );
-        });
+                );
+            });
+        }
 
         gsap.utils.toArray(".game-panel").forEach((panel) => {
-
-            const speed = parseFloat(panel.getAttribute("data-speed") || 1);
-            gsap.fromTo(panel,
-                { y: 50 * speed },
-                {
-                    y: -50 * speed,
-                    ease: "none",
-                    scrollTrigger: {
-                        trigger: panel,
-                        start: "top bottom",
-                        end: "bottom top",
-                        scrub: true
-                    }
-                }
-            );
-
-            if (panel.classList.contains("terminal-theme")) {
-                gsap.fromTo(panel,
-                    { autoAlpha: 0, scaleY: 0.01, scaleX: 0.3 },
-                    {
-                        autoAlpha: 1,
-                        scaleY: 1,
-                        scaleX: 1,
-                        duration: 1,
-                        ease: "expo.out",
-                        scrollTrigger: {
-                            trigger: panel,
-                            start: "top 85%",
-                            toggleActions: "play none none reverse"
-                        }
-                    }
-                );
+            if (isMobile) {
+                gsap.set(panel, { autoAlpha: 1, y: 0, scale: 1, scaleX: 1, scaleY: 1 });
             } else {
+                const speed = parseFloat(panel.getAttribute("data-speed") || 1);
                 gsap.fromTo(panel,
-                    { autoAlpha: 0, scale: 0.98 },
+                    { y: 50 * speed },
                     {
-                        autoAlpha: 1,
-                        scale: 1,
-                        duration: 1,
-                        ease: "power3.out",
+                        y: -50 * speed,
+                        ease: "none",
                         scrollTrigger: {
                             trigger: panel,
-                            start: "top 85%",
-                            toggleActions: "play none none reverse"
+                            start: "top bottom",
+                            end: "bottom top",
+                            scrub: true
                         }
                     }
                 );
+
+                if (panel.classList.contains("terminal-theme")) {
+                    gsap.fromTo(panel,
+                        { autoAlpha: 0, scaleY: 0.01, scaleX: 0.3 },
+                        {
+                            autoAlpha: 1,
+                            scaleY: 1,
+                            scaleX: 1,
+                            duration: 1,
+                            ease: "expo.out",
+                            scrollTrigger: {
+                                trigger: panel,
+                                start: "top 85%",
+                                toggleActions: "play none none reverse"
+                            }
+                        }
+                    );
+                } else {
+                    gsap.fromTo(panel,
+                        { autoAlpha: 0, scale: 0.98 },
+                        {
+                            autoAlpha: 1,
+                            scale: 1,
+                            duration: 1,
+                            ease: "power3.out",
+                            scrollTrigger: {
+                                trigger: panel,
+                                start: "top 85%",
+                                toggleActions: "play none none reverse"
+                            }
+                        }
+                    );
+                }
             }
         });
 
@@ -754,61 +782,63 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const chars = title.querySelectorAll('.name-char');
 
-        // Cache char positions and refresh on resize/scroll
-        let charRects = [];
-        const updateCharRects = () => {
-            charRects = Array.from(chars).map(char => {
-                const rect = char.getBoundingClientRect();
-                return { el: char, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2 };
-            });
-        };
-        window.addEventListener('resize', updateCharRects);
-        window.addEventListener('scroll', updateCharRects, { passive: true });
-        lenis.on('scroll', updateCharRects);
-        setTimeout(updateCharRects, 300);
+        if (!isMobile) {
+            // Cache char positions and refresh on resize/scroll
+            let charRects = [];
+            const updateCharRects = () => {
+                charRects = Array.from(chars).map(char => {
+                    const rect = char.getBoundingClientRect();
+                    return { el: char, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2 };
+                });
+            };
+            window.addEventListener('resize', updateCharRects);
+            window.addEventListener('scroll', updateCharRects, { passive: true });
+            lenis.on('scroll', updateCharRects);
+            setTimeout(updateCharRects, 300);
 
-        let titleMouseX = -9999, titleMouseY = -9999;
-        let titleRafPending = false;
+            let titleMouseX = -9999, titleMouseY = -9999;
+            let titleRafPending = false;
 
-        const processTitleMouse = () => {
-            titleRafPending = false;
-            const maxDist = 140;
-            charRects.forEach(({ el: char, cx: charX, cy: charY }) => {
-                const distX = titleMouseX - charX;
-                const distY = titleMouseY - charY;
-                const distance = Math.sqrt(distX * distX + distY * distY);
+            const processTitleMouse = () => {
+                titleRafPending = false;
+                const maxDist = 140;
+                charRects.forEach(({ el: char, cx: charX, cy: charY }) => {
+                    const distX = titleMouseX - charX;
+                    const distY = titleMouseY - charY;
+                    const distance = Math.sqrt(distX * distX + distY * distY);
 
-                if (distance < maxDist) {
-                    const factor = (maxDist - distance) / maxDist;
-                    gsap.to(char, {
-                        y: -factor * 35,
-                        rotation: (distX / maxDist) * 20 * factor,
-                        scale: 1 + (factor * 0.4),
-                        duration: 0.4,
-                        ease: "power2.out",
-                        overwrite: "auto"
-                    });
-                } else {
-                    gsap.to(char, {
-                        y: 0,
-                        rotation: 0,
-                        scale: 1,
-                        duration: 0.8,
-                        ease: "elastic.out(1, 0.3)",
-                        overwrite: "auto"
-                    });
+                    if (distance < maxDist) {
+                        const factor = (maxDist - distance) / maxDist;
+                        gsap.to(char, {
+                            y: -factor * 35,
+                            rotation: (distX / maxDist) * 20 * factor,
+                            scale: 1 + (factor * 0.4),
+                            duration: 0.4,
+                            ease: "power2.out",
+                            overwrite: "auto"
+                        });
+                    } else {
+                        gsap.to(char, {
+                            y: 0,
+                            rotation: 0,
+                            scale: 1,
+                            duration: 0.8,
+                            ease: "elastic.out(1, 0.3)",
+                            overwrite: "auto"
+                        });
+                    }
+                });
+            };
+
+            document.addEventListener('mousemove', (e) => {
+                titleMouseX = e.clientX;
+                titleMouseY = e.clientY;
+                if (!titleRafPending) {
+                    titleRafPending = true;
+                    requestAnimationFrame(processTitleMouse);
                 }
             });
-        };
-
-        document.addEventListener('mousemove', (e) => {
-            titleMouseX = e.clientX;
-            titleMouseY = e.clientY;
-            if (!titleRafPending) {
-                titleRafPending = true;
-                requestAnimationFrame(processTitleMouse);
-            }
-        });
+        }
     };
 
     const initCharacterSelect = () => {
@@ -992,78 +1022,80 @@ document.addEventListener("DOMContentLoaded", () => {
     initBgSlideshow();
     initCharacterSelect();
     initAnimations();
-    initPongGame();
-    initParticles();
+    if (!isMobile) initPongGame();
+    if (!isMobile) initParticles();
 
     window.addEventListener('resize', () => {
         lenis.resize();
         ScrollTrigger.refresh();
     });
 
-    (function () {
-        const SECRET = 'hypno';
-        let typed = '';
-        let hypnoActive = false;
+    if (!isMobile) {
+        (function () {
+            const SECRET = 'hypno';
+            let typed = '';
+            let hypnoActive = false;
 
-        document.addEventListener('keydown', (e) => {
-            typed += e.key.toLowerCase();
-            if (typed.length > SECRET.length) typed = typed.slice(-SECRET.length);
+            document.addEventListener('keydown', (e) => {
+                typed += e.key.toLowerCase();
+                if (typed.length > SECRET.length) typed = typed.slice(-SECRET.length);
 
-            if (typed === SECRET) {
-                typed = '';
-                hypnoActive = !hypnoActive;
-                triggerHypnoMode(hypnoActive);
+                if (typed === SECRET) {
+                    typed = '';
+                    hypnoActive = !hypnoActive;
+                    triggerHypnoMode(hypnoActive);
+                }
+            });
+
+            function triggerHypnoMode(activate) {
+
+                const flash = document.createElement('div');
+                flash.className = 'hypno-overlay';
+                document.body.appendChild(flash);
+                setTimeout(() => flash.remove(), 1500);
+
+                if (activate) {
+
+                    setTimeout(() => {
+                        document.body.classList.add('hypno-mode');
+
+                        const heroName = document.querySelector('h1');
+                        if (heroName) {
+                            const original = heroName.textContent;
+                            const forbidden = ['👁', '🌀', 'YOU', 'ARE', 'MINE', 'STARE', 'SLEEP'];
+                            let i = 0;
+                            heroName.dataset.origText = heroName.innerHTML;
+                            const glitch = setInterval(() => {
+                                heroName.style.color = i % 2 === 0 ? '#ff003c' : '#d900ff';
+                                i++;
+                                if (i > 8) {
+                                    clearInterval(glitch);
+                                    heroName.style.color = '';
+                                }
+                            }, 80);
+                        }
+
+                        try {
+                            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(60, ctx.currentTime);
+                            osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.4);
+                            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 1.2);
+                        } catch (e) { }
+                    }, 200);
+                } else {
+                    setTimeout(() => {
+                        document.body.classList.remove('hypno-mode');
+                    }, 200);
+                }
             }
-        });
-
-        function triggerHypnoMode(activate) {
-
-            const flash = document.createElement('div');
-            flash.className = 'hypno-overlay';
-            document.body.appendChild(flash);
-            setTimeout(() => flash.remove(), 1500);
-
-            if (activate) {
-
-                setTimeout(() => {
-                    document.body.classList.add('hypno-mode');
-
-                    const heroName = document.querySelector('h1');
-                    if (heroName) {
-                        const original = heroName.textContent;
-                        const forbidden = ['👁', '🌀', 'YOU', 'ARE', 'MINE', 'STARE', 'SLEEP'];
-                        let i = 0;
-                        heroName.dataset.origText = heroName.innerHTML;
-                        const glitch = setInterval(() => {
-                            heroName.style.color = i % 2 === 0 ? '#ff003c' : '#d900ff';
-                            i++;
-                            if (i > 8) {
-                                clearInterval(glitch);
-                                heroName.style.color = '';
-                            }
-                        }, 80);
-                    }
-
-                    try {
-                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(60, ctx.currentTime);
-                        osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.4);
-                        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.start();
-                        osc.stop(ctx.currentTime + 1.2);
-                    } catch (e) { }
-                }, 200);
-            } else {
-                setTimeout(() => {
-                    document.body.classList.remove('hypno-mode');
-                }, 200);
-            }
-        }
-    })();
+        })();
+    }
 });

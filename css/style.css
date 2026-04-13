@@ -1076,6 +1076,22 @@ h1 {
     color: #fff;
 }
 
+.copy-game-btn {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    padding: 8px;
+    border-radius: 4px;
+    transition: 0.2s;
+    flex-shrink: 0;
+}
+.copy-game-btn:hover {
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+}
+
 
 .pong-easter-row {
     flex-direction: column;
@@ -1187,13 +1203,23 @@ h1 {
 
 
 @media (max-width: 900px) {
-    .character-select-layout { flex-direction: column; min-height: auto; padding: 20px 0; }
-    .cs-center-panel { order: -1; min-height: 350px; margin-bottom: 20px; }
-    .cs-side-panel { padding: 20px; align-items: center; text-align: center; transform: none !important; }
-    .cs-left .c-stat { text-align: center; border-right: none; border-bottom: 3px solid var(--primary); }
-    .char-stats-stack { max-width: 100%; width: 100%; }
-    .cs-right .tech-attributes { max-width: 100%; width: 100%; }
-    .cs-character-img { top: 0; max-height: 350px; }
+    .character-select-layout { flex-direction: column; min-height: auto; padding: 10px 0; }
+    .cs-center-panel { order: -1; min-height: 220px; margin-bottom: 0; }
+    .cs-side-panel { padding: 10px; align-items: center; text-align: center; transform: none !important; width: 100%; box-sizing: border-box; }
+    
+    .char-stats-stack { flex-direction: row; justify-content: space-between; max-width: 100%; width: 100%; gap: 5px; margin-bottom: 5px; }
+    .cs-left .c-stat, .cs-right .c-stat { text-align: center; border: 1px solid rgba(255,255,255,0.2) !important; flex: 1; padding: 4px; }
+    
+    .cs-right .tech-attributes, .cs-left .tech-attributes { max-width: 100%; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 5px; }
+    
+    .cs-character-img { top: 0; max-height: 250px; }
+    .char-header h2.char-name { font-size: 1.5rem; margin-bottom: 2px; }
+    .char-lore { display: none; } /* Completely hide lore on mobile */
+    .char-class { margin-bottom: 5px; }
+    .version-selector-container { margin: 10px auto 0 !important; text-align: center !important; }
+    .version-buttons { justify-content: center !important; }
+    .cs-tag { margin-top: 10px; padding: 5px 10px; font-size: 0.7rem; }
+    .pong-easter-row { display: none; } /* Hide ping pong to improve performance */
 
     .dashboard-grid, .character-showcase { grid-template-columns: 1fr; }
     .layout-right { display: flex; flex-direction: column-reverse; }
@@ -1487,9 +1513,27 @@ h2 {
     .bubble-container { flex-direction: column; }
     .gallery-grid { column-count: 1; }
     .nav-dock { padding: 8px; bottom: 25px; }
-    .nav-item:hover { width: 48px; transform: translateY(-5px); }
+    .nav-item:hover { width: 48px; transform: none; box-shadow: none; background: rgba(255, 255, 255, 0.03); }
+    .nav-item:hover i { transform: none; }
+    .nav-item.active { background: rgba(var(--primary-rgb), 0.15); }
     .nav-text { display: none; }
     .special-card { width: 90vw; }
+}
+
+@media (pointer: coarse), (max-width: 768px) {
+    /* Restore default system cursor on touch devices */
+    *, a, button { 
+        cursor: auto !important; 
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    button { cursor: pointer !important; }
+
+    /* Hide mouse-only UI elements */
+    .cursor-dot,
+    .cursor-follower,
+    #particle-canvas { display: none !important; }
 }
 
 
