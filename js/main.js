@@ -262,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             card.style.opacity = isMobile ? '1' : '0';
             card.style.transform = isMobile ? 'none' : 'translateY(40px)';
-            const imgWidth = isMobile ? 400 : 600;
+            const imgWidth = isMobile ? 300 : 600;
             card.innerHTML = `
                 <img src="${cleanSrc}&w=${imgWidth}&q=75&output=webp" loading="lazy" onload="this.classList.add('loaded')">
                 <div class="art-badge">${item.type === 'fursuit' ? 'Fursuit' : 'Comm'}</div>
@@ -483,9 +483,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const selected = shuffled.slice(0, 10);
         let currentIndex = 0;
 
-        const bgImgWidth = isMobile ? 800 : 1920;
+        const bgImgWidth = isMobile ? 500 : 1920;
         selected.forEach((item, index) => {
-            const imgUrl = parseImgUrl(item.src) + `&w=${bgImgWidth}&q=50&output=webp`;
+            const imgUrl = parseImgUrl(item.src) + `&w=${bgImgWidth}&q=${isMobile ? 35 : 50}&output=webp`;
             const img = document.createElement('img');
             img.className = 'bg-slide';
 
