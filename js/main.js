@@ -1367,55 +1367,7 @@ function formatSpotifyTime(secs) {
    ========================================================================== */
 
 window.initTerminalTyping = function() {
-    if (window._terminalTypingInitialized) return;
-    window._terminalTypingInitialized = true;
-
-    const line1El = document.getElementById('term-typed-1');
-    const line2El = document.getElementById('term-typed-2');
-    const cursor1El = document.getElementById('term-cursor-1');
-    const cursor2El = document.getElementById('term-cursor-2');
-
-    if (!line1El || !line2El) return;
-
-    const text1 = "beep boop";
-    const text2 = "hawwo";
-
-    function startTypeSequence() {
-        line1El.textContent = "";
-        line2El.textContent = "";
-        if (cursor1El) cursor1El.style.display = "inline";
-        if (cursor2El) cursor2El.style.display = "none";
-        
-        let i = 0;
-        const interval1 = setInterval(() => {
-            if (i < text1.length) {
-                line1El.textContent += text1.charAt(i);
-                i++;
-            } else {
-                clearInterval(interval1);
-                setTimeout(startSecondLine, 400);
-            }
-        }, 110);
-    }
-
-    function startSecondLine() {
-        if (cursor1El) cursor1El.style.display = "none";
-        if (cursor2El) cursor2El.style.display = "inline";
-        
-        let j = 0;
-        const interval2 = setInterval(() => {
-            if (j < text2.length) {
-                line2El.textContent += text2.charAt(j);
-                j++;
-            } else {
-                clearInterval(interval2);
-                // Pause for 3.5s then loop retype cycle
-                setTimeout(startTypeSequence, 3500);
-            }
-        }, 120);
-    }
-
-    startTypeSequence();
+    // Typing animation removed.
 };
 
 /* ==========================================================================
