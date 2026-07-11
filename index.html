@@ -44,11 +44,14 @@
 
 <body class="lang-en">
 
-    <!-- Global Loading Screen -->
     <div id="global-loader" class="global-loader">
-        <div class="spinner"></div>
+        <div class="google-spinner">
+            <svg class="circular" viewBox="25 25 50 50">
+                <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="4" stroke-miterlimit="10"/>
+            </svg>
+        </div>
+        <div id="loader-message" class="loader-text">hewwo~ pwease wait while the site is loading~!</div>
     </div>
-
 
     <div id="special-greet-overlay" class="special-overlay hidden">
         <div class="g-blob gb1"></div>
@@ -83,7 +86,7 @@
             <div class="hero-stage-container">
                 <!-- Giant Background Text (BEHIND character, locked to stage center) -->
                 <div class="hero-giant-bg">
-                    <h1 class="giant-cobby-text" data-editable-id="hero-giant-title" style="opacity: 0;">
+                    <h1 class="giant-cobby-text" data-editable-id="hero-giant-title">
                         <span class="name-char">C</span><span class="name-char">O</span><span class="name-char">B</span><span class="name-char">B</span><span class="name-char">Y</span>
                     </h1>
                 </div>
@@ -103,7 +106,7 @@
                 </svg>
 
                 <!-- Center Main Character Image Cutout (Overlaps giant text) -->
-                <div class="hero-character-stage" title="Cobby Protogen" style="cursor: default;">
+                <div class="hero-character-stage" title="Cobby Protogen" onclick="openModal('https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png')">
                     <div class="char-backglow"></div>
                     <img src="https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png" alt="Cobby Protogen" class="hero-character-png">
                 </div>

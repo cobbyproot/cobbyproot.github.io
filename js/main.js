@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     gsap.registerPlugin(ScrollTrigger);
 
-    gsap.set(['.hero-avatar', 'h1', '.hero-desc', '.persistent-hero .tag', '.social-btn', '.nav-dock', '.scroll-hint'], { autoAlpha: 1 });
+    gsap.set(['.hero-character-stage', '.name-char', '.ios-widget', '.ios-dynamic-island', '.social-btn', '.nav-dock', '.scroll-hint'], { autoAlpha: 0 });
 
     const lenis = new Lenis({
         duration: 1.5,
@@ -517,26 +517,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    const initAnimations = () => {
+    window.initAnimations = () => {
 
         const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-
-        tl.fromTo('.name-char',
-            { autoAlpha: 0, y: 80, rotationX: -90 },
-            { autoAlpha: 1, y: 0, rotationX: 0, duration: 0.7, stagger: 0.03, ease: "back.out(1.8)" },
-            0.1
-        );
 
         tl.fromTo('.hero-character-stage',
             { autoAlpha: 0, scale: 0.7, y: 40 },
             { autoAlpha: 1, scale: 1, y: 0, duration: 0.8, ease: "back.out(1.4)" },
-            "-=0.5"
+            0.1
+        );
+
+        tl.fromTo('.name-char',
+            { autoAlpha: 0, y: 80, rotationX: -90 },
+            { autoAlpha: 1, y: 0, rotationX: 0, duration: 0.7, stagger: 0.03, ease: "back.out(1.8)" },
+            "-=0.1" // Starts right as the character finishes appearing
         );
 
         tl.fromTo('.ios-widget',
             { autoAlpha: 0, y: 30, scale: 0.9 },
             { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.08, ease: "back.out(1.5)" },
-            "-=0.6"
+            "-=0.5"
         );
 
         tl.fromTo('.ios-dynamic-island',
@@ -1002,7 +1002,7 @@ document.addEventListener("DOMContentLoaded", () => {
     handleSpecialGreet();
     initBgSlideshow();
     initCharacterSelect();
-    initAnimations();
+    // initAnimations() is now called on window.load to ensure images are loaded
     if (!isMobile) initPongGame();
     if (!isMobile) initParticles();
 
@@ -1465,53 +1465,50 @@ window.promptSpotifyBinding = function() {
     }
 };
 
-/* ==========================================================================
-   Global Loader & COBBY Entry Animation
-   ========================================================================== */
-
-let isLoaded = false;
-function hideLoaderAndAnimate() {
-    if (isLoaded) return;
-    isLoaded = true;
+document.addEventListener("DOMContentLoaded", () => {
     const loader = document.getElementById('global-loader');
     if (loader) {
-        setTimeout(() => {
-            loader.classList.add('hidden');
-            triggerAnimations();
-        }, 150);
-    } else {
-        triggerAnimations();
-    }
-}
-
-if (document.readyState === 'complete') {
-    hideLoaderAndAnimate();
-} else {
-    window.addEventListener('load', hideLoaderAndAnimate);
-    setTimeout(hideLoaderAndAnimate, 1200); // 1.2s max limit!
-}
-
-function triggerAnimations() {
-    if (typeof gsap !== 'undefined') {
-        // Fade in backgrounds
-        gsap.fromTo(["#bg-slideshow", ".bg-overlay", ".noise-bg"], 
-            { opacity: 0 },
-            { opacity: 1, duration: 1.0, ease: "power2.out" }
-        );
-
-        // Flash load hero image (no GSAP animation, it's just instantly there)
+        const msgEl = document.getElementById('loader-message');
         
-        // After hero is there, animate COBBY text smoothly as a whole
-        gsap.fromTo(".giant-cobby-text", 
-            { y: 30, opacity: 0, scale: 0.95 },
-            { 
-                y: 0, 
-                opacity: 1, 
-                scale: 1,
-                duration: 1.0, 
-                ease: "back.out(1.2)",
-                delay: 0.1
+        let loadTime = 3000;
+        if (sessionStorage.getItem('cobby_visited')) {
+            loadTime = 1000;
+        } else {
+            sessionStorage.setItem('cobby_visited', 'true');
+        }
+
+        let startTimestamp = null;
+        let lastStep = 0;
+
+        function updateLoader(timestamp) {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = timestamp - startTimestamp;
+            let currentPct = (progress / loadTime) * 100;
+            
+            if (currentPct >= 30 && lastStep < 1 && msgEl && typeof gsap !== 'undefined') {
+                lastStep = 1;
+                gsap.to(msgEl, { opacity: 0, duration: 0.2, onComplete: () => {
+                    msgEl.textContent = "hope you have a nice day! :333";
+                    gsap.to(msgEl, { opacity: 1, duration: 0.2 });
+                }});
+            } else if (currentPct >= 60 && lastStep < 2 && msgEl && typeof gsap !== 'undefined') {
+                lastStep = 2;
+                gsap.to(msgEl, { opacity: 0, duration: 0.2, onComplete: () => {
+                    msgEl.textContent = "getting ready~ :3";
+                    gsap.to(msgEl, { opacity: 1, duration: 0.2 });
+                }});
             }
-        );
+
+            if (progress < loadTime) {
+                requestAnimationFrame(updateLoader);
+            } else {
+                loader.classList.add('hidden');
+                if (window.initAnimations) window.initAnimations();
+            }
+        }
+        
+        requestAnimationFrame(updateLoader);
+    } else {
+        if (window.initAnimations) window.initAnimations();
     }
-}
+});
