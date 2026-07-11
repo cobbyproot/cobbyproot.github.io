@@ -44,6 +44,11 @@
 
 <body class="lang-en">
 
+    <!-- Global Loading Screen -->
+    <div id="global-loader" class="global-loader">
+        <div class="spinner"></div>
+    </div>
+
 
     <div id="special-greet-overlay" class="special-overlay hidden">
         <div class="g-blob gb1"></div>
@@ -78,7 +83,7 @@
             <div class="hero-stage-container">
                 <!-- Giant Background Text (BEHIND character, locked to stage center) -->
                 <div class="hero-giant-bg">
-                    <h1 class="giant-cobby-text" data-editable-id="hero-giant-title">
+                    <h1 class="giant-cobby-text" data-editable-id="hero-giant-title" style="opacity: 0;">
                         <span class="name-char">C</span><span class="name-char">O</span><span class="name-char">B</span><span class="name-char">B</span><span class="name-char">Y</span>
                     </h1>
                 </div>
@@ -98,7 +103,7 @@
                 </svg>
 
                 <!-- Center Main Character Image Cutout (Overlaps giant text) -->
-                <div class="hero-character-stage" title="Cobby Protogen" onclick="openModal('https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png')">
+                <div class="hero-character-stage" title="Cobby Protogen" style="cursor: default;">
                     <div class="char-backglow"></div>
                     <img src="https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png" alt="Cobby Protogen" class="hero-character-png">
                 </div>
@@ -117,7 +122,7 @@
                         </div>
                     </div>
                     <div class="terminal-window-content">
-                        <div class="term-line"><span class="term-prompt">&gt;</span> <span class="term-text text-cyan" id="term-typed-1">20 | Male | 🏳️‍🌈 | Vietnamese &amp; English | Fursuiter</span><span class="term-blinking-cursor" id="term-cursor-1">█</span></div>
+                        <div class="term-line"><span class="term-prompt">&gt;</span> <span class="term-text text-cyan" id="term-typed-1">20 | Male <br>🏳️‍🌈| Vietnamese &amp; English <br>Fursuiter • Freelancer</span><span class="term-blinking-cursor" id="term-cursor-1">█</span></div>
                     </div>
                 </div>
 
@@ -420,10 +425,155 @@
 
                     <!-- TRAVEL -->
                     <div id="tab-travel" class="tab-content" style="display: none;">
-                        <div class="profile-dashboard game-panel" style="text-align: center; padding: 80px 20px; max-width: 600px; margin: 0 auto;">
-                            <i class="fas fa-plane" style="font-size: 4rem; color: var(--primary); margin-bottom: 20px; text-shadow: 0 0 20px rgba(0,229,255,0.4);"></i>
-                            <h3 style="font-size: 2rem; margin-bottom: 10px;">Travel Plan</h3>
-                            <p style="opacity: 0.7;">This section is currently empty. Stay tuned for future travel updates!</p>
+                        <div class="roadmap-timeline" style="max-width: 800px; margin: 0 auto; padding-top: 50px;">
+                            
+                            <div class="roadmap-year-divider"><span>2026</span></div>
+
+                            <!-- UPCOMING -->
+                            <div class="roadmap-item upcoming">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">FURUM 2026</h4>
+                                        <span class="event-tag" style="background: rgba(255,255,255,0.1);">Planned</span>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 11-13 Dec 2026 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Petaling Jaya, Malaysia <img src="https://flagcdn.com/w20/my.png" alt="Malaysia" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="roadmap-item upcoming">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">FurGIV 2026</h4>
+                                        <span class="event-tag" style="background: rgba(255,255,255,0.1);">Planned</span>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 19 Sep 2026 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Hanoi, Vietnam <img src="https://flagcdn.com/w20/vn.png" alt="Vietnam" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="roadmap-item upcoming">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">FUVE 2026</h4>
+                                        <span class="event-tag" style="background: rgba(0, 229, 255, 0.2); border-color: rgba(0, 229, 255, 0.5); color: #00e5ff;">Going next</span>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 15 Aug 2026 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Ho Chi Minh City, Vietnam <img src="https://flagcdn.com/w20/vn.png" alt="Vietnam" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- PAST 2026 -->
+                            <div class="roadmap-item past left-side">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">SiamPaws 2026</h4>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 6-7 Jun 2026 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Bangkok, Thailand <img src="https://flagcdn.com/w20/th.png" alt="Thailand" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                    <img src="https://i.postimg.cc/dkd4Bw7k/photo-2026-06-21-12-47-49.jpg" class="event-photo" alt="SiamPaws 2026">
+                                </div>
+                            </div>
+
+                            <div class="roadmap-year-divider"><span>2025</span></div>
+
+                            <!-- PAST 2025 -->
+                            <div class="roadmap-item past right-side">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">FurGIV 2025</h4>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 20 Sep 2025 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Hanoi, Vietnam <img src="https://flagcdn.com/w20/vn.png" alt="Vietnam" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                    <img src="https://i.postimg.cc/jwNZXtWL/MAY3730.jpg" class="event-photo" alt="FurGIV 2025">
+                                </div>
+                            </div>
+
+                            <div class="roadmap-item past left-side">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">FUVE 2025</h4>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 2 Aug 2025 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Ho Chi Minh City, Vietnam <img src="https://flagcdn.com/w20/vn.png" alt="Vietnam" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                    <img src="https://i.postimg.cc/V60pL867/FB-IMG-1754213814117.jpg" class="event-photo" alt="FUVE 2025">
+                                </div>
+                            </div>
+
+                            <div class="roadmap-item past right-side">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">Thaitails 2025</h4>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 22-23 Mar 2025 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Nothaburi, Thailand <img src="https://flagcdn.com/w20/th.png" alt="Thailand" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                    <img src="https://i.postimg.cc/YGgb3M44/FB-IMG-1743880859480.jpg" class="event-photo" alt="Thaitails 2025">
+                                </div>
+                            </div>
+
+                            <div class="roadmap-year-divider"><span>2024</span></div>
+
+                            <!-- PAST 2024 -->
+                            <div class="roadmap-item past left-side">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">FUVE 2024</h4>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 18 Aug 2024 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Ho Chi Minh City, Vietnam <img src="https://flagcdn.com/w20/vn.png" alt="Vietnam" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                    <img src="https://i.postimg.cc/0MmcfP6w/132.jpg" class="event-photo" alt="FUVE 2024">
+                                </div>
+                            </div>
+
+                            <div class="roadmap-year-divider"><span>2023</span></div>
+
+                            <!-- PAST 2023 -->
+                            <div class="roadmap-item past right-side">
+                                <div class="roadmap-marker"><i class="fas fa-map-marker-alt"></i></div>
+                                <div class="roadmap-content">
+                                    <div class="event-header">
+                                        <h4 class="event-name">FUVE 2023</h4>
+                                    </div>
+                                    <p class="event-meta">
+                                        <i class="far fa-calendar-alt"></i> 15 Oct 2023 
+                                        <span class="meta-separator">·</span> 
+                                        <i class="fas fa-map-marker-alt"></i> Ho Chi Minh City, Vietnam <img src="https://flagcdn.com/w20/vn.png" alt="Vietnam" style="width: 16px; vertical-align: middle; margin-left: 2px; border-radius: 2px;">
+                                    </p>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>

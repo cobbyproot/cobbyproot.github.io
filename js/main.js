@@ -1112,9 +1112,7 @@ let spotifyTimer = null;
 
 // Curated Track Pool (Fallback when Spotify Discord presence is offline)
 const fallbackTracks = [
-    { title: "you", artist: "hehe x3", cover: "https://i.scdn.co/image/ab67616d0000b2734a742880d6b63a92543e49e2", duration: 190 },
-    { title: "VRChat Nights (Remix)", artist: "Protogen Beats", cover: "https://i.scdn.co/image/ab67616d0000b273c52a3589b25123d49f056d61", duration: 215 },
-    { title: "SEA Furcon Memories", artist: "Cobby & Friends", cover: "https://i.scdn.co/image/ab67616d0000b273708e1a14c330f6a27e3d1c44", duration: 178 }
+    { title: "you", artist: "hehe x3", cover: "https://i.scdn.co/image/ab67616d0000b2734a742880d6b63a92543e49e2", duration: 190 }
 ];
 let currentFallbackIndex = 0;
 
@@ -1466,3 +1464,54 @@ window.promptSpotifyBinding = function() {
         }
     }
 };
+
+/* ==========================================================================
+   Global Loader & COBBY Entry Animation
+   ========================================================================== */
+
+let isLoaded = false;
+function hideLoaderAndAnimate() {
+    if (isLoaded) return;
+    isLoaded = true;
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        setTimeout(() => {
+            loader.classList.add('hidden');
+            triggerAnimations();
+        }, 150);
+    } else {
+        triggerAnimations();
+    }
+}
+
+if (document.readyState === 'complete') {
+    hideLoaderAndAnimate();
+} else {
+    window.addEventListener('load', hideLoaderAndAnimate);
+    setTimeout(hideLoaderAndAnimate, 1200); // 1.2s max limit!
+}
+
+function triggerAnimations() {
+    if (typeof gsap !== 'undefined') {
+        // Fade in backgrounds
+        gsap.fromTo(["#bg-slideshow", ".bg-overlay", ".noise-bg"], 
+            { opacity: 0 },
+            { opacity: 1, duration: 1.0, ease: "power2.out" }
+        );
+
+        // Flash load hero image (no GSAP animation, it's just instantly there)
+        
+        // After hero is there, animate COBBY text smoothly as a whole
+        gsap.fromTo(".giant-cobby-text", 
+            { y: 30, opacity: 0, scale: 0.95 },
+            { 
+                y: 0, 
+                opacity: 1, 
+                scale: 1,
+                duration: 1.0, 
+                ease: "back.out(1.2)",
+                delay: 0.1
+            }
+        );
+    }
+}
