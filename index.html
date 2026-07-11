@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobby's Intro Card~ :333</title>
+    <meta name="description" content="Hawwwo~ Welcome to my introduction card, get to know me more through this Thank for ya time ✨">
+    
+    <!-- Open Graph Embed Meta Tags -->
+    <meta property="og:title" content="Cobby's Intro Card~ :333">
+    <meta property="og:description" content="Hawwwo~ Welcome to my introduction card, get to know me more through this Thank for ya time ✨">
+    <meta property="og:image" content="https://iili.io/BrOsHWF.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cobby's Intro Card~ :333">
+    <meta name="twitter:description" content="Hawwwo~ Welcome to my introduction card, get to know me more through this Thank for ya time ✨">
+    <meta name="twitter:image" content="https://iili.io/BrOsHWF.png">
+    <meta name="theme-color" content="#00e5ff">
+
+    <!-- Favicon -->
+    <link rel="icon" href="https://iili.io/BrOrpGj.png" type="image/png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Orbitron:wght@800;900&family=Outfit:wght@800;900&family=Syne:wght@800&family=Nunito:wght@300;400;600;700;800;900&family=Inter:wght@400;600;800&display=swap"
+        rel="stylesheet">
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="./css/style.css">
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js" defer></script>
+
+    <link rel="preload" as="image" href="https://i.postimg.cc/mg1CD35h/avatar-main.jpg">
+    <link rel="preload" as="image" href="https://i.postimg.cc/XvZHnyww/avatar-alt.jpg">
+</head>
+
+<body class="lang-en">
+
+
+    <div id="special-greet-overlay" class="special-overlay hidden">
+        <div class="g-blob gb1"></div>
+        <div class="g-blob gb2"></div>
+        <div id="card-anim-wrapper" class="card-animator">
+            <div id="tilt-card" class="special-card">
+                <div class="card-shine"></div>
+                <div class="special-content">
+                    <i class="fas fa-fingerprint"
+                        style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;"></i>
+                    <h3>Welcome, VIP</h3>
+                    <p style="margin-top: 10px;">Private link detected.</p>
+                    <p>Accessing specialized user interface...</p>
+                    <button id="close-greet" class="enter-btn" data-sticky>Enter System</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="bg-slideshow" class="bg-slideshow"></div>
+    <div class="bg-overlay"></div>
+    <div class="noise-bg"></div>
+    <canvas id="particle-canvas"></canvas>
+    <div class="cursor-dot"></div>
+    <div class="cursor-follower"></div>
+
+
+    <main class="main-wrapper">
+        <header class="persistent-hero ios-hero-layout">
+            <!-- Unified Hero Stage Container (Locks COBBY text + character cutout + widgets together) -->
+            <div class="hero-stage-container">
+                <!-- Giant Background Text (BEHIND character, locked to stage center) -->
+                <div class="hero-giant-bg">
+                    <h1 class="giant-cobby-text" data-editable-id="hero-giant-title">
+                        <span class="name-char">C</span><span class="name-char">O</span><span class="name-char">B</span><span class="name-char">B</span><span class="name-char">Y</span>
+                    </h1>
+                </div>
+
+                <!-- SVG Constellation Energy Connecting Web -->
+                <svg class="constellation-svg" id="constellation-svg">
+                    <line id="line-fb-barq" class="constellation-line" />
+                    <line id="line-barq-bump" class="constellation-line" />
+                    <line id="line-tw-dc" class="constellation-line" />
+                    <line id="line-dc-tg" class="constellation-line" />
+                    <line id="line-tw-lang" class="constellation-line" />
+                    <line id="line-center-fb" class="constellation-line core-line" />
+                    <line id="line-center-tw" class="constellation-line core-line" />
+                    <line id="line-center-dc" class="constellation-line core-line" />
+                    <line id="line-center-barq" class="constellation-line core-line" />
+                    <line id="line-center-lang" class="constellation-line core-line" />
+                </svg>
+
+                <!-- Center Main Character Image Cutout (Overlaps giant text) -->
+                <div class="hero-character-stage" title="Cobby Protogen" onclick="openModal('https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png')">
+                    <div class="char-backglow"></div>
+                    <img src="https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png" alt="Cobby Protogen" class="hero-character-png">
+                </div>
+
+                <!-- Left Floating cobby.exe Terminal Card Widget -->
+                <div class="ios-widget widget-left terminal-widget">
+                    <div class="terminal-window-bar">
+                        <div class="terminal-window-title">
+                            <i class="fas fa-code terminal-icon"></i>
+                            <span class="term-bold-title">cobby.exe</span>
+                        </div>
+                        <div class="terminal-window-controls">
+                            <span class="term-control-btn term-min" title="Minimize">—</span>
+                            <span class="term-control-btn term-max" title="Maximize">❐</span>
+                            <span class="term-control-btn term-close" title="Close">⤬</span>
+                        </div>
+                    </div>
+                    <div class="terminal-window-content">
+                        <div class="term-line"><span class="term-prompt">&gt;</span> <span class="term-text text-cyan" id="term-typed-1"></span><span class="term-blinking-cursor" id="term-cursor-1">█</span></div>
+                        <div class="term-line"><span class="term-prompt">&gt;</span> <span class="term-text text-green" id="term-typed-2"></span><span class="term-blinking-cursor" id="term-cursor-2" style="display:none;">█</span></div>
+                    </div>
+                </div>
+
+                <!-- Right Floating iOS Card Widget (Sleek Horizontal Rectangle Spotify Player Bar) -->
+                <div class="ios-widget widget-right spotify-player-widget horizontal-bar">
+                    <div class="spotify-bar-main">
+                        <!-- Spinning Vinyl Album Art Disc -->
+                        <div class="vinyl-container horizontal-disc">
+                            <div class="vinyl-disc spinning" id="spotify-vinyl">
+                                <div class="vinyl-center-hole"></div>
+                                <img src="https://i.scdn.co/image/ab67616d0000b2734a742880d6b63a92543e49e2" alt="Album Cover" class="vinyl-cover" id="spotify-album-cover">
+                            </div>
+                        </div>
+
+                        <!-- Track Info & Live Equalizer -->
+                        <div class="spotify-bar-content">
+                            <div class="spotify-bar-top">
+                                <div class="spotify-badge">
+                                    <i class="fab fa-spotify spotify-green-icon"></i>
+                                    <span id="spotify-status-label">LISTENING TO</span>
+                                </div>
+                                <div class="equalizer-bars playing" id="spotify-equalizer">
+                                    <span></span><span></span><span></span><span></span>
+                                </div>
+                            </div>
+
+                            <div class="spotify-track-info left-align">
+                                <div class="track-title" id="spotify-track-title">you</div>
+                                <div class="track-artist" id="spotify-track-artist">hehe x3</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Progress Fill -->
+                    <div class="spotify-widget-footer">
+                        <div class="spotify-progress-bar">
+                            <div class="spotify-progress-fill" id="spotify-progress-fill" style="width: 45%;"></div>
+                        </div>
+                        <div class="spotify-time">
+                            <span id="spotify-current-time">1:24</span>
+                            <span id="spotify-total-time">3:10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Floating 3D Social Orbit Bubbles with Constellation Connecting Lines -->
+                <div class="socials-floating">
+                    <a href="https://facebook.com/BasicallyCobby" target="_blank" class="social-btn float-bubble bubble-fb" data-sticky title="Facebook">
+                        <i class="fab fa-facebook-f"></i>
+                        <span class="bubble-tooltip">Facebook</span>
+                    </a>
+                    <a href="https://x.com/ItsJacobUwU" target="_blank" class="social-btn float-bubble bubble-tw" data-sticky title="Twitter / X">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                        <span class="bubble-tooltip">Twitter / X</span>
+                    </a>
+                    <a href="https://discordapp.com/users/1119272682953900034" target="_blank" class="social-btn float-bubble bubble-dc" data-sticky title="Discord">
+                        <i class="fab fa-discord"></i>
+                        <span class="bubble-tooltip">Discord</span>
+                    </a>
+                    <a href="http://t.me/cobbyproto" target="_blank" class="social-btn float-bubble bubble-tg" data-sticky title="Telegram">
+                        <i class="fab fa-telegram-plane"></i>
+                        <span class="bubble-tooltip">Telegram</span>
+                    </a>
+                    <a href="https://bumpmaps.com/p/pCcKXGLJptihL" target="_blank" class="social-btn float-bubble bubble-bump" data-sticky title="Bump Maps">
+                        <img src="https://static.amo.co/shared/images/app-icons/location/20250123-167x167.png" alt="Bump Maps" width="26" height="26" style="border-radius: 6px; object-fit: contain;">
+                        <span class="bubble-tooltip">Bump Maps</span>
+                    </a>
+                    <a href="https://barq.app/@cobbyproto" target="_blank" class="social-btn float-bubble bubble-barq" data-sticky title="Barq">
+                        <svg class="barq-icon" viewBox="0 0 408 360" width="28" height="25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M384,47.6783738 L384,224.286416 C384,250.921324 362.438342,271.96479 336.001875,271.96479 L156.008906,271.96479 L64.5674717,330.067042 C47.9981251,342.14719 47.9981251,333.594447 47.9981251,323.799643 L47.9981251,271.96479 C21.5616577,271.96479 0,250.241284 0,224.286416 L0,47.6783738 C0,21.0434661 21.5616577,0 47.9981251,0 L335.986876,0 C363.075817,0 384,21.7235063 384,47.6783738 Z" fill="#FF6A00"></path>
+                            <g transform="translate(24.500000, 98.586845)" fill="#FFFFFF">
+                                <path d="M40.7784855,35.4203822 C43.9079972,35.4203822 49.12385,29.7777778 49.12385,21.9065817 C49.12385,11.3800425 38.9766454,2.03892427 25.1309271,2.03892427 L0,2.03892427 L0,78.4748762 L32.6227884,78.4748762 C47.9384289,78.4748762 58.0856334,67.2370842 58.0856334,55.1457891 C58.0856334,43.6234961 48.9341826,35.4203822 40.7784855,35.4203822 Z M32.1012031,25.5576787 C32.1012031,29.4932767 28.7820241,31.6744515 24.3722576,31.6744515 L19.5357396,31.6744515 L19.5357396,19.6779901 L24.5145081,19.6779901 C28.8768577,19.6779901 32.1012031,21.8591649 32.1012031,25.5576787 Z M29.5406936,60.029724 L19.5357396,60.029724 L19.5357396,45.5201699 L29.6829441,45.5675867 C35.4203822,45.5675867 38.6447275,48.2703468 38.6447275,52.7275301 C38.6447275,57.7537155 34.1875442,60.029724 29.5406936,60.029724 Z"></path>
+                                <path d="M118.115357,78.4748762 L140.353857,78.4748762 L104.791224,1.0905874 L95.1656051,1.0905874 L59.6503892,78.4748762 L81.841472,78.4748762 L85.7296532,69.5605096 L114.274593,69.5605096 L118.115357,78.4748762 Z M92.1309271,54.7190375 L100.002123,36.6058033 L107.825902,54.7190375 L92.1309271,54.7190375 Z"></path>
+                                <path d="M212.56971,78.4748762 L192.085633,47.7961783 C199.577495,44.3821656 205.314933,36.4161359 205.314933,26.8853503 C205.314933,13.1818825 193.508139,2.03892427 177.007077,2.03892427 L147.987969,2.03892427 L148.082803,78.4748762 L168.377212,78.4748762 L168.377212,45.2830856 L188.813871,78.4748762 L212.56971,78.4748762 Z M168.282378,20.2944091 L176.580326,20.2944091 C180.847841,20.2944091 184.830856,23.2342534 184.830856,27.9759377 C184.830856,32.6702052 180.895258,35.7048832 176.580326,35.6574664 L168.282378,35.6100495 L168.282378,20.2944091 Z"></path>
+                                <path d="M300.765039,75.2031139 C294.600849,75.0608634 288.484076,74.3021939 283.268224,73.069356 C293.794763,65.9094126 300.480538,54.1500354 300.480538,40.3517339 C300.480538,17.4019816 282.27247,0 258.516631,0 C234.760793,0 216.552725,17.4019816 216.552725,40.3517339 C216.552725,63.1118188 234.713376,80.4189667 258.469214,80.4189667 C260.413305,80.4189667 262.309979,80.3241331 264.206653,80.0870488 C271.129512,86.5831564 279.996461,92.2731776 293.84218,93.2689314 L300.765039,75.2031139 Z M237.084218,40.2094834 C237.084218,28.4026893 246.377919,19.2986553 258.516631,19.2986553 C270.655343,19.2986553 279.949045,28.4026893 279.949045,40.2094834 C279.949045,51.9688606 270.655343,61.0254777 258.516631,61.0254777 C246.377919,61.0254777 237.084218,51.9688606 237.084218,40.2094834 Z"></path>
+                                <path d="M314.705591,51.7791932 L331.53857,51.7791932 L334.810333,2.03892427 L311.291578,2.03892427 L314.705591,51.7791932 Z M323.145789,81.1776362 C329.59448,81.1776362 335,76.3411182 335,70.2243454 C335,64.2024062 329.59448,59.0339703 323.050955,59.0339703 C316.697098,59.0339703 311.291578,63.9179052 311.291578,69.9872611 C311.291578,76.1988677 316.649682,81.1776362 323.145789,81.1776362 Z"></path>
+                            </g>
+                        </svg>
+                        <span class="bubble-tooltip">Barq</span>
+                    </a>
+                    <a href="https://www.tiktok.com/@cobbyproto" target="_blank" class="social-btn float-bubble bubble-tt" data-sticky title="TikTok">
+                        <i class="fab fa-tiktok"></i>
+                        <span class="bubble-tooltip">TikTok</span>
+                    </a>
+                </div>
+            </div>
+
+<div class="scroll-hint"><i class="fas fa-chevron-down"></i></div>
+        </header>
+
+        <div class="content-container">
+
+            <section id="view-profile" class="view-section active">
+
+                <div class="profile-dashboard game-panel" data-speed="0.8">
+                    <div class="dashboard-header">
+                        <h2>
+                            <span lang="en">INTRODUCTION</span>
+                            <span lang="vi">GIỚI THIỆU BẢN THÂN</span>
+                        </h2>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            
+                            <div class="status-indicator">
+                                <div class="dot blinking"></div> ONLINE
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="db-info-full">
+                        <div lang="en" class="bio-desc" data-editable-id="bio-en">
+                            <p style="margin-bottom: 12px;">Hallo~ Thank you for visiting this page!</p>
+                            <p style="margin-bottom: 12px;">My name is Cobby. You might encounter me with many other name like Cobbi, Cobbie, cobbyproto, Bao Luu (facebook) but feel free to call me however ya want &lt;3</p>
+                            <p style="margin-bottom: 12px;">I'm currently 20. A Vietnamese and currently living in Ho Chi Minh City.</p>
+                            <p style="margin-bottom: 12px;">I'm quite introvert so I usually dont talk much online and I might look very shy and quiet if you meet me at first. But feel free to interact with me, I might be talking alot after a while hehe.</p>
+                            <p style="margin-bottom: 12px;">Joining this fandom in 2021, but still I'm still very new to furry community hehe. After starting to attend SEA furcons. I have develop my love for this fandom more than ever. I really enjoy arts in many forms, from dancing to singing and drawings. It help me feel more connected to my character and somewhat can express myself more.</p>
+                            <p>Thanks for reading my little yapping about me hehe x3 If you still interested you can scroll down for more~</p>
+                        </div>
+                        <div lang="vi" class="bio-desc" data-editable-id="bio-vi">
+                            <p style="margin-bottom: 12px;">Chào mừng bạn tới với trang giới thiệu của mình nha~</p>
+                            <p style="margin-bottom: 12px;">Bạn có thể gọi mình là Cobby hoặc những cái tên khác như Cobbi, Cobbie, Cubbi, bla bla thậm chí tên facebook cũng được nè.</p>
+                            <p style="margin-bottom: 12px;">Mình đang 20 mà đang học tập và làm việc tại TP. Hồ Chí Minh</p>
+                            <p style="margin-bottom: 12px;">Mình hơi hướng nội nên thường mình sẽ khá ít nói và khi ngoài đời sẽ hơi im lặng và ngại nếu lần dầu gặp. Nhưng cứ thoải mái bắt chuyện với mình nha. Biết đâu mình sẽ nói siu nhiều sau khi than thì seo hehe.</p>
+                            <p style="margin-bottom: 12px;">Mình vào fandom hồi 2021, và active tới bây giờ nhưng vẫn còn nhiều thứ mới mẻ. Sau khi được đi đây đó gặp bạn bè, phần nào Cobby đã động long cái fandom nì nhiều hơn. Ngoài ra Cobby cũng rất yêu thích nghệ thuật, từ nhảy nhót, ca hát tới tranh vẽ. Vì nó 1 phần giúp Cobby kết nối với chính đứa con của mình và ngoài ra còn giúp bản thân bung lụa với những điều khum dám làm nữa x3</p>
+                            <p>Cảm ơn vì đã đọc bài tâm sự mỏng nì của mình nè x3 Nếu bạn còn muốn biết rõ hơn thì có thể kéo xuống dưới nha~</p>
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                <!-- TAB BUTTONS -->
+                <div class="tab-navigation-container" style="display: flex; gap: 15px; justify-content: center; margin: 40px 0; flex-wrap: wrap;">
+                    <button class="ios-btn primary tab-btn active" onclick="switchTab('fursona')" id="tab-btn-fursona" data-sticky>
+                        <i class="fas fa-paw"></i> Fursona
+                    </button>
+                    <button class="ios-btn secondary tab-btn" onclick="switchTab('gallery')" id="tab-btn-gallery" data-sticky>
+                        <i class="fas fa-image"></i> Gallery
+                    </button>
+                    <button class="ios-btn secondary tab-btn" onclick="switchTab('gaming')" id="tab-btn-gaming" data-sticky>
+                        <i class="fas fa-gamepad"></i> Gaming
+                    </button>
+                    <button class="ios-btn secondary tab-btn" onclick="switchTab('travel')" id="tab-btn-travel" data-sticky>
+                        <i class="fas fa-plane"></i> Travel Plan
+                    </button>
+                </div>
+
+                <!-- TABS CONTENT -->
+                <div id="tabs-container" style="width: 100%;">
+                    
+                    <!-- FURSONA -->
+                    <div id="tab-fursona" class="tab-content active" style="display: block;">
+                        
+                        <!-- Cobby Protogen -->
+                        <div class="showcase-title-row" style="margin-bottom: 20px;">
+                            <h3 class="glitch-text" data-text="COBBY">COBBY</h3>
+                            <div style="text-align: center; color: var(--primary); font-size: 0.9rem; letter-spacing: 2px; margin-top: -10px;">WOLF PROTOGEN</div>
+                        </div>
+
+                        <div class="game-panel terminal-theme" style="padding: 20px; text-align: center; border-radius: 16px; background: rgba(0,0,0,0.3); margin-bottom: 50px;">
+                            <div class="crt-overlay"></div>
+                            <!-- Refsheet Placeholder -->
+                            <div style="position: relative; max-width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0, 229, 255, 0.1); cursor: pointer;" onclick="openModal('https://i.postimg.cc/BnHShPTS/Cobby-ref-(1).png')">
+                                <img src="https://i.postimg.cc/BnHShPTS/Cobby-ref-(1).png" alt="Cobby Protogen Reference Sheet" style="width: 100%; height: auto; display: block; border-radius: 12px; transition: transform 0.3s ease;" class="hover-zoom">
+                                <div class="preview-overlay" style="position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 20px; border: 1px solid var(--primary); color: var(--primary); font-family: var(--font-tech); font-size: 0.8rem; pointer-events: none;">
+                                    <i class="fas fa-search-plus"></i> View
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cobbie Canine -->
+                        <div class="showcase-title-row" style="margin-bottom: 20px;">
+                            <h3 class="glitch-text" data-text="COBBIE">COBBIE</h3>
+                            <div style="text-align: center; color: var(--primary); font-size: 0.9rem; letter-spacing: 2px; margin-top: -10px;">WOLF CANINE</div>
+                        </div>
+
+                        <div class="game-panel terminal-theme" style="padding: 20px; text-align: center; border-radius: 16px; background: rgba(0,0,0,0.3);">
+                            <div class="crt-overlay"></div>
+                            <!-- Refsheet Placeholder -->
+                            <div style="position: relative; max-width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0, 229, 255, 0.1); cursor: pointer;" onclick="openModal('https://i.postimg.cc/SxCSZY6J/Cobbie-Refsheet-Template-(1).png')">
+                                <img src="https://i.postimg.cc/SxCSZY6J/Cobbie-Refsheet-Template-(1).png" alt="Cobbie Wolf Reference Sheet" style="width: 100%; height: auto; display: block; border-radius: 12px; transition: transform 0.3s ease;" class="hover-zoom">
+                                <div class="preview-overlay" style="position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 20px; border: 1px solid var(--primary); color: var(--primary); font-family: var(--font-tech); font-size: 0.8rem; pointer-events: none;">
+                                    <i class="fas fa-search-plus"></i> View
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                </div>
+
+                <!-- GALLERY -->
+                <div id="tab-gallery" class="tab-content" style="display: none;">
+                    <h2>
+                        <span lang="en">Gallery</span>
+                        <span lang="vi">Thư Viện</span>
+                    </h2>
+                    <div class="gallery-controls">
+                        <button class="gallery-tab-btn active" onclick="filterGallery('all')" data-sticky>All</button>
+                        <button class="gallery-tab-btn" onclick="filterGallery('fursuit')" data-sticky>Fursuit</button>
+                        <button class="gallery-tab-btn" onclick="filterGallery('commission')" data-sticky>Commissions</button>
+                    </div>
+                    <div class="gallery-grid" id="dynamic-gallery-grid"></div>
+                </div>
+
+                    <!-- GAMING -->
+                    <div id="tab-gaming" class="tab-content" style="display: none;">
+                        <div class="game-panel" data-speed="0.85">
+                            <div class="dashboard-header">
+                                <h2><span>GAME ACCOUNTS</span></h2>
+                                <div class="status-indicator" style="color: #a78bfa;">
+                                    <div class="dot blinking" style="background: #a78bfa;"></div> GAMING
+                                </div>
+                            </div>
+                            <div class="game-accounts-grid">
+
+                                <div class="game-account-row">
+                                    <div class="game-icon-wrap" style="background: rgba(100,200,255,0.1); border-color: rgba(100,200,255,0.3);">
+                                        <i class="fas fa-vr-cardboard" style="color: #64c8ff;"></i>
+                                    </div>
+                            <div class="game-info">
+                                <span class="game-label">VRChat</span>
+                                <span class="game-id">JacobUwU</span>
+                            </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('JacobUwU', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <div class="game-account-row">
+                            <div class="game-icon-wrap"
+                                style="background: rgba(200,170,40,0.1); border-color: rgba(200,170,40,0.3);">
+                                <i class="fas fa-chess-knight" style="color: #c8aa28;"></i>
+                            </div>
+                            <div class="game-info">
+                                <span class="game-label">League of Legends / TFT (VN)</span>
+                                <span class="game-id">Cobbi<span style="color: var(--primary);">#GRRR</span></span>
+                            </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('Cobbi#GRRR', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <div class="game-account-row">
+                            <div class="game-icon-wrap"
+                                style="background: rgba(255,70,85,0.1); border-color: rgba(255,70,85,0.3);">
+                                <i class="fas fa-crosshairs" style="color: #ff4655;"></i>
+                            </div>
+                            <div class="game-info">
+                                <span class="game-label">Valorant</span>
+                                <span class="game-id">Con Cobbi Báo<span
+                                        style="color: var(--primary);">#PROOT</span></span>
+                            </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('Con Cobbi Báo#PROOT', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <div class="game-account-row">
+                            <div class="game-icon-wrap"
+                                style="background: rgba(255,50,50,0.1); border-color: rgba(255,50,50,0.3);">
+                                <i class="fas fa-cube" style="color: #ff3232;"></i>
+                            </div>
+                            <div class="game-info">
+                                <span class="game-label">Roblox</span>
+                                <span class="game-id">CobbyProto</span>
+                            </div>
+                            <button class="copy-game-btn" onclick="copyGameUsername('CobbyProto', this)" title="Copy Username" data-sticky>
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <div class="game-account-row" data-sticky>
+                            <a href="https://steamcommunity.com/id/BasicallyJacob/" target="_blank"
+                                class="game-account-link">
+                                <div class="game-icon-wrap"
+                                    style="background: rgba(102,192,244,0.1); border-color: rgba(102,192,244,0.3);">
+                                    <i class="fab fa-steam" style="color: #66c0f4;"></i>
+                                </div>
+                                <div class="game-info">
+                                    <span class="game-label">Steam</span>
+                                    <span class="game-id">Cobby <i class="fas fa-external-link-alt"
+                                            style="font-size:0.65rem; opacity:0.6; margin-left:4px;"></i></span>
+                                </div>
+                            </a>
+                        </div>
+
+
+                        <div class="game-account-row pong-easter-row">
+                            <canvas id="pong-canvas"></canvas>
+                        </div>
+
+                    </div>
+                </div>
+
+                
+                    </div>
+
+                    <!-- TRAVEL -->
+                    <div id="tab-travel" class="tab-content" style="display: none;">
+                        <div class="profile-dashboard game-panel" style="text-align: center; padding: 80px 20px; max-width: 600px; margin: 0 auto;">
+                            <i class="fas fa-plane" style="font-size: 4rem; color: var(--primary); margin-bottom: 20px; text-shadow: 0 0 20px rgba(0,229,255,0.4);"></i>
+                            <h3 style="font-size: 2rem; margin-bottom: 10px;">Travel Plan</h3>
+                            <p style="opacity: 0.7;">This section is currently empty. Stay tuned for future travel updates!</p>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+
+
+            
+
+
+        </div>
+    </main>
+
+
+    <div class="modal" id="artModal" onclick="closeModal()">
+        <div class="modal-loader"><i class="fas fa-spinner fa-spin"></i></div>
+        <img id="modalImg" src="" alt="Gallery Preview">
+    </div>
+
+    <!-- Live Profile Editor Toolbar -->
+    <div class="standalone-lang-bubble lang-container" onclick="toggleLang()" data-sticky title="Change Language">
+        <div class="lang-btn">
+            <div class="lang-face lang-front"><img src="https://flagcdn.com/w80/us.png" alt="English" width="30" height="30"></div>
+            <div class="lang-face lang-back"><img src="https://flagcdn.com/w80/vn.png" alt="Vietnamese" width="30" height="30"></div>
+        </div>
+    </div>
+
+    <script src="./js/main.js"></script>
+</body>
+
+</html>
