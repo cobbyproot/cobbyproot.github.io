@@ -22,6 +22,12 @@ a, button, input, .social-btn, .float-bubble, .ios-widget, .hero-character-stage
     cursor: pointer !important;
 }
 
+/* Prevent FOUC (Flash of Unstyled Content) on slow mobile devices */
+.hero-character-stage, .name-char, .ios-widget, .ios-dynamic-island, .social-btn, .nav-dock, .scroll-hint {
+    visibility: hidden;
+    opacity: 0;
+}
+
 .cursor-dot, .cursor-follower {
     pointer-events: none !important;
 }
@@ -510,18 +516,6 @@ body.lang-vi [lang="en"] { display: none; }
     -webkit-text-fill-color: transparent;
     -webkit-text-stroke: 0;
     text-shadow: 0 10px 25px rgba(0, 229, 255, 0.3), 0 0 20px rgba(139, 92, 246, 0.2);
-    will-change: background-position;
-    transform: translateZ(0);
-    animation: glassGlow 8s ease infinite;
-}
-
-@keyframes glassGlow {
-    0%, 100% {
-        background-position: 0% 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
 }
 
 /* 2. Center Character Cutout PNG (Bigger size & shifted down) */
@@ -535,14 +529,12 @@ body.lang-vi [lang="en"] { display: none; }
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    will-change: transform;
-    transform: translateZ(0);
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     animation: floatCharacter 7s ease-in-out infinite;
 }
 
 .hero-character-stage:hover {
-    transform: scale(1.05) translateY(28px) translateZ(0);
+    transform: scale(1.05) translateY(28px);
 }
 
 .hero-character-png {
@@ -550,13 +542,11 @@ body.lang-vi [lang="en"] { display: none; }
     height: 100%;
     width: auto;
     object-fit: contain;
-    will-change: transform;
-    transform: translateZ(0);
     transition: transform 0.4s ease;
 }
 
 .hero-character-stage:hover .hero-character-png {
-    transform: scale(1.02) translateZ(0);
+    transform: scale(1.02);
 }
 
 .char-backglow {
@@ -595,8 +585,6 @@ body.lang-vi [lang="en"] { display: none; }
     border-radius: 24px;
     padding: 20px;
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    will-change: transform, box-shadow;
-    transform: translateZ(0);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -604,7 +592,7 @@ body.lang-vi [lang="en"] { display: none; }
     background: rgba(15, 23, 42, 0.9);
     border-color: rgba(var(--primary-rgb), 0.5);
     box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    transform: translateY(-8px) scale(1.02) translateZ(0);
+    transform: translateY(-8px) scale(1.02);
 }
 
 .widget-left {
