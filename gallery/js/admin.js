@@ -16,6 +16,10 @@ import { insertArtwork } from './supabase.js';
 const CLOUD_NAME = 'ffppnh9h';
 const UPLOAD_PRESET = 'jghd3evl';
 
+// Auto-compression: cap the longest edge (px) and re-encode quality before upload.
+const MAX_DIM = 2000;
+const QUALITY = 0.82;
+
 export class AdminPanel {
     constructor(onArtworkAdded) {
         this.onArtworkAdded = onArtworkAdded;
@@ -144,21 +148,59 @@ export class AdminPanel {
         showToast('PIN set successfully!', 'success');
     }
 
-    handleFile(file) {
+    async handleFile(file) {
         if (!file.type.startsWith('image/')) {
             showToast('Please select an image file.', 'error');
             return;
         }
 
-        this.selectedFile = file;
-        this.filePreview.src = URL.createObjectURL(file);
+        const processed = await this.compressImage(file);
+        this.selectedFile = processed;
+        this.filePreview.src = URL.createObjectURL(processed);
         this.filePreview.classList.remove('hidden');
-        this.fileDrop.querySelector('span').textContent = file.name;
+        this.fileDrop.querySelector('span').textContent = processed === file
+            ? file.name
+            : `${file.name} · ${(processed.size / 1024).toFixed(0)} KB`;
 
         this.filePreview.onload = () => {
             this.selectedWidth = this.filePreview.naturalWidth;
             this.selectedHeight = this.filePreview.naturalHeight;
         };
+    }
+
+    // Downscale + re-encode large images in the browser before uploading, so
+    // phone-camera photos don't get stored (and served) at full sensor size.
+    async compressImage(file) {
+        if (file.type === 'image/gif' || file.size < 300 * 1024) return file;
+
+        let bitmap;
+        try {
+            bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        } catch {
+            return file;
+        }
+
+        const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
+        if (scale === 1 && file.size < 1024 * 1024) {
+            bitmap.close?.();
+            return file;
+        }
+
+        const w = Math.max(1, Math.round(bitmap.width * scale));
+        const h = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+        bitmap.close?.();
+
+        const hasAlpha = file.type === 'image/png' || file.type === 'image/webp';
+        const mime = hasAlpha ? 'image/webp' : 'image/jpeg';
+        const blob = await new Promise(res => canvas.toBlob(res, mime, QUALITY));
+        if (!blob || blob.size >= file.size) return file;
+
+        const ext = mime === 'image/webp' ? '.webp' : '.jpg';
+        return new File([blob], file.name.replace(/\.[^.]+$/, '') + ext, { type: mime });
     }
 
     resetForm() {
