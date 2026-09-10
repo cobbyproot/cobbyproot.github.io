@@ -372,6 +372,11 @@ h4 {
 /* -----------------------------------------------------------------------------
    7. Boot loader
    -------------------------------------------------------------------------- */
+/* The boot loader is the projector itself warming up, not a spinner wearing the
+   site's colours: a chamfered targeting reticle, one diegetic focus scan, a short
+   cold-boot log that breaks character into Cobby's own voice at the end, and an
+   honest determinate charge line. No neon drop-shadow, no looping indeterminate
+   bar — both of those are the defaults the concept's thesis refuses. */
 .global-loader {
     position: fixed;
     inset: 0;
@@ -380,9 +385,9 @@ h4 {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--gap-3);
+    gap: var(--gap-4);
     background:
-        radial-gradient(ellipse 70% 55% at 50% 50%, rgba(var(--holo-1-rgb), 0.07), transparent 70%),
+        radial-gradient(ellipse 60% 46% at 50% 44%, rgba(var(--holo-1-rgb), 0.06), transparent 70%),
         var(--void-deep);
     transition: opacity 0.7s ease, visibility 0.7s ease;
 }
@@ -394,92 +399,164 @@ h4 {
 }
 
 /* Added by main.js once the 0.7s fade has run. `visibility: hidden` stops the
-   loader being painted but does not stop its five decorative animations, so
-   without this they tick on the main thread for the whole life of the page. */
+   loader being painted but does not stop its animations, so without this they
+   tick on the main thread for the whole life of the page. */
 .global-loader.retired {
     display: none;
 }
 
-.loader-ring {
+.loader-projector {
+    --size: clamp(68px, 20vw, 88px);
     position: relative;
-    width: 78px;
-    height: 78px;
+    width: var(--size);
+    height: var(--size);
 }
 
-.loader-ring svg {
-    width: 100%;
-    height: 100%;
-    animation: loader-spin 2.6s linear infinite;
-}
-
-.loader-ring .ring-path {
-    fill: none;
-    stroke: var(--holo-1);
-    stroke-width: 2;
-    stroke-linecap: square;
-    stroke-dasharray: 46 154;
-    filter: drop-shadow(0 0 6px rgba(var(--holo-1-rgb), 0.6));
-}
-
-.loader-ring::after {
-    content: "";
+/* Registration brackets at the four corners, snapping inward as the lens locks
+   focus. Each carries two arms only; the open side faces the reticle. */
+.proj-bracket {
     position: absolute;
-    inset: 15px;
-    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-    background: rgba(var(--holo-2-rgb), 0.16);
-    animation: loader-pulse 1.6s ease-in-out infinite;
+    width: 22%;
+    height: 22%;
+    border: 0 solid rgba(var(--holo-1-rgb), 0.55);
+    opacity: 0;
+    animation: proj-lock 0.5s var(--ease-out) forwards;
 }
 
-@keyframes loader-spin {
+.pb-tl {
+    top: 0;
+    left: 0;
+    border-top-width: 2px;
+    border-left-width: 2px;
+}
+
+.pb-tr {
+    top: 0;
+    right: 0;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    animation-delay: 0.08s;
+}
+
+.pb-br {
+    bottom: 0;
+    right: 0;
+    border-bottom-width: 2px;
+    border-right-width: 2px;
+    animation-delay: 0.16s;
+}
+
+.pb-bl {
+    bottom: 0;
+    left: 0;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+    animation-delay: 0.24s;
+}
+
+@keyframes proj-lock {
+    from {
+        opacity: 0;
+        transform: scale(1.5);
+    }
+
     to {
-        transform: rotate(360deg);
+        opacity: 1;
+        transform: scale(1);
     }
 }
 
-@keyframes loader-pulse {
+/* The iris: a chamfered square rotating slowly behind the brackets — the
+   projector's aperture turning over. */
+.proj-reticle {
+    position: absolute;
+    inset: 26%;
+    border: 1px solid rgba(var(--holo-1-rgb), 0.5);
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+    animation: proj-iris 3.2s linear infinite;
+}
 
-    0%,
-    100% {
-        opacity: 0.35;
+@keyframes proj-iris {
+    to {
+        transform: rotate(90deg);
+    }
+}
+
+/* One focus scan sweeps the aperture, then is gone — the projector calibrating,
+   not a loader that loops forever. */
+.proj-scan {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+            transparent,
+            rgba(var(--holo-1-rgb), 0.5) 46%,
+            rgba(var(--holo-1-rgb), 0.7) 50%,
+            rgba(var(--holo-1-rgb), 0.5) 54%,
+            transparent);
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    animation: proj-scan 0.9s var(--ease-out) 0.15s both;
+}
+
+@keyframes proj-scan {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
     }
 
-    50% {
+    20% {
         opacity: 1;
     }
+
+    100% {
+        transform: translateY(100%);
+        opacity: 0;
+    }
 }
 
-.loader-text {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.1em;
-    color: var(--muted);
+.loader-readout {
+    min-height: 1.2em;
     text-align: center;
-    max-width: min(34ch, 84vw);
 }
 
-.loader-bar {
-    width: min(220px, 60vw);
+.loader-line {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.14em;
+    text-transform: lowercase;
+    color: var(--muted);
+    transition: opacity 0.16s ease;
+}
+
+/* The last line is Cobby's own voice, not the instrument's: it drops out of
+   mono into the reading face and picks up the primary hue. Hard chrome, warm
+   words — the whole idea of the page in one swap. */
+.loader-line.is-warm {
+    font-family: var(--ui);
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    color: var(--holo-1);
+}
+
+.loader-charge {
+    width: min(200px, 54vw);
     height: 2px;
     background: var(--edge);
     overflow: hidden;
 }
 
-.loader-bar i {
+.loader-charge i {
     display: block;
     height: 100%;
-    width: 40%;
+    width: 100%;
     background: var(--holo);
     background-size: 280% 100%;
-    animation: holo-shift 1.5s linear infinite, loader-slide 1.9s var(--ease-out) infinite;
+    animation: charge-shimmer 1.4s linear infinite;
+    clip-path: inset(0 100% 0 0);
 }
 
-@keyframes loader-slide {
-    0% {
-        transform: translateX(-100%);
-    }
-
-    100% {
-        transform: translateX(320%);
+@keyframes charge-shimmer {
+    to {
+        background-position: 280% 50%;
     }
 }
 

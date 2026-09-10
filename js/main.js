@@ -981,6 +981,7 @@ window.promptSpotifyBinding = function() {
 document.addEventListener("DOMContentLoaded", () => {
     const loader = document.getElementById('global-loader');
     const msgEl = document.getElementById('loader-message');
+    const chargeEl = loader ? loader.querySelector('.loader-charge i') : null;
 
     if (!loader) {
         if (window.initAnimations) window.initAnimations();
@@ -1002,10 +1003,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const finish = () => {
+        if (chargeEl) chargeEl.style.clipPath = 'inset(0 0% 0 0)';
         loader.classList.add('hidden');
         // Retire it from the render tree once the fade has played out. Hidden
-        // but still displayed, its spinner and shimmer animations would keep
-        // running forever underneath the page.
+        // but still displayed, its animations would keep running forever
+        // underneath the page.
         setTimeout(() => loader.classList.add('retired'), 750);
         if (window.initAnimations) window.initAnimations();
         else liftBootGate();
@@ -1016,34 +1018,54 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
+    // Cold-boot log for the projector. The technical lines carry a prefix
+    // timestamp (honest mono: numerals and terminal output); the last line is
+    // Cobby's own voice, flagged warm so it drops into the reading face and the
+    // primary hue. `at` is a fraction of the warm-up window.
+    const t0 = Date.now();
+    const stamp = () => {
+        const s = ((Date.now() - t0) / 1000).toFixed(1);
+        return `[${s.padStart(4, '0')}s] `;
+    };
     const steps = [
-        { at: 30, text: 'hope you have a nice day! :333' },
-        { at: 60, text: 'getting ready~ :3' },
+        { at: 0, text: 'projector core online', warm: false },
+        { at: 0.1, text: 'calibrating emitter array…', warm: false },
+        { at: 0.32, text: 'resolving holographic mesh…', warm: false },
+        { at: 0.62, text: 'warming social uplink…', warm: false },
+        { at: 0.86, text: 'hewwo~ coming right up :3', warm: true },
     ];
-    let start = null;
     let step = 0;
 
+    const showStep = (entry) => {
+        if (!msgEl) return;
+        const render = () => {
+            msgEl.textContent = (entry.warm ? '' : stamp()) + entry.text;
+            msgEl.classList.toggle('is-warm', !!entry.warm);
+            if (typeof gsap !== 'undefined') {
+                gsap.to(msgEl, { opacity: 1, duration: 0.16 });
+            } else {
+                msgEl.style.opacity = '1';
+            }
+        };
+        if (typeof gsap !== 'undefined') {
+            gsap.to(msgEl, { opacity: 0, duration: 0.16, onComplete: render });
+        } else {
+            render();
+        }
+    };
+
+    showStep(steps[step++]);
+
+    let start = null;
     requestAnimationFrame(function tick(now) {
         if (start === null) start = now;
         const elapsed = now - start;
-        const pct = (elapsed / loadTime) * 100;
+        const pct = Math.min(1, elapsed / loadTime);
 
-        if (step < steps.length && pct >= steps[step].at) {
-            const text = steps[step++].text;
-            if (msgEl) {
-                if (typeof gsap !== 'undefined') {
-                    gsap.to(msgEl, {
-                        opacity: 0,
-                        duration: 0.2,
-                        onComplete: () => {
-                            msgEl.textContent = text;
-                            gsap.to(msgEl, { opacity: 1, duration: 0.2 });
-                        },
-                    });
-                } else {
-                    msgEl.textContent = text;
-                }
-            }
+        if (chargeEl) chargeEl.style.clipPath = `inset(0 ${(100 - pct * 100).toFixed(1)}% 0 0)`;
+
+        while (step < steps.length && pct >= steps[step].at) {
+            showStep(steps[step++]);
         }
 
         if (elapsed < loadTime) requestAnimationFrame(tick);

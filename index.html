@@ -63,13 +63,18 @@
 <body class="lang-en booting">
 
     <div id="global-loader" class="global-loader">
-        <div class="loader-ring">
-            <svg viewBox="25 25 50 50" aria-hidden="true">
-                <circle class="ring-path" cx="50" cy="50" r="20"></circle>
-            </svg>
+        <div class="loader-projector" aria-hidden="true">
+            <span class="proj-bracket pb-tl"></span>
+            <span class="proj-bracket pb-tr"></span>
+            <span class="proj-bracket pb-br"></span>
+            <span class="proj-bracket pb-bl"></span>
+            <span class="proj-reticle"></span>
+            <span class="proj-scan"></span>
         </div>
-        <p id="loader-message" class="loader-text">hewwo~ pwease wait while the site is loading~!</p>
-        <div class="loader-bar" aria-hidden="true"><i></i></div>
+        <div class="loader-readout" role="status" aria-live="polite">
+            <span class="loader-line is-warm" id="loader-message">projector core online</span>
+        </div>
+        <div class="loader-charge" aria-hidden="true"><i></i></div>
     </div>
 
     <div id="special-greet-overlay" class="special-overlay hidden">
