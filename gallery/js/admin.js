@@ -19,6 +19,8 @@ const UPLOAD_PRESET = 'jghd3evl';
 // Auto-compression: cap the longest edge (px) and re-encode quality before upload.
 const MAX_DIM = 2000;
 const QUALITY = 0.82;
+// Cloudinary's unsigned-upload limit is 10 MB; keep a hair under it.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export class AdminPanel {
     constructor(onArtworkAdded) {
@@ -149,18 +151,31 @@ export class AdminPanel {
     }
 
     async handleFile(file) {
-        if (!file.type.startsWith('image/')) {
+        const isImage = file.type.startsWith('image/') ||
+            /\.(jpe?g|png|webp|gif|avif|bmp|heic|heif)$/i.test(file.name);
+        if (!isImage) {
             showToast('Please select an image file.', 'error');
             return;
         }
 
-        const processed = await this.compressImage(file);
+        let processed;
+        try {
+            processed = await this.compressImage(file);
+        } catch (err) {
+            showToast(err.message, 'error');
+            this.selectedFile = null;
+            this.filePreview.classList.add('hidden');
+            this.filePreview.src = '';
+            this.fileDrop.querySelector('span').textContent = 'Drop image or click to select';
+            return;
+        }
+
         this.selectedFile = processed;
         this.filePreview.src = URL.createObjectURL(processed);
         this.filePreview.classList.remove('hidden');
         this.fileDrop.querySelector('span').textContent = processed === file
-            ? file.name
-            : `${file.name} · ${(processed.size / 1024).toFixed(0)} KB`;
+            ? `${file.name} · ${(processed.size / 1024).toFixed(0)} KB`
+            : `${file.name} → ${(processed.size / 1024).toFixed(0)} KB (was ${(file.size / 1024).toFixed(0)} KB)`;
 
         this.filePreview.onload = () => {
             this.selectedWidth = this.filePreview.naturalWidth;
@@ -169,38 +184,55 @@ export class AdminPanel {
     }
 
     // Downscale + re-encode large images in the browser before uploading, so
-    // phone-camera photos don't get stored (and served) at full sensor size.
+    // phone-camera photos aren't stored (and served) at full sensor size and
+    // never hit Cloudinary's 10 MB limit.
     async compressImage(file) {
-        if (file.type === 'image/gif' || file.size < 300 * 1024) return file;
+        if (file.type === 'image/gif') return file; // recompressing would kill animation
+        if (file.size < 300 * 1024 && file.size <= MAX_UPLOAD_BYTES) return file;
 
         let bitmap;
         try {
             bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
         } catch {
+            // Browser can't decode this format (e.g. HEIC on Windows Chrome).
+            if (file.size > MAX_UPLOAD_BYTES) {
+                throw new Error(`"${file.name}" is too large and this format can't be auto-compressed. Please export it as JPG or PNG first.`);
+            }
             return file;
         }
 
-        const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
-        if (scale === 1 && file.size < 1024 * 1024) {
+        const hasAlpha = file.type === 'image/png' || file.type === 'image/webp';
+        const mime = hasAlpha ? 'image/webp' : 'image/jpeg';
+
+        let blob = null;
+        try {
+            for (const quality of [QUALITY, 0.6, 0.45]) {
+                blob = await this.encodeToBlob(bitmap, mime, quality);
+                if (blob && blob.size <= MAX_UPLOAD_BYTES) break;
+            }
+        } finally {
             bitmap.close?.();
-            return file;
         }
 
+        if (!blob) return file;
+        if (blob.size > MAX_UPLOAD_BYTES) {
+            throw new Error(`"${file.name}" couldn't be compressed below the 10 MB upload limit.`);
+        }
+        if (blob.size >= file.size) return file; // original already smaller — keep it
+
+        const ext = mime === 'image/webp' ? '.webp' : '.jpg';
+        return new File([blob], file.name.replace(/\.[^.]+$/, '') + ext, { type: mime });
+    }
+
+    async encodeToBlob(bitmap, mime, quality) {
+        const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
         const w = Math.max(1, Math.round(bitmap.width * scale));
         const h = Math.max(1, Math.round(bitmap.height * scale));
         const canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
         canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-        bitmap.close?.();
-
-        const hasAlpha = file.type === 'image/png' || file.type === 'image/webp';
-        const mime = hasAlpha ? 'image/webp' : 'image/jpeg';
-        const blob = await new Promise(res => canvas.toBlob(res, mime, QUALITY));
-        if (!blob || blob.size >= file.size) return file;
-
-        const ext = mime === 'image/webp' ? '.webp' : '.jpg';
-        return new File([blob], file.name.replace(/\.[^.]+$/, '') + ext, { type: mime });
+        return new Promise(res => canvas.toBlob(res, mime, quality));
     }
 
     resetForm() {

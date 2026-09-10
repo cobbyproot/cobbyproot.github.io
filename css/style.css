@@ -228,7 +228,7 @@ h4 {
 }
 
 .bg-slide.loaded.active {
-    opacity: 0.17;
+    opacity: 0.32;
 }
 
 .bg-overlay {
@@ -238,9 +238,9 @@ h4 {
     pointer-events: none;
     background:
         linear-gradient(180deg,
-            rgba(6, 8, 15, 0.94) 0%,
-            rgba(6, 8, 15, 0.72) 22%,
-            rgba(6, 8, 15, 0.86) 58%,
+            rgba(6, 8, 15, 0) 0%,
+            rgba(6, 8, 15, 0) 22%,
+            rgba(6, 8, 15, 0.72) 55%,
             rgba(4, 5, 11, 0.98) 100%),
         radial-gradient(ellipse 120% 78% at 50% 8%, rgba(var(--holo-1-rgb), 0.07), transparent 62%),
         radial-gradient(ellipse 90% 70% at 82% 92%, rgba(var(--holo-2-rgb), 0.06), transparent 66%);
@@ -629,11 +629,14 @@ body:not(.booting) .giant-cobby-text {
     transform: translateX(-50%);
     width: 62%;
     height: 340px;
-    clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+    clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
     background: linear-gradient(180deg,
             transparent 0%,
             rgba(var(--holo-1-rgb), 0.035) 55%,
             rgba(var(--holo-1-rgb), 0.1) 100%);
+    /* Blur the clipped edges so it reads as a light beam that fades into the
+       pool, not a hard triangle outline bleeding past the ellipse. */
+    filter: blur(9px);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1243,9 +1246,8 @@ body:not(.booting) .giant-cobby-text {
 .dock-btn.active::after {
     opacity: 1;
     transform: scaleX(1);
-    /* Held still. A dock button is always active, so an endless shift here is a
-       main-thread repaint every frame for as long as the page is open. */
-    background-size: 100% 100%;
+    background-size: 280% 100%;
+    animation: holo-shift 2.8s linear infinite;
 }
 
 /* -----------------------------------------------------------------------------
@@ -2027,7 +2029,8 @@ body.lang-vi [lang="en"] {
     position: relative;
     color: #08131a;
     background: var(--holo);
-    background-size: 100% 100%;
+    background-size: 280% 100%;
+    animation: holo-shift 2.8s linear infinite;
     border-color: transparent;
     font-weight: 600;
 }
