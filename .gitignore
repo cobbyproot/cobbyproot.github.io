@@ -1,0 +1,9 @@
+# Local agent / tooling config — never commit
+.claude/
+.agents/
+.impeccable/
+skills-lock.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

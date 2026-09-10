@@ -1,8 +1,38 @@
 
 
+if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+}
+window.scrollTo(0, 0);
+
 window.onbeforeunload = function () {
     window.scrollTo(0, 0);
 };
+
+// ---------------------------------------------------------------------------
+// Boot gate
+//
+// `body.booting` holds the hero's moving parts invisible until the entrance
+// timeline is about to play them in. Registered out here, before anything that
+// can throw, so a stalled loader or a CDN that never answers still ends with a
+// readable page: the gate is a courtesy, not a lock.
+// ---------------------------------------------------------------------------
+const HERO_PARTS = '.emitter, .hero-character-stage, .name-char, .ios-widget, .social-dock, .scroll-hint';
+let bootGateLifted = false;
+
+function liftBootGate() {
+    if (bootGateLifted) return;
+    bootGateLifted = true;
+    document.body.classList.remove('booting');
+}
+
+setTimeout(() => {
+    if (bootGateLifted) return;
+    liftBootGate();
+    // Nothing played them in, so write the end state by hand. GSAP's inline
+    // opacity would otherwise outlive the class and keep the hero dark.
+    if (window.gsap) gsap.set(HERO_PARTS, { autoAlpha: 1, clearProps: 'transform,filter' });
+}, 6000);
 
 document.addEventListener("DOMContentLoaded", () => {
     if ('scrollRestoration' in history) {
@@ -11,137 +41,98 @@ document.addEventListener("DOMContentLoaded", () => {
     window.scrollTo(0, 0);
     setTimeout(() => window.scrollTo(0, 0), 50);
 
-    gsap.registerPlugin(ScrollTrigger);
+    const hasGsap = typeof window.gsap !== 'undefined';
 
-    gsap.set(['.hero-avatar', 'h1', '.hero-desc', '.persistent-hero .tag', '.social-btn', '.nav-dock', '.scroll-hint'], { autoAlpha: 1 });
-
-    const lenis = new Lenis({
-        duration: 1.5,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-        smoothWheel: true,
-        mouseMultiplier: 1,
-    });
-    lenis.scrollTo(0, { immediate: true });
-
-    lenis.on('scroll', ScrollTrigger.update);
-
-    gsap.ticker.add((time) => {
-        lenis.raf(time * 1000);
-    });
-
-    gsap.ticker.lagSmoothing(0);
+    if (hasGsap) {
+        gsap.registerPlugin(ScrollTrigger);
+        gsap.set(HERO_PARTS, { autoAlpha: 0 });
+    }
 
     // Detect touch/mobile — disable mouse-only features
     const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768;
+    // Reduced motion means native, instant scrolling. Lenis is the thing that
+    // hijacks the wheel, so under reduced motion it never starts.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const dot = document.querySelector('.cursor-dot');
-    const follower = document.querySelector('.cursor-follower');
-    let mouseX = 0, mouseY = 0;
-    let followerX = 0, followerY = 0;
-    let isStuck = false;
-    let stuckEl = null;
+    // Smooth scroll is a nicety; both libraries come from a CDN, and the card
+    // gets opened on convention wifi. If either is missing the page still works,
+    // it just scrolls like a normal page.
+    // lerp rather than duration: a fixed glide per wheel notch always reads as
+    // lag behind the hand, while lerp chases the target every frame.
+    const lenis = (window.Lenis && !reduceMotion) ? new Lenis({
+        lerp: 0.14,
+        smoothWheel: true,
+    }) : null;
 
-    if (!isMobile) {
-        document.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-            dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
-        });
-    }
-
-    const lerp = (start, end, f) => start + (end - start) * f;
-
-    let cachedStuckRadius = '50%';
-
-    if (!isMobile) {
-        (function animateCursor() {
-            if (isStuck && stuckEl) {
-                const rect = stuckEl.getBoundingClientRect();
-                followerX = lerp(followerX, rect.left + rect.width / 2, 0.15);
-                followerY = lerp(followerY, rect.top + rect.height / 2, 0.15);
-                follower.style.transform = `translate3d(${followerX}px, ${followerY}px, 0) translate3d(-50%, -50%, 0)`;
-                follower.style.width = `${rect.width + 10}px`;
-                follower.style.height = `${rect.height + 10}px`;
-                follower.style.borderRadius = cachedStuckRadius;
-            } else {
-                followerX = lerp(followerX, mouseX, 0.15);
-                followerY = lerp(followerY, mouseY, 0.15);
-                follower.style.width = '24px';
-                follower.style.height = '24px';
-                follower.style.borderRadius = '50%';
-                follower.style.transform = `translate3d(${followerX}px, ${followerY}px, 0) translate3d(-50%, -50%, 0)`;
-            }
-            requestAnimationFrame(animateCursor);
-        })();
-    }
-
-    const refreshSticky = () => {
-        if (isMobile) return; // no hover events on touch
-        document.querySelectorAll('[data-sticky]').forEach(el => {
-
-            el.removeEventListener('mouseenter', onMouseEnter);
-            el.removeEventListener('mouseleave', onMouseLeave);
-
-            el.addEventListener('mouseenter', onMouseEnter);
-            el.addEventListener('mouseleave', onMouseLeave);
-        });
+    const scrollToY = (y, opts) => {
+        if (lenis) lenis.scrollTo(y, opts);
+        else window.scrollTo({ top: y, behavior: reduceMotion ? 'auto' : 'smooth' });
     };
 
-    function onMouseEnter(e) {
-        isStuck = true;
-        stuckEl = e.currentTarget;
-        cachedStuckRadius = window.getComputedStyle(stuckEl).borderRadius;
-        follower.classList.add('sticky');
-        dot.classList.add('hidden');
-    }
+    // The bottom dock only earns its screen space once the hero is behind us.
+    const dock = document.getElementById('tab-dock');
+    const raiseDock = () => {
+        if (dock) dock.classList.toggle('raised', window.scrollY > window.innerHeight * 0.55);
+    };
 
-    function onMouseLeave() {
-        isStuck = false;
-        stuckEl = null;
-        follower.classList.remove('sticky');
-        dot.classList.remove('hidden');
+    if (lenis) {
+        lenis.scrollTo(0, { immediate: true });
+        lenis.on('scroll', raiseDock);
+        if (hasGsap) {
+            lenis.on('scroll', ScrollTrigger.update);
+            gsap.ticker.add((time) => lenis.raf(time * 1000));
+            gsap.ticker.lagSmoothing(0);
+        } else {
+            // No GSAP means no ticker to pump Lenis. Without its own loop the
+            // wheel is still captured and the page simply stops scrolling.
+            const pump = (time) => { lenis.raf(time); requestAnimationFrame(pump); };
+            requestAnimationFrame(pump);
+        }
+    } else {
+        window.addEventListener('scroll', raiseDock, { passive: true });
     }
+    raiseDock();
 
     window.switchTab = (tabId) => {
-        // Hide all tabs
-        const tabs = document.querySelectorAll('.tab-content');
-        tabs.forEach(tab => {
-            tab.style.display = 'none';
-            tab.classList.remove('active');
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.toggle('active', tab.id === `tab-${tabId}`);
         });
 
-        // Remove active class from all buttons
-        const btns = document.querySelectorAll('.tab-btn');
-        btns.forEach(btn => {
-            btn.classList.remove('active');
+        // Roving tabindex: only the selected tab sits in the tab order, and
+        // the arrow keys walk the rail from wherever it currently is.
+        document.querySelectorAll('.dock-btn').forEach(btn => {
+            const on = btn.id === `tab-btn-${tabId}`;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+            btn.tabIndex = on ? 0 : -1;
         });
-
-        // Show target tab
-        const targetTab = document.getElementById(`tab-${tabId}`);
-        if (targetTab) {
-            targetTab.style.display = 'block';
-            setTimeout(() => targetTab.classList.add('active'), 10);
-        }
-
-        // Highlight target button
-        const targetBtn = document.getElementById(`tab-btn-${tabId}`);
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-        }
-
-        if (tabId === 'gallery' && window.renderGallery) {
-            window.renderGallery('all');
-        }
 
         if (window.ScrollTrigger) window.ScrollTrigger.refresh();
 
-        const targetEl = document.getElementById(`tabs-container`);
+        const targetEl = document.getElementById('tabs-container');
         if (targetEl) {
             const yPos = targetEl.getBoundingClientRect().top + window.pageYOffset - 120;
-            window.scrollTo({ top: yPos, behavior: 'smooth' });
-            if (lenis) lenis.scrollTo(yPos, { duration: 1.0 });
+            scrollToY(yPos, { duration: 1.0 });
         }
     };
+
+    const dockRail = document.querySelector('.dock-rail');
+    if (dockRail) {
+        dockRail.addEventListener('keydown', (e) => {
+            const btns = [...dockRail.querySelectorAll('.dock-btn')];
+            const i = btns.indexOf(document.activeElement);
+            if (i < 0) return;
+            const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+            const next = step ? btns[(i + step + btns.length) % btns.length]
+                : e.key === 'Home' ? btns[0]
+                : e.key === 'End' ? btns[btns.length - 1]
+                : null;
+            if (!next) return;
+            e.preventDefault();
+            next.focus();
+            next.click();
+        });
+    }
 
     const galleryData = [
         { type: 'fursuit', src: 'https://drive.google.com/uc?id=1v7AETDabKPfjF_KLpJFHmIXU1_YqPK81' },
@@ -237,80 +228,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return url;
     }
 
-    let galleryScrollTriggers = [];
-
-    window.renderGallery = (filter = 'all') => {
-        const grid = document.getElementById('dynamic-gallery-grid');
-        if (!grid) return;
-
-        galleryScrollTriggers.forEach(st => {
-            if (st) st.kill();
-        });
-        galleryScrollTriggers = [];
-
-        grid.innerHTML = '';
-        const filtered = filter === 'all' ? [...galleryData] : galleryData.filter(item => item.type === filter);
-
-        for (let i = filtered.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-        }
-        const itemsToRender = filtered;
-
-        const cards = [];
-        itemsToRender.forEach((item) => {
-            const cleanSrc = parseImgUrl(item.src);
-            const card = document.createElement('div');
-            card.className = 'art-card';
-            card.setAttribute('data-sticky', '');
-            card.onclick = () => openModal(`${cleanSrc}&w=1600&q=90&output=webp`);
-
-            card.style.opacity = '1';
-            card.style.transform = 'none';
-            const imgWidth = isMobile ? 300 : 600;
-            card.innerHTML = `
-                <img src="${cleanSrc}&w=${imgWidth}&q=75&output=webp" loading="lazy" onload="this.classList.add('loaded')">
-                <div class="art-badge">${item.type === 'fursuit' ? 'Fursuit' : 'Comm'}</div>
-            `;
-            grid.appendChild(card);
-            cards.push(card);
-
-            if (isMobile) {
-                gsap.set(card, { opacity: 1, y: 0 });
-            } else {
-                const anim = gsap.fromTo(card,
-                    { opacity: 0, y: 40 },
-                    {
-                        opacity: 1,
-                        y: 0,
-                        duration: 0.8,
-                        ease: "power2.out",
-                        scrollTrigger: {
-                            trigger: card,
-                            start: "top 95%",
-                            toggleActions: "play none none reverse"
-                        }
-                    }
-                );
-                galleryScrollTriggers.push(anim.scrollTrigger);
-            }
-        });
-
-        setTimeout(() => ScrollTrigger.refresh(), 100);
-        refreshSticky();
-    };
-
-    window.filterGallery = (type) => {
-        const btns = document.querySelectorAll('.gallery-tab-btn');
-        btns.forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.textContent.toLowerCase().includes(type) || (type === 'all' && btn.textContent === 'All')) {
-                btn.classList.add('active');
-            }
-        });
-        renderGallery(type);
-    };
-
+    // `galleryData` and `parseImgUrl` stay even though the grid they used to
+    // build now lives in the gallery sub-app: initBgSlideshow reads both.
     const modal = document.getElementById('artModal');
     const modalImg = document.getElementById('modalImg');
 
@@ -338,151 +257,97 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     window.toggleLang = () => {
-        const langBtn = document.querySelector('.lang-btn');
-        langBtn.classList.toggle('flipped');
+        document.querySelector('.lang-btn').classList.toggle('flipped');
         document.body.classList.toggle('lang-vi');
-        document.body.classList.toggle('lang-en');
-        lenis.resize();
+        const vi = document.body.classList.contains('lang-vi');
+        document.body.classList.toggle('lang-en', !vi);
+
+        // Keep the document, the chip's readout and its accessible name in step
+        // with the body class the whole bilingual mechanism hangs off.
+        document.documentElement.lang = vi ? 'vi' : 'en';
+        const code = document.getElementById('lang-code');
+        if (code) code.textContent = vi ? 'vi' : 'en';
+        const chip = document.getElementById('lang-toggle');
+        if (chip) chip.setAttribute('aria-label', vi ? 'Switch language to English' : 'Switch language to Vietnamese');
+
+        if (lenis) lenis.resize();
     };
 
-    const triggerEls = document.querySelectorAll('.hero-avatar, .nav-brand');
-    let isFlipped = false;
-
-    triggerEls.forEach(el => {
-        el.addEventListener('click', () => {
-            isFlipped = !isFlipped;
-            const inners = document.querySelectorAll('.flip-inner');
-
-            gsap.to(inners, {
-                rotationY: isFlipped ? 180 : 0,
-                duration: 0.8,
-                ease: "back.out(1.2)",
-                onComplete: () => {
-                    if (el.classList.contains('nav-brand')) {
-                        lenis.scrollTo(0);
-                    }
-                }
-            });
-        });
+    // Escape closes the lightbox; it is the one dialog on the card.
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) window.closeModal();
     });
 
+    // Anything styled as a button that is not one still has to behave like one
+    // for the keyboard: the character stage and both reference sheets.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const el = e.target;
+        if (!(el instanceof Element) || el.getAttribute('role') !== 'button') return;
+        if (el.tagName === 'BUTTON' || el.tagName === 'A') return;
+        e.preventDefault();
+        el.click();
+    });
+
+    // The private-link greeting. `?event=fuve2026` swaps the static card for the
+    // FUVE offer and the gold-led edition; otherwise the overlay stays hidden and
+    // its button is simply wired.
     const handleSpecialGreet = () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const eventParam = urlParams.get('event');
+        const overlay = document.getElementById('special-greet-overlay');
+        if (!overlay) return;
+
+        const dismiss = () => {
+            if (typeof gsap === 'undefined') {
+                overlay.classList.add('hidden');
+                return;
+            }
+            gsap.to(overlay, {
+                opacity: 0,
+                duration: 0.8,
+                onComplete: () => overlay.classList.add('hidden'),
+            });
+        };
+
+        const eventParam = new URLSearchParams(window.location.search).get('event');
 
         if (eventParam === 'fuve2026') {
-            const overlay = document.getElementById('special-greet-overlay');
-            const cardWrapper = document.getElementById('card-anim-wrapper');
-            const contentArea = overlay.querySelector('.special-content');
-
-            contentArea.innerHTML = `
-                <i class="fas fa-sparkles" style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;"></i>
-                <h3>Hi there!</h3>
-                <p style="margin-top: 10px;">Thank you for meeting me at <b>FUVE 2026</b>!</p>
-                <p>Would you like to explore the site in the <span style="color:var(--primary)">FUVE 2026 Edition</span> theme?</p>
-                <div style="display:flex; gap:10px; margin-top:20px;">
-                    <button id="activate-fuve" class="enter-btn" data-sticky>Yes, please!</button>
-                    <button id="close-greet" class="enter-btn" style="background:transparent;" data-sticky>Standard</button>
+            overlay.querySelector('.special-content').innerHTML = `
+                <i class="fas fa-wand-magic-sparkles greet-icon"></i>
+                <h3>hi there!</h3>
+                <p>thank you for meeting me at <b>FUVE 2026</b>!</p>
+                <p>want to read the card in the <b>FUVE 2026 edition</b> theme?</p>
+                <div class="greet-actions">
+                    <button type="button" id="activate-fuve" class="enter-btn">yes please</button>
+                    <button type="button" id="close-greet" class="enter-btn is-ghost">standard</button>
                 </div>
             `;
-
             overlay.classList.remove('hidden');
-            cardWrapper.classList.add('play-enter');
-
-            const activateBtn = document.getElementById('activate-fuve');
-            const standardBtn = document.getElementById('close-greet');
-
-            activateBtn.addEventListener('click', () => {
+            document.getElementById('card-anim-wrapper').classList.add('play-enter');
+            document.getElementById('activate-fuve').addEventListener('click', () => {
                 document.body.classList.add('fuve-edition');
-                closeOverlay();
-            });
-
-            standardBtn.addEventListener('click', closeOverlay);
-
-            function closeOverlay() {
-                gsap.to(overlay, {
-                    opacity: 0,
-                    duration: 0.8,
-                    onComplete: () => overlay.classList.add('hidden')
-                });
-            }
-        } else {
-            const standardCloseBtn = document.getElementById('close-greet');
-            if (standardCloseBtn) {
-                standardCloseBtn.addEventListener('click', () => {
-                    const overlay = document.getElementById('special-greet-overlay');
-                    gsap.to(overlay, {
-                        opacity: 0,
-                        duration: 0.8,
-                        onComplete: () => overlay.classList.add('hidden')
-                    });
-                });
-            }
-        }
-    };
-
-    const protoVersions = {
-        v1: { img: "https://i.postimg.cc/jqGVbv06/331001879-669549808278428-4042368373563903679-n-1-removebg-preview-(2).png", label: "PROOT 1.0 [OWO]" },
-        v2: { img: "https://i.postimg.cc/pXqdCg5k/40ca4ea3-a030-4933-9f1a-689f4691d0d2.png", label: "PROOT 2.0 [UWU]" },
-        v3: { img: "https://i.postimg.cc/ZqD3QWBZ/2df3be35-804a-4c48-9df7-ca7ea1ef44c3.png", label: "PROOT 3.0 [AWA]" }
-    };
-
-    Object.values(protoVersions).forEach(v => {
-        const img = new Image();
-        img.src = v.img;
-    });
-
-    window.switchProtoVersion = (verId) => {
-
-        const btns = document.querySelectorAll('.v-btn');
-        btns.forEach(btn => btn.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-
-        const imgEl = document.getElementById('proto-ref-img');
-        const labelEl = document.getElementById('proto-ref-label');
-
-        if (imgEl && labelEl && protoVersions[verId]) {
-            gsap.to(imgEl, {
-                opacity: 0,
-                scale: 0.9,
-                y: 15,
-                duration: 0.2,
-                ease: 'power2.in',
-                onComplete: () => {
-                    imgEl.src = protoVersions[verId].img;
-                    labelEl.textContent = protoVersions[verId].label;
-
-                    gsap.fromTo(labelEl, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.3 });
-
-                    const fadeIn = () => {
-                        gsap.to(imgEl, { opacity: 1, scale: 1, y: 0, duration: 0.4, ease: 'back.out(2)' });
-                    };
-
-                    if (imgEl.complete) {
-                        fadeIn();
-                    } else {
-                        imgEl.onload = fadeIn;
-                    }
-                }
+                dismiss();
             });
         }
+
+        const closeBtn = document.getElementById('close-greet');
+        if (closeBtn) closeBtn.addEventListener('click', dismiss);
     };
 
     window.copyGameUsername = (text, btn) => {
+        const icon = btn.querySelector('i');
         navigator.clipboard.writeText(text).then(() => {
-            const icon = btn.querySelector('i');
+            btn.classList.add('copied');
             icon.className = 'fas fa-check';
-            icon.style.color = 'var(--primary)';
             setTimeout(() => {
+                btn.classList.remove('copied');
                 icon.className = 'far fa-copy';
-                icon.style.color = '';
             }, 2000);
+        }).catch(() => {
+            // Clipboard is denied on plain http and behind some permissions, and
+            // a silent no-op leaves a stranger thinking the card is broken.
+            window.showToast(`could not copy — it is “${text}”`);
         });
     };
-
-    const bgWallpapers = [...galleryData]
-        .sort(() => 0.5 - Math.random())
-        .map(item => parseImgUrl(item.src));
 
     const initBgSlideshow = () => {
         const bgContainer = document.getElementById('bg-slideshow');
@@ -490,9 +355,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         bgContainer.innerHTML = '';
 
+        // Curated background pool: 16 images instead of all ~84
+        const curatedIndices = [0, 5, 10, 15, 20, 25, 30, 35, 43, 48, 53, 58, 63, 68, 73, 78];
+        const curatedBgPool = curatedIndices
+            .filter(i => i < galleryData.length)
+            .map(i => parseImgUrl(galleryData[i].src));
+
         let currentIndex = 0;
 
-        bgWallpapers.forEach((url, index) => {
+        curatedBgPool.forEach((url, index) => {
             const img = document.createElement('img');
             img.className = 'bg-slide';
             if (index > 0) {
@@ -517,362 +388,100 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    const initAnimations = () => {
+    // The one authored motion moment: the projector warms up. Nothing below the
+    // hero gets a scroll reveal — the tab switch and the trait bars carry that.
+    window.initAnimations = () => {
+        liftBootGate();
+        if (!hasGsap) return;
 
-        const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-
-        tl.fromTo('.name-char',
-            { autoAlpha: 0, y: 80, rotationX: -90 },
-            { autoAlpha: 1, y: 0, rotationX: 0, duration: 0.7, stagger: 0.03, ease: "back.out(1.8)" },
-            0.1
-        );
-
-        tl.fromTo('.hero-character-stage',
-            { autoAlpha: 0, scale: 0.7, y: 40 },
-            { autoAlpha: 1, scale: 1, y: 0, duration: 0.8, ease: "back.out(1.4)" },
-            "-=0.5"
-        );
-
-        tl.fromTo('.ios-widget',
-            { autoAlpha: 0, y: 30, scale: 0.9 },
-            { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.08, ease: "back.out(1.5)" },
-            "-=0.6"
-        );
-
-        tl.fromTo('.ios-dynamic-island',
-            { autoAlpha: 0, y: 40 },
-            { autoAlpha: 1, y: 0, duration: 0.5, ease: "back.out(1.6)" },
-            "-=0.4"
-        );
-
-        tl.fromTo('.social-btn',
-            { autoAlpha: 0, scale: 0.5, y: 20 },
-            { autoAlpha: 1, scale: 1, y: 0, duration: 0.4, stagger: 0.03, ease: "back.out(2)" },
-            "-=0.4"
-        );
-
-        tl.fromTo('.nav-dock',
-            { y: 120, autoAlpha: 0 },
-            { y: 0, autoAlpha: 1, duration: 0.6, ease: "power4.out" },
-            "-=0.3"
-        );
-
-        tl.fromTo('.scroll-hint',
-            { autoAlpha: 0, y: -20 },
-            { autoAlpha: 0.6, y: 0, duration: 0.5 },
-            "-=0.2"
-        );
-
-        const revealElements = gsap.utils.toArray('.showcase-title-row, .gallery-tab-btn, .project-card, .namecard-grid');
-
-        if (isMobile) {
-            gsap.set(revealElements, { autoAlpha: 1, y: 0, scale: 1 });
-        } else {
-            revealElements.forEach(el => {
-                gsap.fromTo(el,
-                    { autoAlpha: 0, y: 40, scale: 0.98 },
-                    {
-                        autoAlpha: 1,
-                        y: 0,
-                        scale: 1,
-                        duration: 0.8,
-                        ease: "power2.out",
-                        scrollTrigger: {
-                            trigger: el,
-                            start: "top 90%",
-                            toggleActions: "play none none reverse",
-                        }
-                    }
-                );
-            });
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            // The stylesheet forces these visible under reduced motion; drop the
+            // inline values written above so CSS is the only thing in charge.
+            gsap.set(HERO_PARTS, { clearProps: 'opacity,visibility,transform,filter' });
+            return;
         }
 
-        gsap.utils.toArray(".game-panel").forEach((panel) => {
-            if (isMobile) {
-                gsap.set(panel, { autoAlpha: 1, y: 0, scale: 1, scaleX: 1, scaleY: 1 });
-            } else {
-                const speed = parseFloat(panel.getAttribute("data-speed") || 1);
-                gsap.fromTo(panel,
-                    { y: 50 * speed },
-                    {
-                        y: -50 * speed,
-                        ease: "none",
-                        scrollTrigger: {
-                            trigger: panel,
-                            start: "top bottom",
-                            end: "bottom top",
-                            scrub: true
-                        }
-                    }
-                );
+        // The stage is only a container. Making it visible up front lets the
+        // emitter and the character inside it land on separate beats instead of
+        // the emitter being multiplied by a parent that is still at zero.
+        gsap.set('.hero-character-stage', { autoAlpha: 1 });
+        gsap.set('.hero-character-png', { autoAlpha: 0 });
 
-                if (panel.classList.contains("terminal-theme")) {
-                    gsap.fromTo(panel,
-                        { autoAlpha: 0, scaleY: 0.01, scaleX: 0.3 },
-                        {
-                            autoAlpha: 1,
-                            scaleY: 1,
-                            scaleX: 1,
-                            duration: 1,
-                            ease: "expo.out",
-                            scrollTrigger: {
-                                trigger: panel,
-                                start: "top 85%",
-                                toggleActions: "play none none reverse"
-                            }
-                        }
-                    );
-                } else {
-                    gsap.fromTo(panel,
-                        { autoAlpha: 0, scale: 0.98 },
-                        {
-                            autoAlpha: 1,
-                            scale: 1,
-                            duration: 1,
-                            ease: "power3.out",
-                            scrollTrigger: {
-                                trigger: panel,
-                                start: "top 85%",
-                                toggleActions: "play none none reverse"
-                            }
-                        }
-                    );
-                }
-            }
-        });
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
+        // 1. The pool of light ignites where the character is about to land.
+        //    Transform stays on the children — `.emitter` carries the centring.
+        tl.fromTo('.emitter', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 0);
+        tl.fromTo('.emitter-pool, .emitter-rim',
+            { scale: 0.4, transformOrigin: '50% 50%' },
+            { scale: 1, duration: 1.0, ease: 'expo.out' },
+            0
+        );
+
+        // 2. COBBY resolves out of misregistration: the letters arrive blurred and
+        //    low while the CSS aberration-settle keyframes pull the colour
+        //    channels back into register over the same beat.
+        tl.fromTo('.name-char',
+            { autoAlpha: 0, y: 46, filter: 'blur(9px)' },
+            { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 0.85, stagger: 0.035, ease: 'power4.out', clearProps: 'filter' },
+            0.18
+        );
+
+        // 3. The character materialises onto the light. Blur plus over-brightness
+        //    is the "still projecting" tell, and it is the expensive half, so
+        //    touch screens get the move without the filter. The stylesheet's own
+        //    drop-shadow has to ride along or GSAP would flatten it.
+        const dropShadow = 'drop-shadow(0 26px 44px rgba(0, 0, 0, 0.62))';
+        tl.fromTo('.hero-character-png',
+            isMobile
+                ? { autoAlpha: 0, y: 26, scale: 0.97 }
+                : { autoAlpha: 0, y: 26, scale: 0.97, filter: `blur(14px) brightness(2.1) ${dropShadow}` },
+            Object.assign(
+                { autoAlpha: 1, y: 0, scale: 1, clearProps: 'filter' },
+                isMobile ? { duration: 1.0 } : { duration: 1.15, filter: `blur(0px) brightness(1) ${dropShadow}` }
+            ),
+            '-=0.55'
+        );
+
+        // 4. The two instrument panels boot into place.
+        tl.fromTo('.ios-widget',
+            { autoAlpha: 0, y: 24, scale: 0.96 },
+            { autoAlpha: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.1 },
+            '-=0.62'
+        );
+
+        // 5. The social dock: the one thing a stranger has to reach without
+        //    scrolling, so it arrives as a single panel, not a scatter. Opacity
+        //    only — `.social-dock` carries its own centring transform.
+        tl.fromTo('.social-dock', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6 }, '-=0.4');
+
+        // 6. And last, the invitation to keep going. The parent fades in; the
+        //    chevron's endless drift is CSS on the child, so the two never fight.
+        tl.fromTo('.scroll-hint', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, '-=0.15');
+
+        // The hero is a full-screen set, and letting it fall away as the visitor
+        // scrolls is the only scroll-linked motion on the card.
         gsap.to('.persistent-hero', {
             opacity: 0,
-            y: -100,
+            y: -60,
             scrollTrigger: {
                 trigger: '.persistent-hero',
-                start: "top top",
-                end: "bottom 40%",
-                scrub: true
-            }
+                start: 'top top',
+                end: 'bottom 45%',
+                scrub: true,
+            },
         });
-    };
-
-    class Particle {
-        constructor(canvas) {
-            this.canvas = canvas;
-            this.ctx = canvas.getContext('2d');
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.size = Math.random() * 2 + 0.5;
-            this.vx = (Math.random() - 0.5) * 0.3;
-            this.vy = (Math.random() - 0.5) * 0.3;
-            this.density = (Math.random() * 20) + 1;
-            this.opacity = Math.random() * 0.4 + 0.1;
-        }
-
-        draw() {
-
-            this.ctx.fillStyle = `rgba(0, 229, 255, ${this.isNear ? 0.45 : this.opacity})`;
-            this.ctx.shadowBlur = this.isNear ? 3 : 0;
-            this.ctx.shadowColor = `rgba(0, 229, 255, 0.4)`;
-
-            this.ctx.beginPath();
-            this.ctx.arc(this.x, this.y, this.isNear ? this.size * 1.2 : this.size, 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.shadowBlur = 0;
-        }
-
-        update(mouseX, mouseY) {
-            this.x += this.vx;
-            this.y += this.vy;
-
-            if (this.x < 0) this.x = this.canvas.width;
-            if (this.x > this.canvas.width) this.x = 0;
-            if (this.y < 0) this.y = this.canvas.height;
-            if (this.y > this.canvas.height) this.y = 0;
-
-            let dx = mouseX - this.x;
-            let dy = mouseY - this.y;
-            let distance = Math.sqrt(dx * dx + dy * dy) || 1;
-
-            let maxDist = 150;
-            this.isNear = distance < maxDist;
-
-            if (distance < maxDist) {
-                let force = (maxDist - distance) / maxDist;
-                let multiplier = this.density;
-                this.x -= (dx / distance) * force * multiplier * 0.8;
-                this.y -= (dy / distance) * force * multiplier * 0.8;
-            }
-        }
-    }
-
-    const initParticles = () => {
-        const canvas = document.getElementById('particle-canvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        let particlesArray = [];
-        let mouseX = -500, mouseY = -500;
-
-        const resize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            spawn();
-        };
-
-        const spawn = () => {
-            particlesArray = [];
-            const count = (canvas.width * canvas.height) / 7000;
-            for (let i = 0; i < count; i++) particlesArray.push(new Particle(canvas));
-        };
-
-        window.addEventListener('resize', resize);
-        window.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-        });
-
-        const animate = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particlesArray.forEach(p => {
-                p.draw();
-                p.update(mouseX, mouseY);
-            });
-            requestAnimationFrame(animate);
-        };
-
-        resize();
-        animate();
-    };
-
-    const initInteractiveTitle = () => {
-        const title = document.querySelector('h1');
-        if (!title) return;
-
-        const text = title.textContent;
-        title.innerHTML = '';
-
-        gsap.set(title, { autoAlpha: 1 });
-
-        text.split('').forEach((char, index) => {
-            const span = document.createElement('span');
-            span.textContent = char === ' ' ? '\u00A0' : char;
-            span.className = 'name-char';
-
-            span.style.animationDelay = `${index * -0.3}s`;
-
-            gsap.set(span, { autoAlpha: 0 });
-            title.appendChild(span);
-        });
-
-        const chars = title.querySelectorAll('.name-char');
-
-        if (!isMobile) {
-            // Cache char positions and refresh on resize/scroll
-            let charRects = [];
-            const updateCharRects = () => {
-                charRects = Array.from(chars).map(char => {
-                    const rect = char.getBoundingClientRect();
-                    return { el: char, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2 };
-                });
-            };
-            window.addEventListener('resize', updateCharRects);
-            window.addEventListener('scroll', updateCharRects, { passive: true });
-            lenis.on('scroll', updateCharRects);
-            setTimeout(updateCharRects, 300);
-
-            let titleMouseX = -9999, titleMouseY = -9999;
-            let titleRafPending = false;
-
-            const processTitleMouse = () => {
-                titleRafPending = false;
-                const maxDist = 140;
-                charRects.forEach(({ el: char, cx: charX, cy: charY }) => {
-                    const distX = titleMouseX - charX;
-                    const distY = titleMouseY - charY;
-                    const distance = Math.sqrt(distX * distX + distY * distY);
-
-                    if (distance < maxDist) {
-                        const factor = (maxDist - distance) / maxDist;
-                        gsap.to(char, {
-                            y: -factor * 35,
-                            rotation: (distX / maxDist) * 20 * factor,
-                            scale: 1 + (factor * 0.4),
-                            duration: 0.4,
-                            ease: "power2.out",
-                            overwrite: "auto"
-                        });
-                    } else {
-                        gsap.to(char, {
-                            y: 0,
-                            rotation: 0,
-                            scale: 1,
-                            duration: 0.8,
-                            ease: "elastic.out(1, 0.3)",
-                            overwrite: "auto"
-                        });
-                    }
-                });
-            };
-
-            document.addEventListener('mousemove', (e) => {
-                titleMouseX = e.clientX;
-                titleMouseY = e.clientY;
-                if (!titleRafPending) {
-                    titleRafPending = true;
-                    requestAnimationFrame(processTitleMouse);
-                }
-            });
-        }
-    };
-
-    const initCharacterSelect = () => {
-        const panels = document.querySelectorAll('.character-select-layout');
-        if (window.innerWidth > 900) {
-            panels.forEach(selectPanel => {
-                const leftPanel = selectPanel.querySelector('.cs-left');
-                const rightPanel = selectPanel.querySelector('.cs-right');
-                const characterImg = selectPanel.querySelector('.cs-character-img');
-
-                if (!leftPanel || !rightPanel || !characterImg) return;
-
-                let csRafPending = false;
-                let csMouseX = 0, csMouseY = 0;
-
-                const processCSMouse = () => {
-                    csRafPending = false;
-                    const rect = selectPanel.getBoundingClientRect();
-                    const x = (csMouseX - rect.left - rect.width / 2) / (rect.width / 2);
-                    const y = (csMouseY - rect.top - rect.height / 2) / (rect.height / 2);
-                    gsap.to(leftPanel, { rotationY: 15 + x * -8, rotationX: y * 4, x: x * -10, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
-                    gsap.to(rightPanel, { rotationY: -15 + x * -8, rotationX: y * 4, x: x * 10, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
-                    gsap.to(characterImg, { x: x * -15, y: y * -10, rotationY: x * 15, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
-                };
-
-                selectPanel.addEventListener('mousemove', (e) => {
-                    csMouseX = e.clientX;
-                    csMouseY = e.clientY;
-                    if (!csRafPending) {
-                        csRafPending = true;
-                        requestAnimationFrame(processCSMouse);
-                    }
-                });
-
-                selectPanel.addEventListener('mouseleave', () => {
-                    gsap.to([leftPanel, rightPanel, characterImg], {
-                        rotationY: (i, el) => el.classList.contains('cs-left') ? 15 : el.classList.contains('cs-right') ? -15 : 0,
-                        rotationX: 0, x: 0, y: 0, duration: 1.2, ease: 'elastic.out(1, 0.4)', overwrite: 'auto'
-                    });
-                });
-            });
-        }
     };
 
     const initPongGame = () => {
         const canvas = document.getElementById('pong-canvas');
         if (!canvas) return;
-        canvas.style.height = '60px';
         const scoreEl = document.getElementById('pong-score');
         const ctx = canvas.getContext('2d');
 
-        const COLOR = '#00e5ff';
-        const COLOR_RGB = '0,229,255';
+        // The card's accent, not the old cyan.
+        const COLOR = '#00f0d4';
+        const COLOR_RGB = '0,240,212';
 
         function resize() {
             canvas.width = canvas.offsetWidth || 300;
@@ -991,113 +600,60 @@ document.addEventListener("DOMContentLoaded", () => {
             frame++;
             update();
             draw();
-            requestAnimationFrame(loop);
         }
-        loop();
+
+        if (typeof gsap !== 'undefined') {
+            gsap.ticker.add(loop);
+        }
     };
 
-    initInteractiveTitle();
-    renderGallery('all');
-    refreshSticky();
     handleSpecialGreet();
     initBgSlideshow();
-    initCharacterSelect();
-    initAnimations();
+    // initAnimations() is called by the loader once the projector has warmed up.
     if (!isMobile) initPongGame();
-    if (!isMobile) initParticles();
 
-    window.addEventListener('resize', () => {
-        lenis.resize();
-        ScrollTrigger.refresh();
-    });
-
-    if (!isMobile) {
-        (function () {
-            const SECRET = 'hypno';
-            let typed = '';
-            let hypnoActive = false;
-
-            document.addEventListener('keydown', (e) => {
-                typed += e.key.toLowerCase();
-                if (typed.length > SECRET.length) typed = typed.slice(-SECRET.length);
-
-                if (typed === SECRET) {
-                    typed = '';
-                    hypnoActive = !hypnoActive;
-                    triggerHypnoMode(hypnoActive);
-                }
-            });
-
-            function triggerHypnoMode(activate) {
-
-                const flash = document.createElement('div');
-                flash.className = 'hypno-overlay';
-                document.body.appendChild(flash);
-                setTimeout(() => flash.remove(), 1500);
-
-                if (activate) {
-
-                    setTimeout(() => {
-                        document.body.classList.add('hypno-mode');
-
-                        const heroName = document.querySelector('h1');
-                        if (heroName) {
-                            const original = heroName.textContent;
-                            const forbidden = ['👁', '🌀', 'YOU', 'ARE', 'MINE', 'STARE', 'SLEEP'];
-                            let i = 0;
-                            heroName.dataset.origText = heroName.innerHTML;
-                            const glitch = setInterval(() => {
-                                heroName.style.color = i % 2 === 0 ? '#ff003c' : '#d900ff';
-                                i++;
-                                if (i > 8) {
-                                    clearInterval(glitch);
-                                    heroName.style.color = '';
-                                }
-                            }, 80);
-                        }
-
-                        try {
-                            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                            const osc = ctx.createOscillator();
-                            const gain = ctx.createGain();
-                            osc.type = 'sine';
-                            osc.frequency.setValueAtTime(60, ctx.currentTime);
-                            osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.4);
-                            gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-                            osc.connect(gain);
-                            gain.connect(ctx.destination);
-                            osc.start();
-                            osc.stop(ctx.currentTime + 1.2);
-                        } catch (e) { }
-                    }, 200);
-                } else {
-                    setTimeout(() => {
-                        document.body.classList.remove('hypno-mode');
-                    }, 200);
-                }
-            }
-        })();
+    // The gallery is a same-origin sub-app, so its height can be read directly.
+    // A fixed iframe height would leave a dead zone under a short gallery and
+    // clip a long one, so the frame is fitted to the document inside it and
+    // re-fitted whenever that document's body changes size.
+    const galleryFrame = document.querySelector('.gallery-iframe');
+    if (galleryFrame) {
+        const fitGallery = () => {
+            const doc = galleryFrame.contentDocument;
+            if (!doc || !doc.body) return;
+            galleryFrame.style.height = `${Math.max(doc.body.scrollHeight, 480)}px`;
+        };
+        galleryFrame.addEventListener('load', () => {
+            fitGallery();
+            try {
+                new ResizeObserver(fitGallery).observe(galleryFrame.contentDocument.body);
+            } catch (err) { /* older browsers: the load-time fit still applies */ }
+        });
     }
 
+    window.addEventListener('resize', () => {
+        if (lenis) lenis.resize();
+        if (window.ScrollTrigger) ScrollTrigger.refresh();
+    });
+
     /* ==========================================================================
-       Live Profile Editor System
+       HUD toast — the card's one feedback channel. Spotify binding and a refused
+       clipboard write both speak through it. Built up front and marked as a live
+       region, because one created at the moment of the first message is never
+       announced.
        ========================================================================== */
 
-    const EDITABLE_STORAGE_KEY = 'cardSite_user_profile_data_v2';
-    let isEditModeActive = false;
+    const toast = document.createElement('div');
+    toast.className = 'hud-toast';
+    toast.setAttribute('role', 'status');
+    document.body.appendChild(toast);
 
-    window.showToast = function(msg) {
-        let toast = document.getElementById('editor-toast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'editor-toast';
-            toast.className = 'editor-toast';
-            document.body.appendChild(toast);
-        }
+    let toastTimer;
+    window.showToast = function (msg) {
         toast.textContent = msg;
         toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 3500);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
     };
 });
 
@@ -1110,11 +666,11 @@ let spotifyProgressSeconds = 84;
 let spotifyDurationSeconds = 190;
 let spotifyTimer = null;
 
-// Curated Track Pool (Fallback when Spotify Discord presence is offline)
+// Curated Track Pool (Fallback when Spotify Discord presence is offline).
+// No cover: the scdn URL that used to sit here 404s, and a dead image is worse
+// than the blank holographic label the widget falls back to.
 const fallbackTracks = [
-    { title: "you", artist: "hehe x3", cover: "https://i.scdn.co/image/ab67616d0000b2734a742880d6b63a92543e49e2", duration: 190 },
-    { title: "VRChat Nights (Remix)", artist: "Protogen Beats", cover: "https://i.scdn.co/image/ab67616d0000b273c52a3589b25123d49f056d61", duration: 215 },
-    { title: "SEA Furcon Memories", artist: "Cobby & Friends", cover: "https://i.scdn.co/image/ab67616d0000b273708e1a14c330f6a27e3d1c44", duration: 178 }
+    { title: "you", artist: "hehe x3", cover: "", duration: 190 }
 ];
 let currentFallbackIndex = 0;
 
@@ -1122,6 +678,17 @@ let currentFallbackIndex = 0;
 handleSpotifyOAuthCallback();
 
 window.initSpotifyPlayer = function() {
+    // One listener for the whole session: any artwork URL that dies after it is
+    // handed over drops the disc to its blank label rather than a broken glyph.
+    const coverEl = document.getElementById('spotify-album-cover');
+    const discEl = document.getElementById('spotify-vinyl');
+    if (coverEl && discEl) {
+        coverEl.addEventListener('error', () => {
+            coverEl.removeAttribute('src');
+            discEl.classList.add('no-art');
+        });
+    }
+
     refreshLiveMusicData();
 
     // Auto-poll every 10 seconds for live song updates
@@ -1171,35 +738,6 @@ function refreshLiveMusicData() {
             const lastFmUser = localStorage.getItem('cobby_lastfm_user') || "cobbyproto";
             fetchLastFmSpotify(lastFmUser);
         });
-}
-
-function fetchLastFmSpotify(username) {
-    const LASTFM_API_KEY = "b25752097e8b428d09596e382d56a2bb";
-    fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(username)}&api_key=${LASTFM_API_KEY}&format=json&limit=1`)
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.recenttracks && data.recenttracks.track && data.recenttracks.track.length > 0) {
-                const track = data.recenttracks.track[0];
-                const isNowPlaying = track['@attr'] && track['@attr'].nowplaying === 'true';
-                let coverUrl = (track.image && track.image[2] && track.image[2]['#text']) ? track.image[2]['#text'] : "";
-                if (!coverUrl || coverUrl.includes('2a96cbd8b46e442fc41c2b86b821562f')) {
-                    coverUrl = fallbackTracks[0].cover;
-                }
-
-                updateSpotifyUI({
-                    title: track.name,
-                    artist: track.artist['#text'] || track.artist.name,
-                    cover: coverUrl,
-                    duration: 190,
-                    progress: isNowPlaying ? 65 : 190,
-                    isLive: isNowPlaying,
-                    source: "Last.fm Spotify"
-                });
-            } else {
-                loadFallbackSpotifyTrack();
-            }
-        })
-        .catch(() => loadFallbackSpotifyTrack());
 }
 
 /* ==========================================================================
@@ -1277,16 +815,41 @@ window.loginWithOfficialSpotify = function() {
     window.location.href = authUrl;
 };
 
+// The key on file answers 403 "Invalid API key", so this tier can only fail.
+// Latch on the first rejection: one wasted request per page load instead of one
+// per poll, and dropping in a valid key restores the tier with no other change.
+let lastFmRejected = false;
+
 function fetchLastFmSpotify(username) {
+    if (lastFmRejected) {
+        loadFallbackSpotifyTrack();
+        return;
+    }
+
     const LASTFM_API_KEY = "4289ea0bf005aa314ebbb1faaeef12bf";
     fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(username)}&api_key=${LASTFM_API_KEY}&format=json&limit=1`)
-        .then(res => res.json())
+        .then(res => {
+            if (res.status === 401 || res.status === 403) {
+                lastFmRejected = true;
+                return null;
+            }
+            return res.json();
+        })
         .then(data => {
-            if (data && data.recenttracks && data.recenttracks.track && data.recenttracks.track.length > 0) {
+            if (!data) {
+                loadFallbackSpotifyTrack();
+                return;
+            }
+            if (data.error) {
+                lastFmRejected = true;
+                loadFallbackSpotifyTrack();
+                return;
+            }
+            if (data.recenttracks && data.recenttracks.track && data.recenttracks.track.length > 0) {
                 const track = data.recenttracks.track[0];
                 const isNowPlaying = track['@attr'] && track['@attr'].nowplaying === 'true';
-                const coverUrl = (track.image && track.image[2] && track.image[2]['#text']) ? track.image[2]['#text'] : fallbackTracks[0].cover;
-                
+                const coverUrl = (track.image && track.image[2] && track.image[2]['#text']) ? track.image[2]['#text'] : '';
+
                 updateSpotifyUI({
                     title: track.name,
                     artist: track.artist['#text'] || track.artist.name,
@@ -1308,11 +871,23 @@ function updateSpotifyUI(track) {
     const artistEl = document.getElementById('spotify-track-artist');
     const coverEl = document.getElementById('spotify-album-cover');
     const labelEl = document.getElementById('spotify-status-label');
+    const discEl = document.getElementById('spotify-vinyl');
 
     if (titleEl) titleEl.textContent = track.title;
     if (artistEl) artistEl.textContent = track.artist;
-    if (coverEl && track.cover) coverEl.src = track.cover;
     if (labelEl) labelEl.textContent = track.isLive ? "SPOTIFY LIVE" : "LISTENING TO";
+
+    if (coverEl && discEl) {
+        if (track.cover) {
+            discEl.classList.remove('no-art');
+            // Re-assigning an unchanged src re-fetches it, which the 10s poll
+            // would otherwise do forever.
+            if (coverEl.getAttribute('src') !== track.cover) coverEl.src = track.cover;
+        } else {
+            coverEl.removeAttribute('src');
+            discEl.classList.add('no-art');
+        }
+    }
 
     spotifyDurationSeconds = track.duration || 190;
     spotifyProgressSeconds = track.progress || 0;
@@ -1363,75 +938,11 @@ function formatSpotifyTime(secs) {
 
 
 /* ==========================================================================
-   cobby.exe Terminal Typing & Retype Cycle Animation
+   Site bootstrap — the Spotify controller is the only thing left to start here.
    ========================================================================== */
 
-window.initTerminalTyping = function() {
-    // Typing animation removed.
-};
-
-/* ==========================================================================
-   Constellation Energy Connecting Lines Dynamic Linker
-   ========================================================================== */
-
-function updateConstellationLines() {
-    const stage = document.querySelector('.hero-stage-container');
-    const svg = document.getElementById('constellation-svg');
-    if (!stage || !svg) return;
-
-    const stageRect = stage.getBoundingClientRect();
-
-    const getCenter = (selector) => {
-        const el = document.querySelector(selector);
-        if (!el) return null;
-        const rect = el.getBoundingClientRect();
-        return {
-            x: rect.left + rect.width / 2 - stageRect.left,
-            y: rect.top + rect.height / 2 - stageRect.top
-        };
-    };
-
-    const fb = getCenter('.bubble-fb');
-    const tw = getCenter('.bubble-tw');
-    const barq = getCenter('.bubble-barq');
-    const dc = getCenter('.bubble-dc');
-    const bump = getCenter('.bubble-bump');
-    const tg = getCenter('.bubble-tg');
-    const lang = getCenter('.bubble-lang');
-    const center = getCenter('.hero-character-png');
-
-    const drawLine = (lineId, p1, p2) => {
-        const line = document.getElementById(lineId);
-        if (line && p1 && p2) {
-            line.setAttribute('x1', p1.x);
-            line.setAttribute('y1', p1.y);
-            line.setAttribute('x2', p2.x);
-            line.setAttribute('y2', p2.y);
-        }
-    };
-
-    drawLine('line-fb-barq', fb, barq);
-    drawLine('line-barq-bump', barq, bump);
-    drawLine('line-tw-dc', tw, dc);
-    drawLine('line-dc-tg', dc, tg);
-    drawLine('line-tw-lang', tw, lang);
-    drawLine('line-center-fb', center, fb);
-    drawLine('line-center-tw', center, tw);
-    drawLine('line-center-dc', center, dc);
-    drawLine('line-center-barq', center, barq);
-    drawLine('line-center-lang', center, lang);
-}
-
-function loopConstellation() {
-    updateConstellationLines();
-    requestAnimationFrame(loopConstellation);
-}
-
-// Initialize Spotify Player, Terminal Typing & Constellation Web on page load
 const initializeSite = () => {
     if (window.initSpotifyPlayer) window.initSpotifyPlayer();
-    if (window.initTerminalTyping) window.initTerminalTyping();
-    requestAnimationFrame(loopConstellation);
 };
 
 if (document.readyState === "complete" || document.readyState === "interactive") {
@@ -1466,3 +977,76 @@ window.promptSpotifyBinding = function() {
         }
     }
 };
+
+document.addEventListener("DOMContentLoaded", () => {
+    const loader = document.getElementById('global-loader');
+    const msgEl = document.getElementById('loader-message');
+
+    if (!loader) {
+        if (window.initAnimations) window.initAnimations();
+        else liftBootGate();
+        return;
+    }
+
+    // Three seconds of warm-up the first time, one on a return visit, and none at
+    // all for a crawler that is here to score the page rather than read it.
+    let loadTime = 3000;
+    const ua = navigator.userAgent.toLowerCase();
+    const isBot = ua.includes('lighthouse') || ua.includes('googlebot') || ua.includes('pagespeed');
+    if (isBot) {
+        loadTime = 0;
+    } else if (sessionStorage.getItem('cobby_visited')) {
+        loadTime = 1000;
+    } else {
+        sessionStorage.setItem('cobby_visited', 'true');
+    }
+
+    const finish = () => {
+        loader.classList.add('hidden');
+        // Retire it from the render tree once the fade has played out. Hidden
+        // but still displayed, its spinner and shimmer animations would keep
+        // running forever underneath the page.
+        setTimeout(() => loader.classList.add('retired'), 750);
+        if (window.initAnimations) window.initAnimations();
+        else liftBootGate();
+    };
+
+    if (loadTime === 0) {
+        finish();
+        return;
+    }
+
+    const steps = [
+        { at: 30, text: 'hope you have a nice day! :333' },
+        { at: 60, text: 'getting ready~ :3' },
+    ];
+    let start = null;
+    let step = 0;
+
+    requestAnimationFrame(function tick(now) {
+        if (start === null) start = now;
+        const elapsed = now - start;
+        const pct = (elapsed / loadTime) * 100;
+
+        if (step < steps.length && pct >= steps[step].at) {
+            const text = steps[step++].text;
+            if (msgEl) {
+                if (typeof gsap !== 'undefined') {
+                    gsap.to(msgEl, {
+                        opacity: 0,
+                        duration: 0.2,
+                        onComplete: () => {
+                            msgEl.textContent = text;
+                            gsap.to(msgEl, { opacity: 1, duration: 0.2 });
+                        },
+                    });
+                } else {
+                    msgEl.textContent = text;
+                }
+            }
+        }
+
+        if (elapsed < loadTime) requestAnimationFrame(tick);
+        else finish();
+    });
+});

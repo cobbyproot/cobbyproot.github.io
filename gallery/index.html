@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Gallery</title>
+    <meta name="description" content="Fursona art commission gallery">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Exo+2:wght@400;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <!-- Age Verification Overlay -->
+    <div id="age-gate" class="age-gate hidden">
+        <div class="age-gate-card">
+            <i class="fas fa-shield-halved age-icon"></i>
+            <h2>Age Verification Required</h2>
+            <p>You are attempting to enable adult content visibility. You must be 18 or older to proceed.</p>
+            <div class="age-gate-actions">
+                <button id="age-confirm" class="btn btn-danger">I am 18 or older</button>
+                <button id="age-deny" class="btn btn-ghost">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="site-header">
+        <div class="header-inner">
+            <div class="header-brand">
+                <h1 class="site-title"><i class="fas fa-palette"></i> Gallery</h1>
+                <span class="artwork-count" id="artwork-count"></span>
+            </div>
+            <div class="header-controls">
+                <!-- NSFW Control -->
+                <div class="control-group nsfw-control">
+                    <button class="control-btn nsfw-toggle" id="nsfw-toggle" title="NSFW Content Filter">
+                        <i class="fas fa-eye-slash"></i>
+                        <span class="control-label">NSFW: Hidden</span>
+                    </button>
+                    <div class="nsfw-dropdown" id="nsfw-dropdown">
+                        <button class="nsfw-option active" data-mode="hide">
+                            <i class="fas fa-eye-slash"></i> Hide Completely
+                        </button>
+                        <button class="nsfw-option" data-mode="blur">
+                            <i class="fas fa-eye-low-vision"></i> Blur / Click to Reveal
+                        </button>
+                        <button class="nsfw-option" data-mode="show">
+                            <i class="fas fa-eye"></i> Always Show
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Admin Upload (hidden by default, shown via "upload" keystroke) -->
+                <button class="control-btn admin-btn hidden" id="admin-open" title="Admin Upload">
+                    <i class="fas fa-cloud-arrow-up"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" id="filter-bar">
+        <div class="filter-row">
+            <div class="filter-fursona">
+                <select id="fursona-select" class="fursona-select">
+                    <option value="all">All</option>
+                </select>
+            </div>
+            <div class="filter-pills" id="type-pills">
+                <button class="pill active" data-type="all">All Types</button>
+                <button class="pill" data-type="art"><i class="fas fa-palette"></i> Art</button>
+                <button class="pill" data-type="fursuit"><i class="fas fa-paw"></i> Fursuit</button>
+            </div>
+            <div class="filter-meta">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Search artist, title, tags...">
+                </div>
+                <select id="sort-select" class="sort-select">
+                    <option value="date-desc">Newest First</option>
+                    <option value="date-asc">Oldest First</option>
+                    <option value="artist">By Artist</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Grid -->
+    <div class="gallery-container">
+        <div class="gallery-grid" id="gallery-grid"></div>
+        <div class="gallery-empty hidden" id="gallery-empty">
+            <i class="fas fa-images"></i>
+            <p>No artworks match your current filters.</p>
+        </div>
+        <div class="gallery-loading" id="gallery-loading">
+            <div class="spinner"></div>
+            <p>Loading gallery...</p>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div class="lightbox hidden" id="lightbox">
+        <div class="lightbox-backdrop" id="lightbox-close"></div>
+        <button class="lightbox-nav lightbox-prev" id="lb-prev"><i class="fas fa-chevron-left"></i></button>
+        <button class="lightbox-nav lightbox-next" id="lb-next"><i class="fas fa-chevron-right"></i></button>
+        <div class="lightbox-content">
+            <button class="lightbox-close" id="lightbox-x"><i class="fas fa-xmark"></i></button>
+            <div class="lightbox-image-wrap" id="lb-image-wrap">
+                <img id="lb-image" src="" alt="" draggable="false">
+            </div>
+            <div class="lightbox-details">
+                <h2 id="lb-title" class="lb-title"></h2>
+                <div class="lb-meta">
+                    <span class="lb-fursona" id="lb-fursona"></span>
+                    <span class="lb-date" id="lb-date"></span>
+                </div>
+                <div class="lb-artist-row">
+                    <i class="fas fa-paintbrush"></i>
+                    <span>by </span>
+                    <a id="lb-artist-link" href="#" target="_blank" rel="noopener"></a>
+                </div>
+                <div class="lb-dimensions" id="lb-dimensions"></div>
+                <a class="lb-full-quality-btn" id="lb-full-quality" href="#" target="_blank" rel="noopener">
+                    <i class="fas fa-arrow-up-right-from-square"></i> View Full Quality
+                </a>
+                <div class="lb-tags" id="lb-tags"></div>
+                <div class="lb-zoom-controls">
+                    <button id="lb-zoom-in" title="Zoom In"><i class="fas fa-magnifying-glass-plus"></i></button>
+                    <button id="lb-zoom-out" title="Zoom Out"><i class="fas fa-magnifying-glass-minus"></i></button>
+                    <button id="lb-zoom-reset" title="Reset"><i class="fas fa-expand"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div class="modal-overlay hidden" id="admin-modal">
+        <div class="modal admin-modal">
+            <button class="modal-close" id="admin-close"><i class="fas fa-xmark"></i></button>
+
+            <!-- PIN Screen -->
+            <div id="admin-pin-screen">
+                <h2><i class="fas fa-lock"></i> Admin Access</h2>
+                <p>Enter your PIN to manage artworks.</p>
+                <input type="password" id="admin-pin-input" class="pin-input" placeholder="Enter PIN" maxlength="8" inputmode="numeric">
+                <div class="pin-actions">
+                    <button class="btn btn-primary" id="admin-pin-submit">Unlock</button>
+                    <button class="btn btn-ghost" id="admin-pin-setup" style="display:none">Set Up PIN</button>
+                </div>
+                <p class="pin-error hidden" id="pin-error">Incorrect PIN. Try again.</p>
+            </div>
+
+            <!-- Upload Form -->
+            <div id="admin-form-screen" class="hidden">
+                <h2><i class="fas fa-plus"></i> Add Artwork</h2>
+                <form id="upload-form" class="upload-form">
+                    <div class="form-group">
+                        <label>Image *</label>
+                        <div class="file-drop" id="file-drop">
+                            <i class="fas fa-cloud-arrow-up"></i>
+                            <span>Drop image or click to select</span>
+                            <input type="file" id="file-input" accept="image/*" hidden>
+                        </div>
+                        <img id="file-preview" class="file-preview hidden" alt="Preview">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Fursona *</label>
+                            <input type="text" id="f-fursona" required placeholder="Character name">
+                        </div>
+                        <div class="form-group">
+                            <label>Type *</label>
+                            <select id="f-type" class="form-select">
+                                <option value="art">Art / Commission</option>
+                                <option value="fursuit">Fursuit Photo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Title *</label>
+                            <input type="text" id="f-title" required placeholder="Artwork title">
+                        </div>
+                        <div class="form-group">
+                            <label>Artist Name *</label>
+                            <input type="text" id="f-artist" required placeholder="Artist name">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Artist URL</label>
+                        <input type="url" id="f-artist-url" placeholder="https://twitter.com/...">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="month" id="f-date">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tags</label>
+                        <input type="text" id="f-tags" placeholder="fullbody, ref sheet, kemono (comma-separated)">
+                    </div>
+
+                    <div class="form-group form-check">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="f-nsfw">
+                            <span class="checkmark"></span>
+                            NSFW (18+ content)
+                        </label>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="upload-submit">
+                            <i class="fas fa-upload"></i> Upload Artwork
+                        </button>
+                    </div>
+                    <div class="upload-progress hidden" id="upload-progress">
+                        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+                        <span id="progress-text">Uploading...</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
