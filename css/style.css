@@ -634,9 +634,10 @@ body:not(.booting) .giant-cobby-text {
             transparent 0%,
             rgba(var(--holo-1-rgb), 0.035) 55%,
             rgba(var(--holo-1-rgb), 0.1) 100%);
-    /* Blur the clipped edges so it reads as a light beam that fades into the
-       pool, not a hard triangle outline bleeding past the ellipse. */
-    filter: blur(9px);
+    /* Elliptical mask fades the trapezoid to transparent well before its
+       bottom corners and side edges, so nothing hard bleeds past the pool. */
+    -webkit-mask-image: radial-gradient(ellipse 62% 74% at 50% 26%, #000 0%, transparent 72%);
+    mask-image: radial-gradient(ellipse 62% 74% at 50% 26%, #000 0%, transparent 72%);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1507,10 +1508,16 @@ body.lang-vi [lang="en"] {
     transform: translateX(-50%);
     width: min(100%, 190px);
     height: 2px;
-    /* The whole cyan-magenta-gold sweep, held still. Shimmer is a hover reward,
-       not something repainting underneath the scroll on every frame. */
+    /* Continuous holographic sweep. The --holo gradient starts and ends on the
+       same cyan, so shifting the oversized background by its own width loops seamlessly. */
     background: var(--holo);
-    background-size: 100% 100%;
+    background-size: 200% 100%;
+    animation: holo-sweep 3.2s linear infinite;
+}
+
+@keyframes holo-sweep {
+    from { background-position: 0% 0; }
+    to   { background-position: -200% 0; }
 }
 
 .char-kind {
