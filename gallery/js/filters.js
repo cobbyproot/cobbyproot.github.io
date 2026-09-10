@@ -93,10 +93,10 @@ export class FilterEngine {
         // Sort
         switch (this.sortBy) {
             case 'date-desc':
-                items.sort((a, b) => (b.created_at || b.date || '').localeCompare(a.created_at || a.date || ''));
+                items.sort((a, b) => (b.date || b.created_at || '').localeCompare(a.date || a.created_at || ''));
                 break;
             case 'date-asc':
-                items.sort((a, b) => (a.created_at || a.date || '').localeCompare(b.created_at || b.date || ''));
+                items.sort((a, b) => (a.date || a.created_at || '').localeCompare(b.date || b.created_at || ''));
                 break;
             case 'artist':
                 items.sort((a, b) => (a.artist_name || '').localeCompare(b.artist_name || ''));

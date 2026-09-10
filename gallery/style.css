@@ -681,7 +681,7 @@ button {
 
 .type-badge {
     position: absolute;
-    top: 38px;
+    top: 10px;
     left: 10px;
     z-index: 3;
     display: inline-flex;
