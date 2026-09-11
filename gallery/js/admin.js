@@ -1,10 +1,10 @@
 /**
- * Admin upload module — PIN authentication and artwork form.
+ * Admin upload module — email/password authentication and artwork form.
  * Handles Cloudinary unsigned upload, Supabase insert, multi-file batch upload,
  * and variant management for existing artworks.
  */
 
-import { verifyPin, storePinHash, hasPinSet } from './storage.js';
+import { checkAuthSession, signInWithEmail, signOutAuth } from './supabase.js';
 import { insertArtwork, updateArtwork } from './supabase.js';
 
 /**
@@ -58,15 +58,18 @@ export class AdminPanel {
             if (e.target === this.modal) this.close();
         });
 
-        document.getElementById('admin-pin-submit').addEventListener('click', () => this.submitPin());
-        document.getElementById('admin-pin-setup').addEventListener('click', () => this.setupPin());
-        this.pinInput.addEventListener('keydown', (e) => {
+        document.getElementById('admin-pin-submit').addEventListener('click', () => this.handleLogin());
+        document.getElementById('admin-signout').addEventListener('click', () => this.handleSignout());
+
+        const emailInput = document.getElementById('admin-email-input');
+        const pinEnterHandler = (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                if (hasPinSet()) this.submitPin();
-                else this.setupPin();
+                this.handleLogin();
             }
-        });
+        };
+        emailInput.addEventListener('keydown', pinEnterHandler);
+        this.pinInput.addEventListener('keydown', pinEnterHandler);
 
         this.fileDrop.addEventListener('click', () => this.fileInput.click());
         this.fileDrop.addEventListener('dragover', (e) => {
@@ -108,18 +111,25 @@ export class AdminPanel {
         document.getElementById('variant-save').addEventListener('click', () => this.saveVariants());
     }
 
-    open() {
+    async open() {
         this.modal.classList.remove('hidden');
-        this.pinInput.value = '';
         this.pinError.classList.add('hidden');
 
         if (this.isAuthed) {
             this.showForm();
         } else {
-            this.showPinScreen();
+            const session = await checkAuthSession();
+            if (session) {
+                this.showForm();
+            } else {
+                this.showPinScreen();
+            }
         }
 
-        setTimeout(() => this.pinInput.focus(), 100);
+        setTimeout(() => {
+            const emailInput = document.getElementById('admin-email-input');
+            (this.isAuthed ? this.form.querySelector('input') : emailInput)?.focus();
+        }, 100);
     }
 
     close() {
@@ -129,18 +139,8 @@ export class AdminPanel {
     showPinScreen() {
         this.pinScreen.classList.remove('hidden');
         this.formScreen.classList.add('hidden');
-
-        const setupBtn = document.getElementById('admin-pin-setup');
-        const submitBtn = document.getElementById('admin-pin-submit');
-
-        if (hasPinSet()) {
-            setupBtn.style.display = 'none';
-            submitBtn.style.display = '';
-            submitBtn.textContent = 'Unlock';
-        } else {
-            setupBtn.style.display = '';
-            submitBtn.style.display = 'none';
-        }
+        this.pinInput.value = '';
+        document.getElementById('admin-email-input').value = '';
     }
 
     showForm() {
@@ -151,33 +151,36 @@ export class AdminPanel {
         this.resetForm();
     }
 
-    async submitPin() {
-        const pin = this.pinInput.value;
-        if (!pin) return;
+    async handleLogin() {
+        const email = document.getElementById('admin-email-input').value.trim();
+        const password = this.pinInput.value;
+        if (!email || !password) return;
 
-        const valid = await verifyPin(pin);
-        if (valid) {
+        const submitBtn = document.getElementById('admin-pin-submit');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in...';
+
+        try {
+            await signInWithEmail(email, password);
             this.pinError.classList.add('hidden');
             this.showForm();
-        } else {
+        } catch (err) {
+            this.pinError.textContent = err.message || 'Invalid credentials. Try again.';
             this.pinError.classList.remove('hidden');
             this.pinInput.value = '';
             this.pinInput.focus();
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign In';
         }
     }
 
-    async setupPin() {
-        const pin = this.pinInput.value;
-        if (!pin || pin.length < 4) {
-            this.pinError.textContent = 'PIN must be at least 4 characters.';
-            this.pinError.classList.remove('hidden');
-            return;
-        }
-
-        await storePinHash(pin);
-        this.pinError.classList.add('hidden');
-        this.showForm();
-        showToast('PIN set successfully!', 'success');
+    async handleSignout() {
+        await signOutAuth();
+        this.isAuthed = false;
+        if (this.onAuthChange) this.onAuthChange(false);
+        this.showPinScreen();
+        showToast('Signed out.', 'success');
     }
 
     // --- Multi-file handling ---

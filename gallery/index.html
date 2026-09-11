@@ -147,21 +147,24 @@
         <div class="modal admin-modal">
             <button class="modal-close" id="admin-close"><i class="fas fa-xmark"></i></button>
 
-            <!-- PIN Screen -->
+            <!-- Login Screen -->
             <div id="admin-pin-screen">
                 <h2><i class="fas fa-lock"></i> Admin Access</h2>
-                <p>Enter your PIN to manage artworks.</p>
-                <input type="password" id="admin-pin-input" class="pin-input" placeholder="Enter PIN" maxlength="8" inputmode="numeric">
+                <p>Sign in to manage artworks.</p>
+                <input type="email" id="admin-email-input" class="pin-input" placeholder="Email" autocomplete="email">
+                <input type="password" id="admin-pin-input" class="pin-input" placeholder="Password" autocomplete="current-password">
                 <div class="pin-actions">
-                    <button class="btn btn-primary" id="admin-pin-submit">Unlock</button>
-                    <button class="btn btn-ghost" id="admin-pin-setup" style="display:none">Set Up PIN</button>
+                    <button class="btn btn-primary" id="admin-pin-submit">Sign In</button>
                 </div>
-                <p class="pin-error hidden" id="pin-error">Incorrect PIN. Try again.</p>
+                <p class="pin-error hidden" id="pin-error">Invalid credentials. Try again.</p>
             </div>
 
             <!-- Upload Form -->
             <div id="admin-form-screen" class="hidden">
-                <h2><i class="fas fa-plus"></i> Add Artwork</h2>
+                <div class="admin-form-header">
+                    <h2><i class="fas fa-plus"></i> Add Artwork</h2>
+                    <button class="btn btn-ghost btn-sm" id="admin-signout"><i class="fas fa-right-from-bracket"></i> Sign out</button>
+                </div>
                 <form id="upload-form" class="upload-form">
                     <div class="form-group">
                         <label>Image *</label>

@@ -35,11 +35,12 @@
  *     unique(artwork_id, session_id)
  *   );
  *
- *   -- RLS: public read, anyone can like (session-scoped)
+ *   -- RLS: public read, authenticated users can write
+ *   -- SETUP: Create an admin user in Supabase Dashboard → Authentication → Users
  *   alter table artworks enable row level security;
  *   create policy "public read" on artworks for select using (true);
- *   create policy "admin insert" on artworks for insert using (true);
- *   create policy "admin update" on artworks for update using (true);
+ *   create policy "admin insert" on artworks for insert with check (auth.role() = 'authenticated');
+ *   create policy "admin update" on artworks for update using (auth.role() = 'authenticated');
  *
  *   alter table likes enable row level security;
  *   create policy "public read" on likes for select using (true);
@@ -150,6 +151,27 @@ export async function toggleLike(artworkId) {
         await client.rpc('increment_likes', { row_id: artworkId });
         return { liked: true };
     }
+}
+
+export async function checkAuthSession() {
+    const client = getSupabase();
+    if (!client) return null;
+    const { data: { session } } = await client.auth.getSession();
+    return session;
+}
+
+export async function signInWithEmail(email, password) {
+    const client = getSupabase();
+    if (!client) throw new Error('Supabase not configured');
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export async function signOutAuth() {
+    const client = getSupabase();
+    if (!client) return;
+    await client.auth.signOut();
 }
 
 function getSessionId() {
