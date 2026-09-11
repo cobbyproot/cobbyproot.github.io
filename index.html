@@ -11,12 +11,12 @@
     <!-- Open Graph Embed Meta Tags -->
     <meta property="og:title" content="Cobby's Intro Card~ :333">
     <meta property="og:description" content="Hawwwo~ Welcome to my introduction card, get to know me more through this Thank for ya time ✨">
-    <meta property="og:image" content="https://iili.io/BrOsHWF.png">
+    <meta property="og:image" content="https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789060845/gallery/jzbjonwksafpwnzmfews.webp">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Cobby's Intro Card~ :333">
     <meta name="twitter:description" content="Hawwwo~ Welcome to my introduction card, get to know me more through this Thank for ya time ✨">
-    <meta name="twitter:image" content="https://iili.io/BrOsHWF.png">
+    <meta name="twitter:image" content="https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789060845/gallery/jzbjonwksafpwnzmfews.webp">
     <meta name="theme-color" content="#00f0d4">
 
     <!-- Favicon -->
@@ -35,10 +35,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js" defer></script>
 
-    <link rel="dns-prefetch" href="https://i.postimg.cc">
-    <link rel="dns-prefetch" href="https://iili.io">
+    <link rel="dns-prefetch" href="https://res.cloudinary.com">
+    <link rel="dns-prefetch" href="https://jnstohrqcfwfbybnjfhh.supabase.co">
 
-    <link rel="preload" as="image" href="https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png" fetchpriority="high">
+    <link rel="preload" as="image" href="https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png" fetchpriority="high">
 
     <!-- The boot gate is a JS contract. Without JS, nothing may stay hidden. -->
     <noscript>
@@ -110,13 +110,13 @@
                 </div>
 
                 <div class="hero-character-stage" role="button" tabindex="0" aria-label="Cobby — open full size"
-                    onclick="openModal('https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png')">
+                    data-image-key="heroFull">
                     <div class="emitter" aria-hidden="true">
                         <div class="emitter-cone"></div>
                         <div class="emitter-pool"></div>
                         <div class="emitter-rim"></div>
                     </div>
-                    <img src="https://i.postimg.cc/nzgptKQ5/Kho-ng-Co-Tie-u-De-844-20260606005456.png"
+                    <img data-image-key="hero"
                         alt="Cobby, a cyan and purple wolf protogen" class="hero-character-png">
                 </div>
 
@@ -276,8 +276,8 @@
                         <div class="refsheet-container hud">
                             <p class="refsheet-head"><i class="fas fa-image" aria-hidden="true"></i> REFERENCE SHEET</p>
                             <div class="refsheet-wrapper" role="button" tabindex="0" aria-label="Cobby reference sheet — open full size"
-                                onclick="openModal('https://i.postimg.cc/BnHShPTS/Cobby-ref-(1).png')">
-                                <img src="https://i.postimg.cc/BnHShPTS/Cobby-ref-(1).png" alt="Cobby protogen reference sheet" class="refsheet-image" loading="lazy" decoding="async">
+                                data-image-key="cobbyRef">
+                                <img data-image-key="cobbyRef" alt="Cobby protogen reference sheet" class="refsheet-image" loading="lazy" decoding="async">
                                 <span class="refsheet-overlay" aria-hidden="true">
                                     <span class="refsheet-zoom-icon">
                                         <i class="fas fa-search-plus"></i>
@@ -293,10 +293,16 @@
                         </div>
 
                         <div class="refsheet-container hud">
-                            <p class="refsheet-head"><i class="fas fa-image" aria-hidden="true"></i> REFERENCE SHEET</p>
+                            <div class="refsheet-header-row">
+                                <p class="refsheet-head"><i class="fas fa-image" aria-hidden="true"></i> REFERENCE SHEET</p>
+                                <div class="refsheet-toggle" role="group" aria-label="Choose reference sheet variant">
+                                    <button type="button" class="refsheet-toggle-btn is-active" data-ref-variant="1" aria-pressed="true">View A</button>
+                                    <button type="button" class="refsheet-toggle-btn" data-ref-variant="2" aria-pressed="false">View B</button>
+                                </div>
+                            </div>
                             <div class="refsheet-wrapper" role="button" tabindex="0" aria-label="Cobbie reference sheet — open full size"
-                                onclick="openModal('https://i.postimg.cc/SxCSZY6J/Cobbie-Refsheet-Template-(1).png')">
-                                <img src="https://i.postimg.cc/SxCSZY6J/Cobbie-Refsheet-Template-(1).png" alt="Cobbie wolf canine reference sheet" class="refsheet-image" loading="lazy" decoding="async">
+                                id="cobbie-ref-wrapper" data-image-key="cobbieRef1">
+                                <img id="cobbie-ref-img" data-image-key="cobbieRef1" alt="Cobbie wolf canine reference sheet" class="refsheet-image" loading="lazy" decoding="async">
                                 <span class="refsheet-overlay" aria-hidden="true">
                                     <span class="refsheet-zoom-icon">
                                         <i class="fas fa-search-plus"></i>
@@ -454,7 +460,7 @@
                                         <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Bangkok, Thailand
                                         <img src="https://flagcdn.com/w20/th.png" alt="" class="flag">
                                     </p>
-                                    <img src="https://i.postimg.cc/dkd4Bw7k/photo-2026-06-21-12-47-49.jpg" class="event-photo" alt="Cobby at SiamPaws 2026" loading="lazy" decoding="async">
+                                    <img data-image-key="event0" class="event-photo" alt="Cobby at SiamPaws 2026" loading="lazy" decoding="async">
                                 </div>
                             </div>
 
@@ -472,7 +478,7 @@
                                         <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Hanoi, Vietnam
                                         <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
                                     </p>
-                                    <img src="https://i.postimg.cc/jwNZXtWL/MAY3730.jpg" class="event-photo" alt="Cobby at FurGIV 2025" loading="lazy" decoding="async">
+                                    <img data-image-key="event1" class="event-photo" alt="Cobby at FurGIV 2025" loading="lazy" decoding="async">
                                 </div>
                             </div>
 
@@ -488,7 +494,7 @@
                                         <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ho Chi Minh City, Vietnam
                                         <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
                                     </p>
-                                    <img src="https://i.postimg.cc/V60pL867/FB-IMG-1754213814117.jpg" class="event-photo" alt="Cobby at FUVE 2025" loading="lazy" decoding="async">
+                                    <img data-image-key="event2" class="event-photo" alt="Cobby at FUVE 2025" loading="lazy" decoding="async">
                                 </div>
                             </div>
 
@@ -504,7 +510,7 @@
                                         <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Nothaburi, Thailand
                                         <img src="https://flagcdn.com/w20/th.png" alt="" class="flag">
                                     </p>
-                                    <img src="https://i.postimg.cc/YGgb3M44/FB-IMG-1743880859480.jpg" class="event-photo" alt="Cobby at Thaitails 2025" loading="lazy" decoding="async">
+                                    <img data-image-key="event3" class="event-photo" alt="Cobby at Thaitails 2025" loading="lazy" decoding="async">
                                 </div>
                             </div>
 
@@ -522,7 +528,7 @@
                                         <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ho Chi Minh City, Vietnam
                                         <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
                                     </p>
-                                    <img src="https://i.postimg.cc/0MmcfP6w/132.jpg" class="event-photo" alt="Cobby at FUVE 2024" loading="lazy" decoding="async">
+                                    <img data-image-key="event4" class="event-photo" alt="Cobby at FUVE 2024" loading="lazy" decoding="async">
                                 </div>
                             </div>
 
@@ -584,6 +590,7 @@
         <span class="lang-code" id="lang-code">en</span>
     </button>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./js/main.js"></script>
 </body>
 

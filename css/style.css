@@ -1703,6 +1703,49 @@ body.lang-vi [lang="en"] {
     color: var(--holo-1);
 }
 
+.refsheet-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.refsheet-header-row .refsheet-head {
+    margin-bottom: 0;
+}
+
+.refsheet-toggle {
+    display: flex;
+    gap: 4px;
+}
+
+.refsheet-toggle-btn {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.refsheet-toggle-btn:hover {
+    border-color: var(--holo-1);
+    color: var(--text);
+}
+
+.refsheet-toggle-btn.is-active {
+    background: var(--holo-1);
+    border-color: var(--holo-1);
+    color: var(--void-deep);
+    font-weight: 600;
+}
+
 .refsheet-wrapper {
     position: relative;
     cursor: zoom-in;

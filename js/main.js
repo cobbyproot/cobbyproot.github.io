@@ -134,102 +134,35 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    const galleryData = [
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1v7AETDabKPfjF_KLpJFHmIXU1_YqPK81' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1K3bogCoTgggH7FIybgf_Vh2fV_MxhiAn' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1RJoTIXyC3uDJ__ursY7NEH6cpYRQNKTY' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1BpAXf22asfyd03ESrefU97TlmvEnSVMk' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1UOrPirvWBux9_d0hp7BxJ8Kp2NRzobld' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1DC5J5LEIN4MHzvuT_XQBgTNfPRNWExbK' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1JE6d59pYol3IvClsCX8goIIovgPLRlKU' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1SYhGZ6QI1DCTy_u793E4G8bJX8a1_TZ2' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1tZRr67Rhq8FvDGD4RE21OJxD9t32NCmJ' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1clsiyZjazZr6nY3uw93YbQ2JR3Xb_euF' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1ARYYfM80nqNS-TYG4jCZJQZe9YAJmDAu' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=14Dn7JvFJHdFecEAJrsiu63cDJ8E2Twki' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1OfTU_nT2Uxqq2vXj-EK2favYZv8b23bi' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1clsiyZjazZr6nY3uw93YbQ2JR3Xb_euF' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1RATXB54xlSme2Q7b8BQdDPIi3K_UTsX7' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1sPvcwH1XeYf_zDnFo352JD61-8ttDdbv' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1PTmX6xJ-_n8JfvKY_6G7Uj5XJhrZvXPQ' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1wSytLT4-hIK_ymIgEaZh7W4jE9H0HdGR' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1sJcWo5Y8A5f9GA25dRd4Cr-5hqtX4XbM' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=12why5bN6WP2gl2vDVovi0x8wxBMZ-aCd' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1oHcCSl_WmooziJLVBn957IOktqOdAdvw' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1_r_SYarpL6xZT6_0iNzBt6yCYpobgjtM' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1chhKBq7E4EioG2beKxqQ70w14RaxYR0a' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1UoJ-iH4uaqiuopenbAzSvIZtEUBlOnMr' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1kGD5-_IJZSHmlb5mm57HCjCP9PaYCCWR' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1WtdoWdJ5gL00kvacGk-z5FVm-XP52gpP' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1v9QR77eYNrxlgdzzzLQFBnF050ug1SWe' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1Wie1-4BWUGLF-3dF4K2D-zxLNxvkDopC' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1i5DwbPj_m5KjhOTVsJ10o3Agn-tbkXcl' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1lDot9cIa-1Iq8P5hUnEbG8Svp1EW8JlH' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1F2wvPLEEKCp-qXMLdkKzhT3e4cK65tdZ' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1MV1b0SDN6ib5ItjoYnJnDEipsggRLWCX' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1nQP-4ijdJJ-1BtAUi8_aTMwUPKinvBer' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1XxXAfxcNNvr-vuu1-8dHcC-LCDXW-Aa7' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1Ikm8m_4hJEhKZ9-m8P4ulEW4XNS3vqms' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1pco78bzxzVvVmAKtIStVYKO9gRCr2dMP' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1BhTXuFL17SLwFRNsVtPfsrxa63_mAGu5' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1usjrcVMbzBoHIs89SHOoqjjNstic9hXq' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1cBOwOWiDB2aqqPYe2pbAuBIalQDDG9dx' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1LBEmxsFqZsxTMpAKXCf6eA4OTB7MFCn4' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1sNSC1dF6Jj-CH_jJAuQ-J7f8dmRuUrDy' },
-        { type: 'fursuit', src: 'https://drive.google.com/uc?id=1JSZo7ZTukpd6L2EL721tt5EAyk7sQDwC' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1VnJOo1BIoNZJGCvItZuZpp019Ml8U6fE' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1paknwMDpF_ShMQGRAajdDFD9u-XM591u' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1TLOIVOSaraGaMxb0Ibquu3j2Ts0HJUxg' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1eI98WLUj57lnme416gnFGYZFqRmkfE2U' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1efHHXpZjPpjvvYgDmqt3dkKAnKGG6gdG' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1eM_d1a_wgPvk4YCwBUnPhbTzG0Fo9gbF' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1fxIOGAzh6dHqkV7aINpAk4HZ2VTqTtix' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1q1RrokzNNjTBqV4rwq9S3oOiKy4phj8b' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1HzG2XDV1iMSLghDlHsQDq5uuoYamLrnZ' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1HVXA1kRPxiPKkrl0mmGjPBZ_BFmj2q8A' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=14pIxp7L_p6RaxTF_LopIZjtiII6au76f' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1WipnBCUBuyNz-Oc8yDrH_6Qx282rqESW' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1mGgAHq1-95aPIODuARI9zdgL_YHC31Fz' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1deW7q7XFBH-vpo73fXXJq3DSv5-kaD4u' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1WhkwP-F9bvwXLPLW63OC5K0vQmUs2aat' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1f5jTY1Fb9bDwyxh0hQA2AI3pkHJCLQo_' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1jBFa-zQNGi1UlYc4xozUG24I3hwQinuS' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1fFxnlVHz6cpEH1uhFuVC7Djsy_LZdWvV' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=16cQXseB1wGhHWMaD2W1tUKBToUDypszj' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1RZvu8CQ2BX9mRk9AyZaT3UYU8LsJS1_a' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1oNWQwIOI8CRc9PZfui5y7Dvopxjr5Ky-' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=16M2wdjdeZ-vB05WBhESi6qaxwEQZBwZJ' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1J9Z92sFnRIDm0EGOj7p_XAu44tTx3GyM' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1yGzPHkkWstnkTb4lraq6IShGiJR29m5J' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1ftA8AY6pUqK2QLBn8QrwBQhcYctn558n' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1DcDB-__otlvtVdhcUduPyqEdLx-TpCwM' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1j55ZmZn4DH2yjlmydp0OCFw-_lcY34_t' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1-eM6ge_10zAkQ7dKVg7OVESgAxlDpy8Y' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1wM7B4v5s8iHojg_jXX_g_43mb_PuzAui' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1qutXPnne2MbWF9wBp72JSSd4Wl62dc4u' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=19eIYZN1ZUT2BSp8WPEN0rCYzI8BMDQDV' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1jeI11wlcdFcUyXy9t-whvsfPXqMXyxOK' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1ebWx8G9Pv6AId10vYJfSZB36oXX7oM4e' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1DFMhsRWJDimDZq7x0ldp81SrKIZADOl5' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1gHLKgT_A-9Px40-WhRMJU1RPx9aR7yIE' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1ZRBHfRo7l-vtS0peZLAcn00KaqeAav6z' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=129XK4ehaetNwU8LiQCgd4wsg0cXjyKOk' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=15F6L7_1UBJwOr-6YEPozHFco66tU7mZC' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1jsteMvXIcJZrIfaresowyBIhAzxoC7kV' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1BrZD0N5BRcmR4vggArHCpY4IAC0bXRiP' },
-        { type: 'commission', src: 'https://drive.google.com/uc?id=1TorPuyrXW51RbJDKSExdOb9t2S28KUuA' }
-    ];
+    // -----------------------------------------------------------------------
+    // Cloudinary image config
+    //
+    // Replace these placeholder URLs with real Cloudinary URLs once uploaded.
+    // The background slideshow pulls from Supabase (tag: "background"), so it
+    // doesn't need entries here.
+    // -----------------------------------------------------------------------
+    const CLOUDINARY_BASE = 'https://res.cloudinary.com/ffppnh9h/image/upload';
 
-    function parseImgUrl(url) {
-        if (url.includes('google.com')) {
-            const idMatch = url.match(/id=([^&]+)/) || url.match(/\/d\/([^/]+)/);
-            if (idMatch) return `https://wsrv.nl/?url=${encodeURIComponent(`https://drive.google.com/uc?id=${idMatch[1]}`)}`;
-        }
-        return url;
-    }
+    const IMAGES = {
+        hero:        'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png',
+        heroFull:    'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png',
+        cobbyRef:    'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146635/Cobby_ref_1.png',
+        cobbieRef1:  'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146651/Cobbie_Refsheet_Template_1_-_Copy.png',
+        cobbieRef2:  'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146366/1787420928827.jpg',
+        ogImage:     'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789060845/gallery/jzbjonwksafpwnzmfews.webp',
+        favicon:     'https://iili.io/BrOrpGj.png',
+        events: [
+            `${CLOUDINARY_BASE}/f_auto,q_auto/site/event-siampaws-2026.jpg`,
+            `${CLOUDINARY_BASE}/f_auto,q_auto/site/event-furgiv-2025.jpg`,
+            `${CLOUDINARY_BASE}/f_auto,q_auto/site/event-fuve-2025.jpg`,
+            `${CLOUDINARY_BASE}/f_auto,q_auto/site/event-thaitails-2025.jpg`,
+            `${CLOUDINARY_BASE}/f_auto,q_auto/site/event-fuve-2024.jpg`,
+        ]
+    };
 
-    // `galleryData` and `parseImgUrl` stay even though the grid they used to
-    // build now lives in the gallery sub-app: initBgSlideshow reads both.
+    const SUPABASE_URL = 'https://jnstohrqcfwfbybnjfhh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impuc3RvaHJxY2Z3ZmJ5Ym5qZmhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMDQ3MzcsImV4cCI6MjEwNDU4MDczN30.GYtu89cvS4KcDh9xA3dkwP6RVg8s-ElHgYjmAA5O8eY';
+
     const modal = document.getElementById('artModal');
     const modalImg = document.getElementById('modalImg');
 
@@ -349,26 +282,38 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const initBgSlideshow = () => {
+    const initBgSlideshow = async () => {
         const bgContainer = document.getElementById('bg-slideshow');
         if (!bgContainer) return;
 
         bgContainer.innerHTML = '';
 
-        // Curated background pool: 16 images instead of all ~84
-        const curatedIndices = [0, 5, 10, 15, 20, 25, 30, 35, 43, 48, 53, 58, 63, 68, 73, 78];
-        const curatedBgPool = curatedIndices
-            .filter(i => i < galleryData.length)
-            .map(i => parseImgUrl(galleryData[i].src));
+        let bgUrls = [];
+        try {
+            if (window.supabase) {
+                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const { data, error } = await client
+                    .from('artworks')
+                    .select('image_url, thumbnail_url')
+                    .contains('tags', ['background'])
+                    .order('created_at', { ascending: false });
+
+                if (!error && data && data.length > 0) {
+                    bgUrls = data.map(row => row.thumbnail_url || row.image_url);
+                }
+            }
+        } catch (err) {
+            console.warn('[BgSlideshow] Supabase query failed:', err.message);
+        }
+
+        if (bgUrls.length === 0) return;
 
         let currentIndex = 0;
 
-        curatedBgPool.forEach((url, index) => {
+        bgUrls.forEach((url, index) => {
             const img = document.createElement('img');
             img.className = 'bg-slide';
-            if (index > 0) {
-                img.loading = 'lazy';
-            }
+            if (index > 0) img.loading = 'lazy';
             if (index === 0) img.classList.add('active', 'loaded');
 
             img.onload = () => img.classList.add('loaded');
@@ -607,6 +552,65 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    // -----------------------------------------------------------------------
+    // Apply image config to all data-image-key elements in the page
+    // -----------------------------------------------------------------------
+    const applyImageConfig = () => {
+        const resolveKey = (key) => {
+            if (key.startsWith('event')) {
+                const idx = parseInt(key.replace('event', ''), 10);
+                return IMAGES.events[idx] || '';
+            }
+            return IMAGES[key] || '';
+        };
+
+        document.querySelectorAll('[data-image-key]').forEach(el => {
+            const key = el.getAttribute('data-image-key');
+            const url = resolveKey(key);
+            if (!url) return;
+
+            if (el.tagName === 'IMG') {
+                el.src = url;
+            }
+
+            // For elements that open in the modal on click (hero stage, ref sheet wrappers)
+            if (el.getAttribute('role') === 'button' || el.classList.contains('hero-character-stage')) {
+                const imgKey = el.tagName === 'IMG' ? key : el.getAttribute('data-image-key');
+                const modalUrl = (imgKey === 'hero') ? IMAGES.heroFull : url;
+                el.setAttribute('onclick', `openModal('${modalUrl}')`);
+            }
+        });
+    };
+
+    // -----------------------------------------------------------------------
+    // Cobbie ref sheet toggle (View A / View B)
+    // -----------------------------------------------------------------------
+    const initCobbieToggle = () => {
+        const buttons = document.querySelectorAll('.refsheet-toggle-btn');
+        const wrapper = document.getElementById('cobbie-ref-wrapper');
+        const img = document.getElementById('cobbie-ref-img');
+        if (!buttons.length || !wrapper || !img) return;
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const variant = btn.getAttribute('data-ref-variant');
+                const url = variant === '2' ? IMAGES.cobbieRef2 : IMAGES.cobbieRef1;
+
+                buttons.forEach(b => {
+                    const isActive = b === btn;
+                    b.classList.toggle('is-active', isActive);
+                    b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+
+                img.src = url;
+                wrapper.setAttribute('data-image-key', variant === '2' ? 'cobbieRef2' : 'cobbieRef1');
+                wrapper.setAttribute('onclick', `openModal('${url}')`);
+            });
+        });
+    };
+
+    applyImageConfig();
+    initCobbieToggle();
     handleSpecialGreet();
     initBgSlideshow();
     // initAnimations() is called by the loader once the projector has warmed up.
