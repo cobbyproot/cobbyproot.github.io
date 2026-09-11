@@ -22,6 +22,7 @@
  *     thumbnail_url text,
  *     image_width integer,
  *     image_height integer,
+ *     extra_images jsonb default '[]',
  *     likes_count integer default 0,
  *     created_at timestamptz default now()
  *   );
@@ -38,6 +39,7 @@
  *   alter table artworks enable row level security;
  *   create policy "public read" on artworks for select using (true);
  *   create policy "admin insert" on artworks for insert using (true);
+ *   create policy "admin update" on artworks for update using (true);
  *
  *   alter table likes enable row level security;
  *   create policy "public read" on likes for select using (true);
@@ -73,7 +75,7 @@ export async function fetchArtworks() {
 
     if (error) {
         console.error('[Gallery] Failed to fetch artworks:', error.message);
-        return [];
+        return getDemoData();
     }
 
     return data || [];
@@ -86,6 +88,21 @@ export async function insertArtwork(artwork) {
     const { data, error } = await client
         .from('artworks')
         .insert([artwork])
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export async function updateArtwork(id, patch) {
+    const client = getSupabase();
+    if (!client) throw new Error('Supabase not configured');
+
+    const { data, error } = await client
+        .from('artworks')
+        .update(patch)
+        .eq('id', id)
         .select()
         .single();
 
@@ -161,6 +178,10 @@ function getDemoData() {
             thumbnail_url: 'https://picsum.photos/seed/art1/400/530',
             image_width: 1200,
             image_height: 1600,
+            extra_images: [
+                { url: 'https://picsum.photos/seed/art1b/1200/1600', thumbnail_url: 'https://picsum.photos/seed/art1b/400/530', width: 1200, height: 1600 },
+                { url: 'https://picsum.photos/seed/art1c/1400/1000', thumbnail_url: 'https://picsum.photos/seed/art1c/400/285', width: 1400, height: 1000 }
+            ],
             likes_count: 24,
             created_at: '2026-08-15'
         },
@@ -287,6 +308,9 @@ function getDemoData() {
             thumbnail_url: 'https://picsum.photos/seed/art6/400/500',
             image_width: 1200,
             image_height: 1500,
+            extra_images: [
+                { url: 'https://picsum.photos/seed/art6b/1200/1500', thumbnail_url: 'https://picsum.photos/seed/art6b/400/500', width: 1200, height: 1500 }
+            ],
             likes_count: 45,
             created_at: '2026-09-01'
         },

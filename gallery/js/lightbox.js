@@ -1,5 +1,6 @@
 /**
- * Fullscreen lightbox with zoom, pan, dimensions display, and full-quality download.
+ * Fullscreen lightbox with zoom, pan, dimensions display, full-quality download,
+ * and variant thumbnail strip for multi-image artworks.
  */
 
 export class Lightbox {
@@ -14,14 +15,20 @@ export class Lightbox {
         this.tagsEl = document.getElementById('lb-tags');
         this.dimensionsEl = document.getElementById('lb-dimensions');
         this.fullQualityBtn = document.getElementById('lb-full-quality');
+        this.variantStrip = document.getElementById('lb-variant-strip');
+        this.manageVariantsBtn = document.getElementById('lb-manage-variants');
 
         this.items = [];
         this.currentIndex = -1;
+        this.variantImages = [];
+        this.currentVariant = 0;
         this.zoom = 1;
         this.panX = 0;
         this.panY = 0;
         this.isDragging = false;
         this.dragStart = { x: 0, y: 0 };
+        this.isAdmin = false;
+        this.onManageVariants = null;
 
         this.bindEvents();
     }
@@ -36,6 +43,13 @@ export class Lightbox {
         document.getElementById('lb-zoom-reset').addEventListener('click', () => this.resetZoom());
 
         this.fullQualityBtn.addEventListener('click', () => this.openFullQuality());
+
+        this.manageVariantsBtn.addEventListener('click', () => {
+            if (this.onManageVariants) {
+                const art = this.items[this.currentIndex];
+                if (art) this.onManageVariants(art);
+            }
+        });
 
         document.addEventListener('keydown', (e) => {
             if (this.el.classList.contains('hidden')) return;
@@ -79,6 +93,12 @@ export class Lightbox {
         });
     }
 
+    setAdminMode(isAdmin, onManageVariants) {
+        this.isAdmin = isAdmin;
+        this.onManageVariants = onManageVariants;
+        this.manageVariantsBtn.classList.toggle('hidden', !isAdmin);
+    }
+
     open(index, items) {
         this.items = items;
         this.currentIndex = index;
@@ -98,8 +118,21 @@ export class Lightbox {
         if (!art) return;
 
         this.resetZoom();
-        this.image.src = art.image_url;
-        this.image.alt = art.title;
+
+        this.variantImages = [
+            {
+                url: art.image_url,
+                thumbnail_url: art.thumbnail_url,
+                width: art.image_width,
+                height: art.image_height
+            },
+            ...(art.extra_images || [])
+        ];
+        this.currentVariant = 0;
+
+        this.renderVariantStrip();
+        this.applyVariant();
+
         this.titleEl.textContent = art.title;
         this.fursonaEl.textContent = art.fursona;
         this.dateEl.textContent = this.formatDate(art.date);
@@ -113,19 +146,6 @@ export class Lightbox {
             this.artistLink.style.pointerEvents = 'none';
         }
 
-        // Dimensions
-        if (art.image_width && art.image_height) {
-            this.dimensionsEl.textContent = `${art.image_width} × ${art.image_height}`;
-            this.dimensionsEl.style.display = '';
-        } else {
-            this.dimensionsEl.style.display = 'none';
-        }
-
-        // Full quality button
-        this.fullQualityBtn.href = art.image_url;
-        this.fullQualityBtn.target = '_blank';
-        this.fullQualityBtn.rel = 'noopener';
-
         this.tagsEl.innerHTML = '';
         if (art.tags && art.tags.length) {
             art.tags.forEach(tag => {
@@ -138,12 +158,78 @@ export class Lightbox {
 
         document.getElementById('lb-prev').style.display = index > 0 ? '' : 'none';
         document.getElementById('lb-next').style.display = index < this.items.length - 1 ? '' : 'none';
+
+        this.manageVariantsBtn.classList.toggle('hidden', !this.isAdmin);
+    }
+
+    renderVariantStrip() {
+        this.variantStrip.innerHTML = '';
+
+        if (this.variantImages.length <= 1) {
+            this.variantStrip.classList.add('hidden');
+            return;
+        }
+
+        this.variantStrip.classList.remove('hidden');
+
+        this.variantImages.forEach((v, i) => {
+            const thumb = document.createElement('button');
+            thumb.className = `lb-variant-thumb${i === this.currentVariant ? ' active' : ''}`;
+            thumb.dataset.variantIndex = i;
+
+            const img = document.createElement('img');
+            img.src = v.thumbnail_url || v.url;
+            img.alt = `Variant ${i + 1}`;
+            img.loading = 'lazy';
+
+            if (i === 0) {
+                const label = document.createElement('span');
+                label.className = 'lb-variant-label';
+                label.textContent = 'Cover';
+                thumb.appendChild(label);
+            }
+
+            thumb.appendChild(img);
+
+            thumb.addEventListener('click', () => this.switchVariant(i));
+            this.variantStrip.appendChild(thumb);
+        });
+    }
+
+    switchVariant(index) {
+        if (index < 0 || index >= this.variantImages.length) return;
+        this.currentVariant = index;
+        this.resetZoom();
+        this.applyVariant();
+    }
+
+    applyVariant() {
+        const v = this.variantImages[this.currentVariant];
+        if (!v) return;
+
+        this.image.src = v.url;
+        this.image.alt = this.items[this.currentIndex]?.title || '';
+
+        if (v.width && v.height) {
+            this.dimensionsEl.textContent = `${v.width} × ${v.height}`;
+            this.dimensionsEl.style.display = '';
+        } else {
+            this.dimensionsEl.style.display = 'none';
+        }
+
+        this.fullQualityBtn.href = v.url;
+        this.fullQualityBtn.target = '_blank';
+        this.fullQualityBtn.rel = 'noopener';
+
+        this.variantStrip.querySelectorAll('.lb-variant-thumb').forEach((thumb, i) => {
+            thumb.classList.toggle('active', i === this.currentVariant);
+        });
     }
 
     openFullQuality() {
-        const art = this.items[this.currentIndex];
-        if (art && art.image_url) {
-            window.open(art.image_url, '_blank', 'noopener');
+        const v = this.variantImages[this.currentVariant];
+        if (v && v.url) {
+            window.open(v.url, '_blank', 'noopener');
         }
     }
 

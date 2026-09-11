@@ -37,11 +37,21 @@ const gallery = new Gallery(
     (artId) => handleLike(artId)
 );
 
-const admin = new AdminPanel((newArtwork) => {
-    allArtworks.unshift(newArtwork);
-    filterEngine.setArtworks(allArtworks);
-    buildFursonaPills();
-});
+const admin = new AdminPanel(
+    (newArtwork) => {
+        allArtworks.unshift(newArtwork);
+        filterEngine.setArtworks(allArtworks);
+        buildFursonaPills();
+    },
+    (updatedArtwork) => {
+        const idx = allArtworks.findIndex(a => a.id === updatedArtwork.id);
+        if (idx !== -1) allArtworks[idx] = updatedArtwork;
+        filterEngine.setArtworks(allArtworks);
+    },
+    (isAuthed) => {
+        lightbox.setAdminMode(isAuthed, (art) => admin.openVariantManager(art));
+    }
+);
 
 // --- Filter engine listener ---
 filterEngine.onChange((items) => {

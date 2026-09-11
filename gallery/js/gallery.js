@@ -75,6 +75,7 @@ export class Gallery {
         const isBlurred = art.is_nsfw && this.nsfwMode === 'blur';
         const isLiked = !!this.likedIds[art.id];
         const likeCount = art.likes_count || 0;
+        const variantCount = 1 + (art.extra_images?.length || 0);
 
         card.innerHTML = `
             <div class="art-card-image-wrap">
@@ -82,6 +83,7 @@ export class Gallery {
                 <div class="card-gradient"></div>
                 ${art.is_nsfw ? '<span class="nsfw-badge">NSFW</span>' : ''}
                 <span class="type-badge type-${art.type || 'art'}">${art.type === 'fursuit' ? '<i class="fas fa-paw"></i> Suit' : '<i class="fas fa-palette"></i> Art'}</span>
+                ${variantCount > 1 ? `<span class="variant-badge" aria-label="${variantCount} variants"><i class="fas fa-images"></i> &times;${variantCount}</span>` : ''}
                 <div class="nsfw-reveal-hint"><i class="fas fa-eye"></i> Click to reveal</div>
 
                 <div class="card-overlay-top">
