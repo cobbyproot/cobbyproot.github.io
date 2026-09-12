@@ -2,7 +2,7 @@
  * Main entry point — wires up all gallery modules.
  */
 
-import { fetchArtworks, fetchLikes, toggleLike, fetchTags, upsertTag, deleteTag, renameTagAcrossArtworks } from './supabase.js';
+import { fetchArtworks, fetchLikes, toggleLike, fetchTags, upsertTag, deleteTag, renameTagAcrossArtworks, updateArtwork } from './supabase.js';
 import { getNsfwMode, setNsfwMode, isAgeVerified, setAgeVerified } from './storage.js';
 import { FilterEngine } from './filters.js';
 import { Gallery } from './gallery.js';
