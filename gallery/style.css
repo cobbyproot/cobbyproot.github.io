@@ -1541,6 +1541,118 @@ button {
     color: var(--danger);
 }
 
+/* Artwork tags modal */
+.artwork-tags-modal {
+    max-width: 440px;
+}
+
+.artwork-tags-modal h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+}
+
+.artwork-tags-modal h2 i {
+    margin-right: 8px;
+    color: var(--holo-3);
+    font-size: 0.88em;
+}
+
+.artwork-tags-subtitle {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--faint);
+    margin-bottom: var(--gap-2);
+}
+
+.artwork-tags-current {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 32px;
+    padding: 10px;
+    background: var(--surface-sunk);
+    border: 1px solid var(--edge-soft);
+    clip-path: polygon(var(--c-sm) 0, 100% 0, 100% calc(100% - var(--c-sm)), calc(100% - var(--c-sm)) 100%, 0 100%, 0 var(--c-sm));
+    margin-bottom: var(--gap-2);
+}
+
+.artwork-tags-empty {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--faint);
+    width: 100%;
+    text-align: center;
+    padding: 8px 0;
+}
+
+.artwork-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: var(--holo-1);
+    background: rgba(var(--holo-1-rgb), 0.1);
+    border: 1px solid rgba(var(--holo-1-rgb), 0.3);
+    clip-path: polygon(var(--c-xs) 0, 100% 0, 100% calc(100% - var(--c-xs)), calc(100% - var(--c-xs)) 100%, 0 100%, 0 var(--c-xs));
+}
+
+.artwork-tag-remove {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    font-size: 0.55rem;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s ease;
+}
+
+.artwork-tag-remove:hover {
+    color: var(--danger);
+}
+
+.artwork-tags-add {
+    display: flex;
+    gap: 8px;
+    margin-bottom: var(--gap-2);
+}
+
+.artwork-tags-add input {
+    flex: 1;
+    padding: 10px 12px;
+    font-family: var(--ui);
+    font-size: 0.84rem;
+    color: var(--text);
+    background: var(--surface-sunk);
+    border: 1px solid var(--edge);
+    clip-path: polygon(var(--c-sm) 0, 100% 0, 100% calc(100% - var(--c-sm)), calc(100% - var(--c-sm)) 100%, 0 100%, 0 var(--c-sm));
+}
+
+.artwork-tags-add input:focus {
+    outline: none;
+    border-color: var(--edge-lit);
+}
+
+.artwork-tags-add input::placeholder {
+    color: var(--faint);
+}
+
+.artwork-tags-actions {
+    display: flex;
+    gap: 10px;
+}
+
 /* -----------------------------------------------------------------------------
    10. Toast
    -------------------------------------------------------------------------- */

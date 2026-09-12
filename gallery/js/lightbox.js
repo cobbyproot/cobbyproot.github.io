@@ -17,6 +17,7 @@ export class Lightbox {
         this.fullQualityBtn = document.getElementById('lb-full-quality');
         this.variantStrip = document.getElementById('lb-variant-strip');
         this.manageVariantsBtn = document.getElementById('lb-manage-variants');
+        this.editTagsBtn = document.getElementById('lb-edit-tags');
 
         this.items = [];
         this.currentIndex = -1;
@@ -29,6 +30,7 @@ export class Lightbox {
         this.dragStart = { x: 0, y: 0 };
         this.isAdmin = false;
         this.onManageVariants = null;
+        this.onEditArtworkTags = null;
         this.onTagEdit = null;
         this.tagMap = new Map();
 
@@ -50,6 +52,13 @@ export class Lightbox {
             if (this.onManageVariants) {
                 const art = this.items[this.currentIndex];
                 if (art) this.onManageVariants(art);
+            }
+        });
+
+        this.editTagsBtn.addEventListener('click', () => {
+            if (this.onEditArtworkTags) {
+                const art = this.items[this.currentIndex];
+                if (art) this.onEditArtworkTags(art);
             }
         });
 
@@ -95,11 +104,13 @@ export class Lightbox {
         });
     }
 
-    setAdminMode(isAdmin, onManageVariants, onTagEdit) {
+    setAdminMode(isAdmin, onManageVariants, onEditArtworkTags, onTagEdit) {
         this.isAdmin = isAdmin;
         this.onManageVariants = onManageVariants;
+        this.onEditArtworkTags = onEditArtworkTags;
         this.onTagEdit = onTagEdit;
         this.manageVariantsBtn.classList.toggle('hidden', !isAdmin);
+        this.editTagsBtn.classList.toggle('hidden', !isAdmin);
     }
 
     setTagMap(tagMap) {
@@ -178,6 +189,7 @@ export class Lightbox {
         document.getElementById('lb-next').style.display = index < this.items.length - 1 ? '' : 'none';
 
         this.manageVariantsBtn.classList.toggle('hidden', !this.isAdmin);
+        this.editTagsBtn.classList.toggle('hidden', !this.isAdmin);
     }
 
     renderVariantStrip() {

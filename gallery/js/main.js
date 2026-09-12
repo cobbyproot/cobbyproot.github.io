@@ -56,6 +56,7 @@ const admin = new AdminPanel(
         lightbox.setAdminMode(
             isAuthed,
             (art) => admin.openVariantManager(art),
+            (art) => openArtworkTagsModal(art),
             (tagName, tagInfo) => openTagEditModal(
                 tagInfo || { name: tagName, description: '', id: null },
                 () => { admin.onExternalTagEdit(); }
@@ -186,6 +187,95 @@ document.getElementById('tag-edit-modal').addEventListener('click', (e) => {
     if (e.target.id === 'tag-edit-modal') {
         document.getElementById('tag-edit-modal').classList.add('hidden');
         editingTag = null;
+    }
+});
+
+// --- Artwork tags editor ---
+let editingArtworkTags = null;
+
+function openArtworkTagsModal(artwork) {
+    editingArtworkTags = artwork;
+    const modal = document.getElementById('artwork-tags-modal');
+    document.getElementById('artwork-tags-subtitle').textContent = `"${artwork.title}"`;
+    renderArtworkTags();
+    document.getElementById('artwork-tags-input').value = '';
+    document.getElementById('artwork-tags-progress').classList.add('hidden');
+    modal.classList.remove('hidden');
+    setTimeout(() => document.getElementById('artwork-tags-input').focus(), 50);
+}
+
+function renderArtworkTags() {
+    const container = document.getElementById('artwork-tags-current');
+    container.innerHTML = '';
+    if (!editingArtworkTags?.tags?.length) {
+        container.innerHTML = '<p class="artwork-tags-empty">No tags yet.</p>';
+        return;
+    }
+    editingArtworkTags.tags.forEach((tagName, idx) => {
+        const tag = document.createElement('span');
+        tag.className = 'artwork-tag-chip';
+        tag.textContent = tagName;
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'artwork-tag-remove';
+        removeBtn.innerHTML = '<i class="fas fa-xmark"></i>';
+        removeBtn.addEventListener('click', () => {
+            editingArtworkTags.tags.splice(idx, 1);
+            renderArtworkTags();
+        });
+        tag.appendChild(removeBtn);
+        container.appendChild(tag);
+    });
+}
+
+document.getElementById('artwork-tags-add-btn').addEventListener('click', () => addArtworkTags());
+document.getElementById('artwork-tags-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addArtworkTags(); }
+});
+
+function addArtworkTags() {
+    const input = document.getElementById('artwork-tags-input');
+    const raw = input.value.trim();
+    if (!raw) return;
+    const newTags = raw.split(',').map(t => t.trim()).filter(Boolean);
+    editingArtworkTags.tags = editingArtworkTags.tags || [];
+    newTags.forEach(t => {
+        if (!editingArtworkTags.tags.includes(t)) editingArtworkTags.tags.push(t);
+    });
+    input.value = '';
+    renderArtworkTags();
+}
+
+document.getElementById('artwork-tags-save').addEventListener('click', async () => {
+    if (!editingArtworkTags) return;
+    const saveBtn = document.getElementById('artwork-tags-save');
+    const progressEl = document.getElementById('artwork-tags-progress');
+    saveBtn.disabled = true;
+    progressEl.classList.remove('hidden');
+    try {
+        const updated = await updateArtwork(editingArtworkTags.id, { tags: editingArtworkTags.tags });
+        const idx = allArtworks.findIndex(a => a.id === updated.id);
+        if (idx !== -1) allArtworks[idx] = updated;
+        filterEngine.setArtworks(allArtworks);
+        showToast('Tags updated!', 'success');
+        document.getElementById('artwork-tags-modal').classList.add('hidden');
+        editingArtworkTags = null;
+        await syncArtworkTags(updated.tags);
+    } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+    } finally {
+        saveBtn.disabled = false;
+        progressEl.classList.add('hidden');
+    }
+});
+
+document.getElementById('artwork-tags-close').addEventListener('click', () => {
+    document.getElementById('artwork-tags-modal').classList.add('hidden');
+    editingArtworkTags = null;
+});
+document.getElementById('artwork-tags-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'artwork-tags-modal') {
+        document.getElementById('artwork-tags-modal').classList.add('hidden');
+        editingArtworkTags = null;
     }
 });
 
