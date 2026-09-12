@@ -27,6 +27,20 @@
  *     created_at timestamptz default now()
  *   );
  *
+ *   -- Tags table for tag metadata (name + description)
+ *   -- SETUP: Run this in Supabase SQL Editor alongside the artworks table:
+ *
+ *   create table gallery_tags (
+ *     id uuid default gen_random_uuid() primary key,
+ *     name text not null unique,
+ *     description text default '',
+ *     created_at timestamptz default now()
+ *   );
+ *
+ *   alter table gallery_tags enable row level security;
+ *   create policy "public read" on gallery_tags for select using (true);
+ *   create policy "admin all" on gallery_tags for all using (auth.role() = 'authenticated');
+ *
  *   create table likes (
  *     id uuid default gen_random_uuid() primary key,
  *     artwork_id uuid references artworks(id) on delete cascade,
@@ -150,6 +164,47 @@ export async function toggleLike(artworkId) {
         await client.from('likes').insert({ artwork_id: artworkId, session_id: sessionId });
         await client.rpc('increment_likes', { row_id: artworkId });
         return { liked: true };
+    }
+}
+
+export async function fetchTags() {
+    const client = getSupabase();
+    if (!client) return [];
+    const { data, error } = await client
+        .from('gallery_tags')
+        .select('*')
+        .order('name');
+    if (error) { console.error('[Tags] fetch:', error.message); return []; }
+    return data || [];
+}
+
+export async function upsertTag(name, description) {
+    const client = getSupabase();
+    if (!client) throw new Error('Supabase not configured');
+    const { data, error } = await client
+        .from('gallery_tags')
+        .upsert({ name: name.trim(), description: (description || '').trim() }, { onConflict: 'name' })
+        .select()
+        .single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export async function deleteTag(id) {
+    const client = getSupabase();
+    if (!client) throw new Error('Supabase not configured');
+    const { error } = await client.from('gallery_tags').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+}
+
+export async function renameTagAcrossArtworks(oldName, newName) {
+    const client = getSupabase();
+    if (!client) throw new Error('Supabase not configured');
+    const { data: artworks } = await client
+        .from('artworks').select('id, tags').contains('tags', [oldName]);
+    for (const art of (artworks || [])) {
+        const tags = art.tags.map(t => t === oldName ? newName : t);
+        await client.from('artworks').update({ tags }).eq('id', art.id);
     }
 }
 

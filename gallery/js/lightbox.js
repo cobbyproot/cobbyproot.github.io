@@ -29,6 +29,8 @@ export class Lightbox {
         this.dragStart = { x: 0, y: 0 };
         this.isAdmin = false;
         this.onManageVariants = null;
+        this.onTagEdit = null;
+        this.tagMap = new Map();
 
         this.bindEvents();
     }
@@ -93,10 +95,15 @@ export class Lightbox {
         });
     }
 
-    setAdminMode(isAdmin, onManageVariants) {
+    setAdminMode(isAdmin, onManageVariants, onTagEdit) {
         this.isAdmin = isAdmin;
         this.onManageVariants = onManageVariants;
+        this.onTagEdit = onTagEdit;
         this.manageVariantsBtn.classList.toggle('hidden', !isAdmin);
+    }
+
+    setTagMap(tagMap) {
+        this.tagMap = tagMap || new Map();
     }
 
     open(index, items) {
@@ -148,10 +155,21 @@ export class Lightbox {
 
         this.tagsEl.innerHTML = '';
         if (art.tags && art.tags.length) {
-            art.tags.forEach(tag => {
+            art.tags.forEach(tagName => {
+                const tagInfo = this.tagMap.get(tagName);
                 const span = document.createElement('span');
                 span.className = 'lb-tag';
-                span.textContent = tag;
+                span.textContent = tagName;
+                if (tagInfo?.description) {
+                    span.title = tagInfo.description;
+                    span.classList.add('lb-tag-has-info');
+                }
+                if (this.isAdmin) {
+                    span.classList.add('lb-tag-admin');
+                    span.addEventListener('click', () => {
+                        if (this.onTagEdit) this.onTagEdit(tagName, tagInfo);
+                    });
+                }
                 this.tagsEl.appendChild(span);
             });
         }

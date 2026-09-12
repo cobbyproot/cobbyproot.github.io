@@ -2,7 +2,7 @@
  * Main entry point — wires up all gallery modules.
  */
 
-import { fetchArtworks, fetchLikes, toggleLike } from './supabase.js';
+import { fetchArtworks, fetchLikes, toggleLike, fetchTags, upsertTag, deleteTag, renameTagAcrossArtworks } from './supabase.js';
 import { getNsfwMode, setNsfwMode, isAgeVerified, setAgeVerified } from './storage.js';
 import { FilterEngine } from './filters.js';
 import { Gallery } from './gallery.js';
@@ -14,6 +14,8 @@ let allArtworks = [];
 let filteredItems = [];
 let nsfwMode = getNsfwMode();
 let likedIds = {};
+let tagMap = new Map();
+let editingTag = null;
 
 // --- DOM refs ---
 const fursonaSelect = document.getElementById('fursona-select');
@@ -38,20 +40,32 @@ const gallery = new Gallery(
 );
 
 const admin = new AdminPanel(
-    (newArtwork) => {
+    async (newArtwork) => {
         allArtworks.unshift(newArtwork);
         filterEngine.setArtworks(allArtworks);
         buildFursonaPills();
+        await syncArtworkTags(newArtwork.tags);
     },
-    (updatedArtwork) => {
+    async (updatedArtwork) => {
         const idx = allArtworks.findIndex(a => a.id === updatedArtwork.id);
         if (idx !== -1) allArtworks[idx] = updatedArtwork;
         filterEngine.setArtworks(allArtworks);
+        await syncArtworkTags(updatedArtwork.tags);
     },
     (isAuthed) => {
-        lightbox.setAdminMode(isAuthed, (art) => admin.openVariantManager(art));
-    }
+        lightbox.setAdminMode(
+            isAuthed,
+            (art) => admin.openVariantManager(art),
+            (tagName, tagInfo) => openTagEditModal(
+                tagInfo || { name: tagName, description: '', id: null },
+                () => { admin.onExternalTagEdit(); }
+            )
+        );
+    },
+    () => refreshTags()
 );
+
+admin.openTagEditModal = (tag, onDone) => openTagEditModal(tag, onDone);
 
 // --- Filter engine listener ---
 filterEngine.onChange((items) => {
@@ -82,6 +96,99 @@ async function handleLike(artId) {
     }
 }
 
+// --- Tag management ---
+async function syncArtworkTags(tags) {
+    if (!tags || !tags.length) return;
+    for (const name of tags) {
+        if (!tagMap.has(name)) {
+            try {
+                await upsertTag(name, '');
+            } catch { /* ignore duplicates */ }
+        }
+    }
+    await refreshTags();
+}
+
+async function refreshTags() {
+    const tags = await fetchTags();
+    tagMap = new Map(tags.map(t => [t.name, t]));
+    admin.setTags(tags);
+    lightbox.setTagMap(tagMap);
+}
+
+function openTagEditModal(tag, onDone) {
+    editingTag = tag;
+    const modal = document.getElementById('tag-edit-modal');
+    document.getElementById('tag-edit-name').value = tag.name || '';
+    document.getElementById('tag-edit-desc').value = tag.description || '';
+    document.getElementById('tag-edit-status').classList.add('hidden');
+    const deleteBtn = document.getElementById('tag-edit-delete');
+    deleteBtn.style.display = tag.id ? '' : 'none';
+    modal.classList.remove('hidden');
+    setTimeout(() => document.getElementById('tag-edit-name').focus(), 50);
+
+    const cleanup = () => {
+        modal.classList.add('hidden');
+        editingTag = null;
+        saveBtn.disabled = false;
+    };
+    const handleDone = () => { cleanup(); onDone?.(); };
+
+    const saveBtn = document.getElementById('tag-edit-save');
+    saveBtn.onclick = async () => {
+        if (!editingTag) return;
+        const newName = document.getElementById('tag-edit-name').value.trim();
+        const newDesc = document.getElementById('tag-edit-desc').value.trim();
+        const statusEl = document.getElementById('tag-edit-status');
+        if (!newName) {
+            statusEl.textContent = 'Tag name is required.';
+            statusEl.className = 'tag-edit-status error';
+            statusEl.classList.remove('hidden');
+            return;
+        }
+        saveBtn.disabled = true;
+        try {
+            if (editingTag.name && newName !== editingTag.name) {
+                await renameTagAcrossArtworks(editingTag.name, newName);
+            }
+            await upsertTag(newName, newDesc);
+            showToast('Tag saved!', 'success');
+            handleDone();
+        } catch (err) {
+            statusEl.textContent = err.message;
+            statusEl.className = 'tag-edit-status error';
+            statusEl.classList.remove('hidden');
+            saveBtn.disabled = false;
+        }
+    };
+
+    deleteBtn.onclick = async () => {
+        if (!editingTag?.id) return;
+        if (!confirm(`Delete tag "${editingTag.name}"? It will be removed from all artworks.`)) return;
+        const statusEl = document.getElementById('tag-edit-status');
+        try {
+            await deleteTag(editingTag.id);
+            showToast(`Tag "${editingTag.name}" deleted.`, 'success');
+            handleDone();
+        } catch (err) {
+            statusEl.textContent = err.message;
+            statusEl.className = 'tag-edit-status error';
+            statusEl.classList.remove('hidden');
+        }
+    };
+}
+
+document.getElementById('tag-edit-close').addEventListener('click', () => {
+    document.getElementById('tag-edit-modal').classList.add('hidden');
+    editingTag = null;
+});
+document.getElementById('tag-edit-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'tag-edit-modal') {
+        document.getElementById('tag-edit-modal').classList.add('hidden');
+        editingTag = null;
+    }
+});
+
 // --- Load data ---
 async function init() {
     gallery.showLoading();
@@ -98,6 +205,7 @@ async function init() {
     buildFursonaPills();
     setupTypePills();
     updateNsfwUI();
+    refreshTags();
 }
 
 // --- Fursona dropdown ---

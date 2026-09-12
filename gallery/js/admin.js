@@ -5,7 +5,7 @@
  */
 
 import { checkAuthSession, signInWithEmail, signOutAuth } from './supabase.js';
-import { insertArtwork, updateArtwork } from './supabase.js';
+import { insertArtwork, updateArtwork, upsertTag } from './supabase.js';
 
 /**
  * Cloudinary configuration.
@@ -23,10 +23,11 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_VARIANTS = 8;
 
 export class AdminPanel {
-    constructor(onArtworkAdded, onArtworkUpdated, onAuthChange) {
+    constructor(onArtworkAdded, onArtworkUpdated, onAuthChange, onTagChanged) {
         this.onArtworkAdded = onArtworkAdded;
         this.onArtworkUpdated = onArtworkUpdated;
         this.onAuthChange = onAuthChange;
+        this.onTagChanged = onTagChanged;
         this.modal = document.getElementById('admin-modal');
         this.pinScreen = document.getElementById('admin-pin-screen');
         this.formScreen = document.getElementById('admin-form-screen');
@@ -40,6 +41,12 @@ export class AdminPanel {
         this.selectedFiles = [];
         this.selectedDimensions = [];
         this.isAuthed = false;
+        this.tags = [];
+        this.editingTag = null;
+
+        this.tagSection = document.getElementById('admin-tag-section');
+        this.tagList = document.getElementById('admin-tag-list');
+        this.tagEditModal = document.getElementById('tag-edit-modal');
 
         this.variantModal = document.getElementById('variant-modal');
         this.variantList = document.getElementById('variant-manager-list');
@@ -109,6 +116,9 @@ export class AdminPanel {
         });
 
         document.getElementById('variant-save').addEventListener('click', () => this.saveVariants());
+
+        document.getElementById('admin-tags-toggle').addEventListener('click', () => this.toggleTagSection());
+        document.getElementById('admin-tag-add-btn').addEventListener('click', () => this.handleTagAdd());
     }
 
     async open() {
@@ -146,6 +156,7 @@ export class AdminPanel {
     showForm() {
         this.pinScreen.classList.add('hidden');
         this.formScreen.classList.remove('hidden');
+        this.tagSection.classList.add('hidden');
         this.isAuthed = true;
         if (this.onAuthChange) this.onAuthChange(true);
         this.resetForm();
@@ -508,6 +519,79 @@ export class AdminPanel {
             thumbnailUrl: `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/c_scale,w_400,q_75/${publicId}`,
             publicId,
         };
+    }
+
+    // --- Tag management ---
+
+    setTags(tags) {
+        this.tags = tags || [];
+        if (!this.tagSection.classList.contains('hidden')) this.renderTagList();
+    }
+
+    toggleTagSection() {
+        const isHidden = this.tagSection.classList.contains('hidden');
+        this.tagSection.classList.toggle('hidden');
+        if (isHidden) {
+            document.getElementById('admin-tags-toggle').innerHTML =
+                '<i class="fas fa-arrow-left"></i> Back to Upload';
+            this.renderTagList();
+        } else {
+            document.getElementById('admin-tags-toggle').innerHTML =
+                '<i class="fas fa-tags"></i> Manage Tags';
+        }
+    }
+
+    renderTagList() {
+        this.tagList.innerHTML = '';
+        if (this.tags.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'admin-tag-empty';
+            empty.textContent = 'No tags yet. Add one above.';
+            this.tagList.appendChild(empty);
+            return;
+        }
+        this.tags.forEach(tag => {
+            const item = document.createElement('div');
+            item.className = 'admin-tag-item';
+            const name = document.createElement('span');
+            name.className = 'admin-tag-name';
+            name.textContent = tag.name;
+            const desc = document.createElement('span');
+            desc.className = 'admin-tag-desc';
+            desc.textContent = tag.description || 'No description';
+            const editBtn = document.createElement('button');
+            editBtn.className = 'admin-tag-edit-btn';
+            editBtn.innerHTML = '<i class="fas fa-pen"></i>';
+            editBtn.title = 'Edit tag';
+            editBtn.addEventListener('click', () => this.openTagEdit(tag));
+            item.appendChild(name);
+            item.appendChild(desc);
+            item.appendChild(editBtn);
+            this.tagList.appendChild(item);
+        });
+    }
+
+    openTagEdit(tag) {
+        if (this.openTagEditModal) {
+            this.openTagEditModal(tag, () => this.onTagChanged?.());
+        }
+    }
+
+    onExternalTagEdit() {
+        if (!this.tagSection.classList.contains('hidden')) this.renderTagList();
+    }
+
+    async handleTagAdd() {
+        const name = prompt('New tag name:');
+        if (!name || !name.trim()) return;
+        const desc = prompt('Description (optional):') || '';
+        try {
+            await upsertTag(name.trim(), desc.trim());
+            showToast(`Tag "${name.trim()}" added!`, 'success');
+            if (this.onTagChanged) this.onTagChanged();
+        } catch (err) {
+            showToast(`Error: ${err.message}`, 'error');
+        }
     }
 
     // --- Variant manager for existing artworks ---
