@@ -1677,6 +1677,405 @@ body.lang-vi [lang="en"] {
 }
 
 /* -----------------------------------------------------------------------------
+   18b. 3D model overlaid on the reference sheet
+   -------------------------------------------------------------------------- */
+/* The model sits beside the HUD box rather than inside it: .hud clips its
+   children to the chamfer, which would cut the model off at the box edge. */
+.refsheet-duo {
+    position: relative;
+    /* Room for the model spilling past the box; % margins track the width,
+       which is what drives the box height here. */
+    margin-block: max(var(--gap-4), calc(16% + 20px));
+}
+
+/* The whole box slides right and wraps only the sheet; the model sits to its
+   left, outside it, and overlaps just the box's left edge. */
+.refsheet-duo .refsheet-container {
+    margin-top: 0;
+    width: 60%;
+    margin-left: auto;
+}
+
+/* Fixed proportions, so resizing the window scales the model instead of
+   reframing it. Taller than the box so it spills out above and below. */
+.refsheet-model-panel {
+    position: absolute;
+    top: -34%;
+    height: 168%;
+    left: -2%;
+    aspect-ratio: 3 / 4;
+    max-width: 72%;
+    background: transparent;
+    /* Clicks fall through to the sheet beneath, so the zoom still works. */
+    pointer-events: none;
+    z-index: 4;
+}
+
+/* Character name, stacked one letter per line down the left edge beside the
+   model. Laid out with flex rather than a transform, so the scroll motion in
+   main.js can own every transform here. */
+.refsheet-name {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.refsheet-name .char-name {
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 0 16px;
+    font-size: clamp(2.2rem, 5.4vw, 4.4rem);
+    line-height: 0.95;
+    letter-spacing: 0;
+    text-align: center;
+}
+
+/* The shared underline becomes a vertical holo rule beside the letters. */
+.refsheet-name .char-name::after {
+    left: 0;
+    top: 6%;
+    bottom: 6%;
+    width: 2px;
+    height: auto;
+    transform: none;
+    background: linear-gradient(180deg, var(--holo-1), var(--holo-2), var(--holo-1));
+    background-size: 100% 200%;
+    animation: holo-sweep-y 3.2s linear infinite;
+}
+
+@keyframes holo-sweep-y {
+    from { background-position: 0 0%; }
+    to   { background-position: 0 -200%; }
+}
+
+.char-letter {
+    display: block;
+    will-change: transform;
+    text-shadow: 0 0 18px rgba(var(--holo-1-rgb), 0.35);
+}
+
+/* Reads bottom to top, running up the side of the letters. */
+.refsheet-name .char-kind {
+    margin: 0;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+}
+
+/* Soft holo aura behind the model. */
+.refsheet-model-panel::before {
+    content: "";
+    position: absolute;
+    inset: 12% 8% 6%;
+    z-index: -1;
+    background: radial-gradient(ellipse 50% 50% at 50% 50%,
+            rgba(var(--holo-1-rgb), 0.28) 0%,
+            rgba(var(--holo-2-rgb), 0.12) 45%,
+            transparent 72%);
+    filter: blur(24px);
+    animation: model-aura 4.5s ease-in-out infinite alternate;
+}
+
+@keyframes model-aura {
+    from {
+        opacity: 0.65;
+        transform: scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
+
+/* Rim glow that hugs the silhouette: the canvas is transparent around the
+   model, so drop-shadow traces its outline. */
+.refsheet-model-viewer {
+    width: 100%;
+    height: 100%;
+    --poster-color: transparent;
+    filter:
+        drop-shadow(0 0 6px rgba(var(--holo-1-rgb), 0.55))
+        drop-shadow(0 0 22px rgba(var(--holo-1-rgb), 0.3));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .refsheet-model-panel::before {
+        animation: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .refsheet-duo .refsheet-container {
+        width: 70%;
+    }
+
+    .refsheet-model-panel {
+        max-width: 66%;
+    }
+
+    .refsheet-name .char-name {
+        font-size: clamp(1.6rem, 6vw, 2.6rem);
+        padding-left: 10px;
+    }
+
+    .refsheet-name .char-kind {
+        font-size: 0.56rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .refsheet-name .char-name::after {
+        animation: none;
+    }
+}
+
+/* Mirrored scene (Cobbie): box on the left, model and name on the right. */
+.refsheet-duo.is-mirrored .refsheet-container {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+/* Cobbie's pose is wider than Cobby's (tail out to one side, arm raised), so
+   the model sits further in to clear the name on the outer edge. */
+.refsheet-duo.is-mirrored .refsheet-model-panel {
+    left: auto;
+    right: 8%;
+}
+
+.refsheet-duo.is-mirrored .refsheet-name {
+    left: auto;
+    right: 0;
+}
+
+.refsheet-duo.is-mirrored .refsheet-name .char-name {
+    padding: 0 16px 0 0;
+}
+
+.refsheet-duo.is-mirrored .refsheet-name .char-name::after {
+    left: auto;
+    right: 0;
+}
+
+/* Reads top to bottom on the outer edge, the mirror of Cobby's. */
+.refsheet-duo.is-mirrored .refsheet-name .char-kind {
+    transform: none;
+}
+
+@media (max-width: 900px) {
+    .refsheet-duo.is-mirrored .refsheet-name .char-name {
+        padding: 0 10px 0 0;
+    }
+}
+
+/* Version bubbles (Cobbie A/B): a column of round chips floating just off the
+   ref sheet's outer left edge. */
+/* Positioned with offsets only: main.js owns the transform here. */
+.variant-bubbles {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    /* Straddles the box's left edge, so it stays on screen at any width. */
+    left: -29px;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+}
+
+.variant-bubble {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    border: 1px solid var(--edge-lit);
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%,
+            rgba(255, 255, 255, 0.18), rgba(var(--holo-1-rgb), 0.06) 45%, rgba(4, 5, 11, 0.7) 100%);
+    backdrop-filter: blur(6px);
+    color: var(--muted);
+    font-family: var(--mono);
+    cursor: pointer;
+    animation: bubble-bob 3.6s ease-in-out infinite;
+    transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.35s ease;
+}
+
+.variant-bubble + .variant-bubble {
+    animation-delay: -1.8s;
+}
+
+.variant-bubble-tag {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.variant-bubble-label {
+    position: absolute;
+    bottom: 9px;
+    font-size: 0.5rem;
+    letter-spacing: 0.14em;
+    text-transform: lowercase;
+}
+
+.variant-bubble:hover,
+.variant-bubble:focus-visible {
+    color: var(--text-bright);
+    border-color: var(--holo-1);
+}
+
+.variant-bubble:focus-visible {
+    outline: 2px solid var(--holo-1);
+    outline-offset: 3px;
+}
+
+.variant-bubble.is-active {
+    color: var(--void-deep);
+    border-color: var(--holo-1);
+    background: radial-gradient(circle at 32% 28%,
+            rgba(255, 255, 255, 0.7), var(--holo-1) 55%, rgba(var(--holo-1-rgb), 0.75) 100%);
+    box-shadow: 0 0 18px rgba(var(--holo-1-rgb), 0.55), 0 0 42px rgba(var(--holo-1-rgb), 0.2);
+}
+
+.variant-bubble.is-active .variant-bubble-label {
+    font-weight: 600;
+}
+
+/* Bobs on `translate`, leaving `transform` free for the click bounce. */
+@keyframes bubble-bob {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 -6px; }
+}
+
+/* While the 3D model swaps, its aura flares to cover the cut. */
+.refsheet-model-panel.is-swapping::before {
+    animation: model-swap-flare 1.2s ease-out;
+}
+
+@keyframes model-swap-flare {
+    0% { opacity: 0.7; transform: scale(1); }
+    35% { opacity: 1; transform: scale(1.35); filter: blur(30px) brightness(1.8); }
+    100% { opacity: 0.8; transform: scale(1); }
+}
+
+@media (max-width: 900px) {
+    .variant-bubbles {
+        left: -12px;
+    }
+
+    .variant-bubble {
+        width: 46px;
+        height: 46px;
+    }
+
+    .variant-bubble-label {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .variant-bubble,
+    .refsheet-model-panel.is-swapping::before {
+        animation: none;
+    }
+}
+
+/* ?tune3d: the overlay takes the mouse so it can be dragged by hand. */
+.refsheet-model-panel.is-tuning {
+    pointer-events: auto;
+    outline: 1px dashed var(--holo-1);
+    cursor: grab;
+}
+
+.model-tuner {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--edge-lit);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text);
+}
+
+.model-tuner p {
+    margin: 0;
+}
+
+.model-tuner-title {
+    letter-spacing: 0.2em;
+    color: var(--holo-1);
+}
+
+.model-tuner-hint {
+    color: var(--muted);
+}
+
+.model-tuner-readout {
+    font-size: 0.85rem;
+    color: var(--text-bright);
+}
+
+.model-tuner-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.model-tuner-actions button {
+    font: inherit;
+    padding: 5px 10px;
+    border: 1px solid var(--edge);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.model-tuner-actions button:hover,
+.model-tuner-actions button:focus-visible {
+    border-color: var(--holo-1);
+    color: var(--holo-1);
+}
+
+/* Poster shown by model-viewer while the .glb is still loading. */
+.model3d-poster {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 100%;
+    color: var(--muted);
+}
+
+.model3d-poster i {
+    font-size: 2rem;
+    color: var(--holo-1);
+}
+
+.model3d-poster-text {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: lowercase;
+    margin: 0;
+}
+
+/* -----------------------------------------------------------------------------
    19. Reference sheets
    -------------------------------------------------------------------------- */
 .refsheet-container {
@@ -2492,6 +2891,12 @@ body.booting .scroll-hint,
 body.booting .emitter {
     opacity: 0;
     visibility: hidden;
+}
+
+/* Lenis only stops the wheel; this also stops touch and scrollbar drags, so
+   nobody can scroll into sections whose triggers are not measured yet. */
+html:has(body.booting) {
+    overflow: hidden;
 }
 
 /* -----------------------------------------------------------------------------

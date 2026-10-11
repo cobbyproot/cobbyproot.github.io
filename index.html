@@ -34,6 +34,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js" defer></script>
+    <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 
     <link rel="dns-prefetch" href="https://res.cloudinary.com">
     <link rel="dns-prefetch" href="https://jnstohrqcfwfbybnjfhh.supabase.co">
@@ -56,6 +57,10 @@
             .global-loader {
                 display: none;
             }
+
+            html:has(body.booting) {
+                overflow: auto;
+            }
         </style>
     </noscript>
 </head>
@@ -72,7 +77,7 @@
             <span class="proj-scan"></span>
         </div>
         <div class="loader-readout" role="status" aria-live="polite">
-            <span class="loader-line is-warm" id="loader-message">projector core online</span>
+            <span class="loader-line is-warm" id="loader-message">hi hi! give me a sec…</span>
         </div>
         <div class="loader-charge" aria-hidden="true"><i></i></div>
     </div>
@@ -268,38 +273,63 @@
                     <!-- FURSONA -->
                     <div id="tab-fursona" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-fursona">
 
-                        <div class="showcase-title-row">
-                            <h3 class="char-name">COBBY</h3>
-                            <p class="char-kind">WOLF PROTOGEN</p>
-                        </div>
-
-                        <div class="refsheet-container hud">
-                            <p class="refsheet-head"><i class="fas fa-image" aria-hidden="true"></i> REFERENCE SHEET</p>
-                            <div class="refsheet-wrapper" role="button" tabindex="0" aria-label="Cobby reference sheet — open full size"
-                                data-image-key="cobbyRef">
-                                <img data-image-key="cobbyRef" alt="Cobby protogen reference sheet" class="refsheet-image" loading="lazy" decoding="async">
-                                <span class="refsheet-overlay" aria-hidden="true">
-                                    <span class="refsheet-zoom-icon">
-                                        <i class="fas fa-search-plus"></i>
-                                        click for full size
-                                    </span>
-                                </span>
+                        <div class="refsheet-duo" id="cobby-scene">
+                            <div class="refsheet-name">
+                                <p class="char-kind">WOLF PROTOGEN</p>
+                                <h3 class="char-name" aria-label="Cobby">
+                                    <span class="char-letter" aria-hidden="true">C</span><span class="char-letter" aria-hidden="true">O</span><span class="char-letter" aria-hidden="true">B</span><span class="char-letter" aria-hidden="true">B</span><span class="char-letter" aria-hidden="true">Y</span>
+                                </h3>
                             </div>
-                        </div>
-
-                        <div class="showcase-title-row">
-                            <h3 class="char-name">COBBIE</h3>
-                            <p class="char-kind">WOLF CANINE</p>
-                        </div>
-
-                        <div class="refsheet-container hud">
-                            <div class="refsheet-header-row">
+                            <div class="refsheet-container hud">
                                 <p class="refsheet-head"><i class="fas fa-image" aria-hidden="true"></i> REFERENCE SHEET</p>
-                                <div class="refsheet-toggle" role="group" aria-label="Choose reference sheet variant">
-                                    <button type="button" class="refsheet-toggle-btn is-active" data-ref-variant="1" aria-pressed="true">View A</button>
-                                    <button type="button" class="refsheet-toggle-btn" data-ref-variant="2" aria-pressed="false">View B</button>
+                                <div class="refsheet-wrapper" role="button" tabindex="0" aria-label="Cobby reference sheet — open full size"
+                                    data-image-key="cobbyRef">
+                                    <img data-image-key="cobbyRef" alt="Cobby protogen reference sheet" class="refsheet-image" loading="lazy" decoding="async">
+                                    <span class="refsheet-overlay" aria-hidden="true">
+                                        <span class="refsheet-zoom-icon">
+                                            <i class="fas fa-search-plus"></i>
+                                            click for full size
+                                        </span>
+                                    </span>
                                 </div>
                             </div>
+                            <div class="refsheet-model-panel">
+                                <model-viewer id="cobby-model3d" class="refsheet-model-viewer"
+                                    data-model-key="cobbyModel3d"
+                                    alt="Cobby's 3D VRChat model"
+                                    camera-orbit="-3.5deg 107.3deg 105%"
+                                    shadow-intensity="1"
+                                    exposure="1"
+                                    loading="lazy"
+                                    reveal="manual">
+                                    <div slot="progress-bar" aria-hidden="true"></div>
+                                    <div class="model3d-poster" slot="poster">
+                                        <i class="fas fa-cube" aria-hidden="true"></i>
+                                        <p class="model3d-poster-text">loading 3d model…</p>
+                                    </div>
+                                </model-viewer>
+                            </div>
+                        </div>
+
+                        <div class="refsheet-duo is-mirrored" id="cobbie-scene">
+                            <div class="refsheet-name">
+                                <h3 class="char-name" aria-label="Cobbie">
+                                    <span class="char-letter" aria-hidden="true">C</span><span class="char-letter" aria-hidden="true">O</span><span class="char-letter" aria-hidden="true">B</span><span class="char-letter" aria-hidden="true">B</span><span class="char-letter" aria-hidden="true">I</span><span class="char-letter" aria-hidden="true">E</span>
+                                </h3>
+                                <p class="char-kind">WOLF CANINE</p>
+                            </div>
+                            <div class="variant-bubbles" role="group" aria-label="Choose Cobbie's version">
+                                <button type="button" class="variant-bubble is-active" data-ref-variant="1" aria-pressed="true">
+                                    <span class="variant-bubble-tag" aria-hidden="true">A</span>
+                                    <span class="variant-bubble-label">wolf</span>
+                                </button>
+                                <button type="button" class="variant-bubble" data-ref-variant="2" aria-pressed="false">
+                                    <span class="variant-bubble-tag" aria-hidden="true">B</span>
+                                    <span class="variant-bubble-label">kemo</span>
+                                </button>
+                            </div>
+                            <div class="refsheet-container hud">
+                            <p class="refsheet-head"><i class="fas fa-image" aria-hidden="true"></i> REFERENCE SHEET</p>
                             <div class="refsheet-wrapper" role="button" tabindex="0" aria-label="Cobbie reference sheet — open full size"
                                 id="cobbie-ref-wrapper" data-image-key="cobbieRef1">
                                 <img id="cobbie-ref-img" data-image-key="cobbieRef1" alt="Cobbie wolf canine reference sheet" class="refsheet-image" loading="lazy" decoding="async">
@@ -309,6 +339,23 @@
                                         click for full size
                                     </span>
                                 </span>
+                            </div>
+                            </div>
+                            <div class="refsheet-model-panel">
+                                <model-viewer id="cobbie-model3d" class="refsheet-model-viewer"
+                                    data-model-key="cobbieModel3d"
+                                    alt="Cobbie's 3D model"
+                                    camera-orbit="-6deg 99deg 105%"
+                                    shadow-intensity="1"
+                                    exposure="1"
+                                    loading="lazy"
+                                    reveal="manual">
+                                    <div slot="progress-bar" aria-hidden="true"></div>
+                                    <div class="model3d-poster" slot="poster">
+                                        <i class="fas fa-cube" aria-hidden="true"></i>
+                                        <p class="model3d-poster-text">loading 3d model…</p>
+                                    </div>
+                                </model-viewer>
                             </div>
                         </div>
 

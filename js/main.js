@@ -24,15 +24,18 @@ function liftBootGate() {
     if (bootGateLifted) return;
     bootGateLifted = true;
     document.body.classList.remove('booting');
+    document.dispatchEvent(new Event('boot:lifted'));
 }
 
+// Longer than the loader's own 12s cap, so this only fires if the loader died.
 setTimeout(() => {
     if (bootGateLifted) return;
     liftBootGate();
+    document.getElementById('global-loader')?.classList.add('hidden', 'retired');
     // Nothing played them in, so write the end state by hand. GSAP's inline
     // opacity would otherwise outlive the class and keep the hero dark.
     if (window.gsap) gsap.set(HERO_PARTS, { autoAlpha: 1, clearProps: 'transform,filter' });
-}, 6000);
+}, 15000);
 
 document.addEventListener("DOMContentLoaded", () => {
     if ('scrollRestoration' in history) {
@@ -93,6 +96,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     raiseDock();
 
+    // No scrolling under the loader: the page is still changing height under
+    // it, and every trigger measured now would be wrong by the time it lifts.
+    // Once it lifts, everything is re-measured against the finished layout.
+    if (lenis && document.getElementById('global-loader')) lenis.stop();
+    document.addEventListener('boot:lifted', () => {
+        if (lenis) {
+            lenis.start();
+            lenis.resize();
+        }
+        if (window.ScrollTrigger) ScrollTrigger.refresh();
+    }, { once: true });
+
     window.switchTab = (tabId) => {
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.toggle('active', tab.id === `tab-${tabId}`);
@@ -149,6 +164,13 @@ document.addEventListener("DOMContentLoaded", () => {
         cobbyRef:    'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146635/Cobby_ref_1.png',
         cobbieRef1:  'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146651/Cobbie_Refsheet_Template_1_-_Copy.png',
         cobbieRef2:  'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146366/1787420928827.jpg',
+        // Local Blender export (assets/models/cobby.glb). If this moves to
+        // Cloudinary later, swap in the hosted URL here.
+        cobbyModel3d: './assets/models/cobby.glb',
+        // Drop a Cobbie export at this path and the right-hand model appears.
+        cobbieModel3d: './assets/models/cobbie.glb',
+        // View B on the Cobbie ref sheet swaps to this one.
+        cobbieKemoModel3d: './assets/models/cobbie-kemo.glb',
         ogImage:     'https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789060845/gallery/jzbjonwksafpwnzmfews.webp',
         favicon:     'https://iili.io/BrOrpGj.png',
         events: [
@@ -580,39 +602,524 @@ document.addEventListener("DOMContentLoaded", () => {
                 el.setAttribute('onclick', `openModal('${modalUrl}')`);
             }
         });
+
+        document.querySelectorAll('[data-model-key]').forEach(el => {
+            const url = IMAGES[el.getAttribute('data-model-key')];
+            if (url) el.setAttribute('src', url);
+        });
     };
 
     // -----------------------------------------------------------------------
     // Cobbie ref sheet toggle (View A / View B)
     // -----------------------------------------------------------------------
+    // Each bubble swaps the ref sheet image and the 3D model together. The
+    // sheet flips edge-on, changes once the new image has loaded, then flips
+    // back; the model's own spin-swap lives on the scene (duo.swapModel).
+    const COBBIE_VARIANTS = {
+        1: { ref: 'cobbieRef1', model: 'cobbieModel3d' },
+        2: { ref: 'cobbieRef2', model: 'cobbieKemoModel3d' },
+    };
+
     const initCobbieToggle = () => {
-        const buttons = document.querySelectorAll('.refsheet-toggle-btn');
+        const duo = document.getElementById('cobbie-scene');
+        const buttons = document.querySelectorAll('.variant-bubble');
         const wrapper = document.getElementById('cobbie-ref-wrapper');
         const img = document.getElementById('cobbie-ref-img');
         if (!buttons.length || !wrapper || !img) return;
 
+        const animate = hasGsap && !reduceMotion;
+        let current = '1';
+        let busy = false;
+
+        const loadImage = (url) => new Promise((resolve) => {
+            const probe = new Image();
+            probe.onload = probe.onerror = () => resolve();
+            probe.src = url;
+        });
+
+        const swapSheet = async (url, key) => {
+            const apply = () => {
+                img.src = url;
+                wrapper.setAttribute('data-image-key', key);
+                wrapper.setAttribute('onclick', `openModal('${url}')`);
+            };
+            if (!animate) { apply(); return; }
+            const ready = loadImage(url);
+            await gsap.to(wrapper, {
+                rotateY: 90, scale: 0.94, filter: 'brightness(1.8) saturate(0.4)',
+                duration: 0.32, ease: 'power2.in', transformPerspective: 1000,
+            });
+            await ready;
+            apply();
+            gsap.set(wrapper, { rotateY: -90 });
+            await gsap.to(wrapper, {
+                rotateY: 0, scale: 1, filter: 'brightness(1) saturate(1)',
+                duration: 0.55, ease: 'back.out(1.6)',
+            });
+            gsap.set(wrapper, { clearProps: 'filter' });
+        };
+
         buttons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const variant = btn.getAttribute('data-ref-variant');
-                const url = variant === '2' ? IMAGES.cobbieRef2 : IMAGES.cobbieRef1;
+            btn.addEventListener('click', async () => {
+                const variant = btn.dataset.refVariant;
+                if (variant === current || busy) return;
+                const v = COBBIE_VARIANTS[variant];
+                if (!v) return;
+                busy = true;
+                current = variant;
 
                 buttons.forEach(b => {
                     const isActive = b === btn;
                     b.classList.toggle('is-active', isActive);
                     b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
                 });
+                if (animate) {
+                    gsap.fromTo(btn, { scale: 0.8 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.45)' });
+                }
 
-                img.src = url;
-                wrapper.setAttribute('data-image-key', variant === '2' ? 'cobbieRef2' : 'cobbieRef1');
-                wrapper.setAttribute('onclick', `openModal('${url}')`);
+                try {
+                    await Promise.all([
+                        swapSheet(IMAGES[v.ref], v.ref),
+                        duo?.swapModel?.(IMAGES[v.model]),
+                    ]);
+                } finally {
+                    busy = false;
+                }
             });
         });
+    };
+
+    // -----------------------------------------------------------------------
+    // Ref sheet scenes: a 3D model, a stacked name and a tilted ref sheet box
+    // that all move with the scroll. Cobby sits on the left; Cobbie is the
+    // mirror image, with the model and name on the right.
+    // -----------------------------------------------------------------------
+    const REF_SCENES = [
+        // defaultView is the resting camera angle. Tune it by opening the page
+        // with ?tune3d=<name>, dragging the model, and pressing "copy for code".
+        { name: 'cobby', duo: '#cobby-scene', side: 1, defaultView: { theta: -3.5, phi: 107.3 } },
+        {
+            name: 'cobbie', duo: '#cobbie-scene', side: -1, defaultView: { theta: -6, phi: 99 },
+            // Other models the scene can swap to, each with its own resting angle.
+            variants: [
+                { name: 'cobbie-kemo', model: 'cobbieKemoModel3d', defaultView: { theta: -23.5, phi: 105.6 } },
+            ],
+        },
+    ];
+
+    // Shared feel for every scene. The spin is driven by scroll position, not
+    // time: scroll slowly and it turns slowly, stop halfway and it stays half
+    // turned. The scroll value is eased every frame for a Locomotive-style
+    // glide, and a small mouse tilt is added on top.
+    const TILT_TURN = 14;
+    const TILT_LIFT = 4;
+    // Section progress (0 = just entering at the bottom, 1 = gone off the
+    // top) at which the spin-in ends and the spin-out begins.
+    const IN_END = 0.4;
+    const OUT_START = 0.62;
+    const SPIN_IN = 360;
+    const SPIN_OUT = 200;
+    const GLIDE = 0.09;
+    const LETTER_STAGGER = 0.035;
+    // Ref sheet box: resting turn and lean in degrees, and how far the mouse
+    // can lean it on top of that. The turn is mirrored on right-hand scenes.
+    const BOX_TURN = -16;
+    const BOX_LEAN = 3;
+    const BOX_TILT = 5;
+
+    const viewKey = (cfg) => `${cfg.name}_model_view`;
+    const loadView = (cfg) => {
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(viewKey(cfg))); } catch (err) { /* ignore bad value */ }
+        return { ...cfg.defaultView, ...(saved || {}) };
+    };
+
+    const initRefScene = (cfg) => {
+        const duo = document.querySelector(cfg.duo);
+        if (!duo) return;
+        const side = cfg.side;
+
+        const viewer = duo.querySelector('model-viewer');
+        const panel = viewer?.closest('.refsheet-model-panel');
+        const hasModel = !!viewer?.getAttribute('src');
+        // No model file yet (or it failed to load): drop the slot rather than
+        // leave a poster spinning forever.
+        const hidePanel = () => { if (panel) panel.hidden = true; };
+        if (!hasModel) hidePanel();
+        else viewer.addEventListener('error', hidePanel);
+
+        // Each model keeps its own resting angle; swapping models swaps it too.
+        const views = new Map();
+        if (hasModel) views.set(viewer.getAttribute('src'), loadView(cfg));
+        (cfg.variants || []).forEach(v => views.set(IMAGES[v.model], loadView(v)));
+        let view = loadView(cfg);
+        let FRONT = view.theta;
+        const useView = (url) => {
+            view = views.get(url) || view;
+            FRONT = view.theta;
+        };
+        let lastOrbit = '';
+        const setOrbit = (theta, phi) => {
+            if (!hasModel) return;
+            const next = `${theta.toFixed(2)}deg ${phi.toFixed(2)}deg 105%`;
+            if (next === lastOrbit) return;
+            lastOrbit = next;
+            viewer.cameraOrbit = next;
+            // Skip model-viewer's own easing so the camera follows exactly.
+            viewer.jumpCameraToGoal?.();
+        };
+        // With reveal="manual" the .glb only starts loading once the poster
+        // is dismissed. The loader normally does that during boot (see
+        // the boot loader at the bottom of this file), so by the time the section scrolls in this is a no-op.
+        const reveal = () => { if (hasModel) viewer.dismissPoster?.(); };
+
+        const tune = new URLSearchParams(location.search).get('tune3d');
+        const tuneName = tune === null ? null : (tune || 'cobby');
+        const tuneVariant = (cfg.variants || []).find(v => v.name === tuneName);
+        if (hasModel && (tuneName === cfg.name || tuneVariant)) {
+            if (tuneVariant) {
+                const url = IMAGES[tuneVariant.model];
+                viewer.loading = 'eager';
+                viewer.setAttribute('src', url);
+                useView(url);
+            }
+            initModelTuner(viewer, duo, tuneVariant || cfg);
+            setOrbit(FRONT, view.phi);
+            reveal();
+            return;
+        }
+
+        // Variant switching (Cobbie's A/B) calls duo.swapModel(url). Without
+        // motion it is a plain source swap; the animated version replaces it
+        // further down.
+        duo.swapModel = async (url) => {
+            if (!hasModel || !url) return;
+            viewer.loading = 'eager';
+            viewer.setAttribute('src', url);
+            useView(url);
+            setOrbit(FRONT, view.phi);
+        };
+
+        if (reduceMotion || !hasGsap || !window.ScrollTrigger) {
+            setOrbit(FRONT, view.phi);
+            reveal();
+            return;
+        }
+
+        const nameEl = duo.querySelector('.refsheet-name');
+        const bubbles = duo.querySelector('.variant-bubbles');
+        const kindEl = nameEl?.querySelector('.char-kind');
+        const letters = nameEl ? [...nameEl.querySelectorAll('.char-letter')] : [];
+        const box = duo.querySelector('.refsheet-container');
+        const anchor = hasModel ? viewer : (box || duo);
+
+        const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
+        const scroll = { p: 0, target: 0 };
+        // Variant swap: `show` fades/scales the model on top of the scroll
+        // presence, `spin` adds a quick extra turn while it changes.
+        const swap = { show: 1, spin: 0 };
+        let swapping = false;
+        let lastPresence = 0;
+        const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        const easeOut = gsap.parseEase('power2.out');
+        const easeIn = gsap.parseEase('power2.in');
+        let lastLook = '';
+        let lastP = -1;
+        let lastBox = '';
+
+        const frame = () => {
+            scroll.p += (scroll.target - scroll.p) * GLIDE;
+            tilt.x += (tilt.tx - tilt.x) * 0.08;
+            tilt.y += (tilt.ty - tilt.y) * 0.08;
+
+            const p = scroll.p;
+            const enter = easeOut(gsap.utils.clamp(0, 1, p / IN_END));
+            const leave = easeIn(gsap.utils.clamp(0, 1, (p - OUT_START) / (1 - OUT_START)));
+            const presence = enter * (1 - leave);
+            lastPresence = presence;
+
+            if (hasModel) {
+                const look = `${presence.toFixed(3)}|${swap.show.toFixed(3)}`;
+                if (look !== lastLook) {
+                    lastLook = look;
+                    gsap.set(viewer, {
+                        autoAlpha: presence * swap.show,
+                        scale: (0.9 + 0.1 * presence) * (0.7 + 0.3 * swap.show),
+                        y: 24 * (1 - enter) - 16 * leave + 30 * (1 - swap.show),
+                    });
+                }
+            }
+
+            if (Math.abs(p - lastP) > 0.0002) {
+                lastP = p;
+                // Slow drift against the scroll: the name lags, the box leads,
+                // which gives the section depth while it passes.
+                const drift = p - 0.5;
+
+                letters.forEach((el, i) => {
+                    const li = easeOut(gsap.utils.clamp(0, 1, (p - i * LETTER_STAGGER) / (IN_END * 0.85)));
+                    const lo = easeIn(gsap.utils.clamp(0, 1,
+                        (p - OUT_START - i * LETTER_STAGGER) / (1 - OUT_START - 0.15)));
+                    gsap.set(el, {
+                        autoAlpha: li * (1 - lo),
+                        yPercent: 70 * (1 - li) - 70 * lo,
+                        rotateX: -70 * (1 - li) + 50 * lo,
+                        transformPerspective: 500,
+                    });
+                });
+                if (kindEl) {
+                    const ki = easeOut(gsap.utils.clamp(0, 1, (p - 0.12) / (IN_END * 0.7)));
+                    gsap.set(kindEl, { autoAlpha: ki * (1 - leave), y: 30 * (1 - ki) });
+                }
+                if (nameEl) gsap.set(nameEl, { y: drift * -90 });
+            }
+
+            if (box) {
+                // Resting 3D angle: hinged on the edge away from the model, the
+                // near edge turns back behind it. It swings in from that far
+                // side, and the mouse leans it toward the cursor.
+                const bi = easeOut(gsap.utils.clamp(0, 1, (p - 0.04) / IN_END));
+                const rotY = side * (BOX_TURN - 14 * (1 - bi) + 6 * leave) + tilt.x * BOX_TILT * presence;
+                const rotX = BOX_LEAN - tilt.y * BOX_TILT * 0.6 * presence;
+                const boxKey = `${p.toFixed(4)}|${rotY.toFixed(2)}|${rotX.toFixed(2)}`;
+                if (boxKey !== lastBox) {
+                    lastBox = boxKey;
+                    gsap.set(box, {
+                        autoAlpha: 0.15 + 0.85 * bi * (1 - leave * 0.85),
+                        x: side * (70 * (1 - bi) + 40 * leave),
+                        y: (p - 0.5) * 50,
+                        rotateY: rotY,
+                        rotateX: rotX,
+                        transformPerspective: 1400,
+                        transformOrigin: side > 0 ? '100% 50%' : '0% 50%',
+                    });
+                    // The A/B bubbles ride along with the box, arriving just after it.
+                    if (bubbles) {
+                        const bb = easeOut(gsap.utils.clamp(0, 1, (p - 0.1) / IN_END));
+                        gsap.set(bubbles, {
+                            autoAlpha: bb * (1 - leave),
+                            x: side * (40 * (1 - bb) + 30 * leave),
+                            y: (p - 0.5) * 50,
+                        });
+                    }
+                }
+            }
+
+            // Mirrored scenes spin the other way. Orbiting the camera toward
+            // the cursor turns the model away from it, so the camera goes the
+            // opposite way.
+            const angle = FRONT - side * SPIN_IN * (1 - enter) + side * SPIN_OUT * leave + side * swap.spin;
+            setOrbit(angle - tilt.x * TILT_TURN * presence, view.phi - tilt.y * TILT_LIFT * presence);
+        };
+
+        const onPointer = (e) => {
+            const r = anchor.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            tilt.tx = gsap.utils.clamp(-1, 1, (e.clientX - cx) / (window.innerWidth / 2));
+            tilt.ty = gsap.utils.clamp(-1, 1, (e.clientY - cy) / (window.innerHeight / 2));
+        };
+        const resetTilt = () => { tilt.tx = 0; tilt.ty = 0; };
+
+        // The frame loop and mouse listener only run while the section is
+        // anywhere on screen; the loop keeps going until the glide settles.
+        let running = false;
+        let onScreen = false;
+        const tick = () => {
+            frame();
+            const settled = Math.abs(scroll.target - scroll.p) < 0.0005
+                && Math.abs(tilt.tx - tilt.x) < 0.001
+                && Math.abs(tilt.ty - tilt.y) < 0.001;
+            if (!onScreen && settled && !swapping) stopLoop();
+        };
+        const startLoop = () => {
+            if (running) return;
+            running = true;
+            gsap.ticker.add(tick);
+            if (canHover) {
+                window.addEventListener('pointermove', onPointer, { passive: true });
+                document.addEventListener('pointerleave', resetTilt);
+            }
+        };
+        const stopLoop = () => {
+            if (!running) return;
+            running = false;
+            gsap.ticker.remove(tick);
+            window.removeEventListener('pointermove', onPointer);
+            document.removeEventListener('pointerleave', resetTilt);
+        };
+
+        if (hasModel) gsap.set(viewer, { autoAlpha: 0, scale: 0.9, y: 24, transformOrigin: '50% 60%' });
+        frame();
+
+        // Animated variant swap: spin away and shrink, change the .glb, wait
+        // for it to load, then spin back in. A burst on the aura covers the cut.
+        // Resolves on load or error, or after a timeout so a stalled download
+        // can never lock the A/B bubbles.
+        const waitForLoad = (ms = 20000) => new Promise((resolve) => {
+            let timer;
+            const done = () => {
+                clearTimeout(timer);
+                viewer.removeEventListener('load', done);
+                viewer.removeEventListener('error', done);
+                resolve();
+            };
+            timer = setTimeout(done, ms);
+            viewer.addEventListener('load', done);
+            viewer.addEventListener('error', done);
+        });
+        duo.swapModel = async (url) => {
+            if (!hasModel || !url || viewer.getAttribute('src') === url) return;
+            swapping = true;
+            startLoop();
+            panel?.classList.add('is-swapping');
+            gsap.killTweensOf(swap);
+            try {
+                await gsap.to(swap, { show: 0, spin: 160, duration: 0.45, ease: 'power2.in' });
+                const loaded = waitForLoad();
+                // With reveal="manual" + loading="lazy", model-viewer only loads a
+                // new src after another dismissPoster() on an unloaded model, so
+                // it would sit blank until the section re-entered the screen.
+                // Eager loading makes the src change load straight away.
+                viewer.loading = 'eager';
+                viewer.setAttribute('src', url);
+                useView(url);
+                await loaded;
+
+                swap.spin = -200;
+                await gsap.to(swap, { show: 1, spin: 0, duration: 0.9, ease: 'expo.out' });
+            } finally {
+                swap.show = 1;
+                panel?.classList.remove('is-swapping');
+                swapping = false;
+            }
+        };
+
+        // A model that finishes downloading after the visitor has already
+        // scrolled in missed its scroll spin, so it gets a short spin-in of its
+        // own instead of popping into place.
+        if (hasModel) {
+            viewer.addEventListener('load', () => {
+                if (swapping || !onScreen || lastPresence < 0.05) return;
+                gsap.killTweensOf(swap);
+                swap.spin = -240;
+                swap.show = 0;
+                gsap.to(swap, { show: 1, duration: 0.6, ease: 'power2.out' });
+                gsap.to(swap, { spin: 0, duration: 1.2, ease: 'expo.out' });
+            });
+        }
+
+        ScrollTrigger.create({
+            trigger: duo,
+            start: 'top bottom',
+            end: 'bottom top',
+            onUpdate: (self) => {
+                scroll.target = self.progress;
+                // A fast flick can jump right over the section without it ever
+                // counting as on screen. Off screen there is nothing to glide,
+                // so snap, or the next visit replays the whole jump.
+                if (!running) {
+                    scroll.p = self.progress;
+                    frame();
+                }
+            },
+            onToggle: (self) => {
+                onScreen = self.isActive;
+                if (onScreen) {
+                    // Arriving from off screen, start at the edge it came in
+                    // from, so even a flick deep into the section plays the
+                    // spin-in rather than skipping to the middle.
+                    if (!running) {
+                        scroll.p = self.direction > 0 ? 0 : 1;
+                        frame();
+                    }
+                    reveal();
+                    startLoop();
+                } else {
+                    resetTilt();
+                }
+            },
+            onRefresh: (self) => {
+                scroll.target = self.progress;
+                scroll.p = self.progress;
+                frame();
+            },
+        });
+    };
+
+    // ?tune3d=<name> — drag that model by hand, then save the angle it should
+    // rest at. A bare ?tune3d tunes Cobby.
+    const initModelTuner = (viewer, duo, cfg) => {
+        const key = viewKey(cfg);
+        const defaults = cfg.defaultView;
+        const panel = viewer.closest('.refsheet-model-panel');
+        if (panel) panel.classList.add('is-tuning');
+        viewer.setAttribute('camera-controls', '');
+        viewer.setAttribute('interaction-prompt', 'none');
+        viewer.setAttribute('disable-zoom', '');
+        viewer.setAttribute('disable-pan', '');
+
+        const ui = document.createElement('div');
+        ui.className = 'model-tuner hud';
+        ui.innerHTML = `
+            <p class="model-tuner-title">${cfg.name} · 3d model angle</p>
+            <p class="model-tuner-hint">drag the model to face the way you want</p>
+            <output class="model-tuner-readout" aria-live="polite"></output>
+            <div class="model-tuner-actions">
+                <button type="button" data-act="save">save</button>
+                <button type="button" data-act="copy">copy for code</button>
+                <button type="button" data-act="reset">reset</button>
+            </div>`;
+        document.body.appendChild(ui);
+        const readout = ui.querySelector('.model-tuner-readout');
+
+        const toDeg = (rad) => rad * 180 / Math.PI;
+        const current = () => {
+            const o = viewer.getCameraOrbit();
+            let theta = toDeg(o.theta) % 360;
+            if (theta > 180) theta -= 360;
+            if (theta < -180) theta += 360;
+            return { theta: Math.round(theta * 10) / 10, phi: Math.round(toDeg(o.phi) * 10) / 10 };
+        };
+        const update = () => {
+            const v = current();
+            readout.textContent = `turn ${v.theta}° · tilt ${v.phi}°`;
+        };
+        viewer.addEventListener('camera-change', update);
+        viewer.addEventListener('load', update);
+
+        ui.addEventListener('click', async (e) => {
+            const act = e.target.closest('button')?.dataset.act;
+            if (!act) return;
+            const v = current();
+            if (act === 'save') {
+                localStorage.setItem(key, JSON.stringify(v));
+                window.showToast?.(`saved on this browser: turn ${v.theta}°, tilt ${v.phi}°`);
+            } else if (act === 'copy') {
+                const line = `defaultView: { theta: ${v.theta}, phi: ${v.phi} }`;
+                try {
+                    await navigator.clipboard.writeText(line);
+                    window.showToast?.(`copied — paste it over ${cfg.name}'s defaultView in js/main.js`);
+                } catch (err) {
+                    window.prompt(`copy this over ${cfg.name}'s defaultView in js/main.js`, line);
+                }
+            } else if (act === 'reset') {
+                localStorage.removeItem(key);
+                viewer.cameraOrbit = `${defaults.theta}deg ${defaults.phi}deg 105%`;
+                viewer.jumpCameraToGoal?.();
+                window.showToast?.('reset to default angle');
+            }
+        });
+
+        duo.scrollIntoView({ block: 'center' });
+        update();
     };
 
     applyImageConfig();
     initCobbieToggle();
     handleSpecialGreet();
     initBgSlideshow();
+    REF_SCENES.forEach(initRefScene);
     // initAnimations() is called by the loader once the projector has warmed up.
     if (!isMobile) initPongGame();
 
@@ -982,6 +1489,14 @@ window.promptSpotifyBinding = function() {
     }
 };
 
+/* ==========================================================================
+   Boot loader. It holds the page until the things that change its layout or
+   its scroll motion are actually here: fonts, the hero art, and both 3D
+   models. The bar is real progress, not a timer. A short minimum keeps the
+   intro from flashing on a fast connection, and a hard cap means slow wifi
+   still gets let in; a model that lands late plays its own spin-in.
+   ========================================================================== */
+
 document.addEventListener("DOMContentLoaded", () => {
     const loader = document.getElementById('global-loader');
     const msgEl = document.getElementById('loader-message');
@@ -993,20 +1508,19 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
-    // Three seconds of warm-up the first time, one on a return visit, and none at
-    // all for a crawler that is here to score the page rather than read it.
-    let loadTime = 3000;
     const ua = navigator.userAgent.toLowerCase();
     const isBot = ua.includes('lighthouse') || ua.includes('googlebot') || ua.includes('pagespeed');
-    if (isBot) {
-        loadTime = 0;
-    } else if (sessionStorage.getItem('cobby_visited')) {
-        loadTime = 1000;
-    } else {
-        sessionStorage.setItem('cobby_visited', 'true');
-    }
+    const returning = !!sessionStorage.getItem('cobby_visited');
+    sessionStorage.setItem('cobby_visited', 'true');
 
+    const MIN_TIME = returning ? 400 : 1200;
+    const MAX_TIME = 12000;
+    const SLOW_AFTER = 5000;
+
+    let finished = false;
     const finish = () => {
+        if (finished) return;
+        finished = true;
         if (chargeEl) chargeEl.style.clipPath = 'inset(0 0% 0 0)';
         loader.classList.add('hidden');
         // Retire it from the render tree once the fade has played out. Hidden
@@ -1017,62 +1531,121 @@ document.addEventListener("DOMContentLoaded", () => {
         else liftBootGate();
     };
 
-    if (loadTime === 0) {
+    if (isBot) {
         finish();
         return;
     }
 
-    // Cold-boot log for the projector. The technical lines carry a prefix
-    // timestamp (honest mono: numerals and terminal output); the last line is
-    // Cobby's own voice, flagged warm so it drops into the reading face and the
-    // primary hue. `at` is a fraction of the warm-up window.
-    const t0 = Date.now();
-    const stamp = () => {
-        const s = ((Date.now() - t0) / 1000).toFixed(1);
-        return `[${s.padStart(4, '0')}s] `;
+    // Each task reports its own 0..1 progress; weight is its share of the bar.
+    const tasks = [];
+    const addTask = (weight, run) => {
+        const task = { weight, p: 0 };
+        const report = (p) => { task.p = Math.max(task.p, Math.min(1, p || 0)); };
+        task.done = Promise.resolve()
+            .then(() => run(report))
+            .catch(() => { /* a failed asset still counts as settled */ })
+            .then(() => report(1));
+        tasks.push(task);
     };
-    const steps = [
-        { at: 0, text: 'projector core online', warm: false },
-        { at: 0.1, text: 'calibrating emitter array…', warm: false },
-        { at: 0.32, text: 'resolving holographic mesh…', warm: false },
-        { at: 0.62, text: 'warming social uplink…', warm: false },
-        { at: 0.86, text: 'hewwo~ coming right up :3', warm: true },
-    ];
-    let step = 0;
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    const showStep = (entry) => {
-        if (!msgEl) return;
+    if (document.fonts && document.fonts.ready) addTask(0.1, () => document.fonts.ready);
+
+    const hero = document.querySelector('.hero-character-png');
+    addTask(0.15, () => new Promise((resolve) => {
+        if (!hero || hero.complete) return resolve();
+        hero.addEventListener('load', resolve, { once: true });
+        hero.addEventListener('error', resolve, { once: true });
+    }));
+
+    // The models are what break the scroll scenes when they arrive late, so
+    // they carry most of the bar. Eager loading starts the download now; the
+    // poster stays up until the scene reveals it on scroll.
+    const viewers = [...document.querySelectorAll('model-viewer[src]')]
+        .filter((v) => !v.closest('[hidden]'));
+    const viewerReady = Promise.race([customElements.whenDefined('model-viewer'), wait(6000)]);
+    viewers.forEach((viewer) => {
+        addTask(0.75 / viewers.length, (report) => viewerReady.then(() => new Promise((resolve) => {
+            // The model-viewer script never arrived: nothing will ever load.
+            if (!customElements.get('model-viewer') || viewer.loaded) return resolve();
+            viewer.addEventListener('progress', (e) => report(e.detail && e.detail.totalProgress));
+            viewer.addEventListener('load', resolve, { once: true });
+            viewer.addEventListener('error', resolve, { once: true });
+            viewer.loading = 'eager';
+        })));
+    });
+
+    const totalWeight = tasks.reduce((sum, t) => sum + t.weight, 0) || 1;
+    const progress = () => tasks.reduce((sum, t) => sum + t.weight * t.p, 0) / totalWeight;
+
+    let ready = false;
+    Promise.all(tasks.map((t) => t.done)).then(() => { ready = true; });
+
+    // Cobby talking, not a boot log. `at` is a share of the real progress.
+    const lines = [
+        { at: 0, text: returning ? 'oh hi, welcome back~' : 'hi hi! give me a sec…' },
+        { at: 0.12, text: 'brushing my fur real quick…' },
+        { at: 0.35, text: 'carrying my 3d models over…' },
+        { at: 0.8, text: 'almost there, promise…' },
+    ];
+    const SLOW_LINE = 'the 3d models are chonky, hang on…';
+    const DONE_LINE = 'hewwo~ come on in :3';
+    const LATE_LINE = 'slow wifi, huh? come on in anyway :3';
+
+    let currentText = '';
+    const say = (text) => {
+        if (!msgEl || text === currentText) return;
+        currentText = text;
         const render = () => {
-            msgEl.textContent = (entry.warm ? '' : stamp()) + entry.text;
-            msgEl.classList.toggle('is-warm', !!entry.warm);
-            if (typeof gsap !== 'undefined') {
-                gsap.to(msgEl, { opacity: 1, duration: 0.16 });
-            } else {
-                msgEl.style.opacity = '1';
-            }
+            msgEl.textContent = text;
+            msgEl.classList.add('is-warm');
+            if (typeof gsap !== 'undefined') gsap.to(msgEl, { opacity: 1, duration: 0.16 });
+            else msgEl.style.opacity = '1';
         };
         if (typeof gsap !== 'undefined') {
+            gsap.killTweensOf(msgEl);
             gsap.to(msgEl, { opacity: 0, duration: 0.16, onComplete: render });
         } else {
             render();
         }
     };
 
-    showStep(steps[step++]);
+    say(lines[0].text);
 
-    let start = null;
-    requestAnimationFrame(function tick(now) {
-        if (start === null) start = now;
+    let shown = 0;
+    let lateExit = false;
+    const start = performance.now();
+    // requestAnimationFrame is paused in background tabs, so a page opened
+    // with ctrl+click would never leave the loader. Timers still run there.
+    const next = () => {
+        if (document.hidden) setTimeout(() => tick(performance.now()), 100);
+        else requestAnimationFrame(tick);
+    };
+    function tick(now) {
         const elapsed = now - start;
-        const pct = Math.min(1, elapsed / loadTime);
-
-        if (chargeEl) chargeEl.style.clipPath = `inset(0 ${(100 - pct * 100).toFixed(1)}% 0 0)`;
-
-        while (step < steps.length && pct >= steps[step].at) {
-            showStep(steps[step++]);
+        if (!ready && elapsed > MAX_TIME) {
+            ready = true;
+            lateExit = true;
         }
 
-        if (elapsed < loadTime) requestAnimationFrame(tick);
-        else finish();
-    });
+        // Ease toward the real figure so the bar glides instead of jumping
+        // in model-sized steps.
+        const target = ready ? 1 : progress();
+        shown += (target - shown) * (ready ? 0.2 : 0.08);
+        if (chargeEl) chargeEl.style.clipPath = `inset(0 ${(100 - shown * 100).toFixed(1)}% 0 0)`;
+
+        if (ready && shown > 0.995 && elapsed >= MIN_TIME) {
+            say(lateExit ? LATE_LINE : DONE_LINE);
+            setTimeout(finish, 420);
+            return;
+        }
+
+        if (!ready) {
+            const line = [...lines].reverse().find((l) => shown >= l.at);
+            say(elapsed > SLOW_AFTER && shown < 0.8 ? SLOW_LINE : line.text);
+        }
+        next();
+    }
+    next();
 });
+
