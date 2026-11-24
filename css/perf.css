@@ -1,0 +1,616 @@
+@charset "UTF-8";
+/* =============================================================================
+   COBBY — tier reductions
+   -----------------------------------------------------------------------------
+   Everything in this file is conditional. With no `data-perf` on <html> — which
+   is the case for exactly one frame, and for a browser where the governor threw
+   — none of it applies, and the card renders exactly as style.css draws it.
+
+   The split of responsibility is deliberate:
+
+   - style.css is the design. It says what the card looks like.
+   - this file says how much of that the current device can afford to *keep
+     running*. Nothing here removes a colour, a chamfer, a typeface or a
+     layout. The reductions are all of one kind: work that repeats forever, and
+     work that costs a filter or a composited layer, gets cheaper.
+
+   Tiers, as set by js/perf.js and the inline pre-paint script in index.html:
+
+     ultra  (3)  desktop with headroom. Nothing here applies.
+     full   (2)  the design as drawn. Nothing here applies — this is the
+                 reference the other two are measured against.
+     balanced (1)  a real mid-range phone. Same composition; the decorative
+                 loops stop, the halos lose their blur, and the two full-width
+                 shimmer bars stop repainting.
+     lite   (0)  an old phone, a slow link, or save-data. Static: no infinite
+                 animation at all, no blur filters, no scan bar, no slideshow
+                 filter. The palette, the chamfers, the type, the character and
+                 the social dock are all still there — it is still obviously
+                 this card, it just is not moving.
+
+   Two orthogonal switches ride alongside the tier:
+
+     .perf-lowish   low or mid — the "trim motion" bucket, so a rule shared by
+                    both tiers is written once.
+     [data-perf-rm="1"]  prefers-reduced-motion. This is NOT a tier; a desktop
+                    with the OS setting on gets `full` plus this attribute. The
+                    block at the bottom of style.css already handles the big
+                    cases; this file only adds the things it does not cover.
+
+   Ordering: this stylesheet is linked AFTER style.css, and every selector below
+   is prefixed with `html[data-perf…]` or `html.perf-…`, which out-specifies the
+   base rule it is overriding. Both belts, one braces.
+
+   Contents
+     1.  Containment — cheap wins that are safe at every tier
+     2.  Balanced: stop the decorative loops
+     3.  Balanced: the shimmer without the repaint
+     4.  Balanced: halos and shadows
+     5.  Balanced: the full-viewport fixed layers
+     5b. Balanced: long transitions
+     6.  Balanced: the 3D panels
+     7.  Lite: static, calm, still this card
+     8.  Lite: the background stack
+     9.  Lite: hero, emitter and instruments
+    10.  Lite: content surfaces
+    11.  Reduced motion, on top of the tier
+    12.  Feature support guards
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   1. Containment — cheap wins that are safe at every tier
+   -------------------------------------------------------------------------- */
+/* `contain: layout style` on a roadmap item is free and correct at every tier:
+   the item is already the containing block for its own absolutely positioned
+   marker, so layout containment changes nothing about where anything lands, and
+   it stops one card growing from re-laying out the whole timeline.
+
+   NOT on `.roadmap-item`'s paint: the marker deliberately overhangs by 13px and
+   its pulse ring by another 7px, so paint containment would clip it against the
+   axis. NOT on `.game-panel` at all: it holds the reference sheets, whose
+   scroll-linked timeline measures the box with ScrollTrigger, and a contained
+   box reports a different measurement than the one the tween expects.
+
+   The card skipping (`content-visibility: auto`) is deliberately NOT applied at
+   full/ultra: a card that has not rendered yet stands at its intrinsic-size
+   fallback (~210px) while the photos inside make it taller, and flying down the
+   travel tab would show cards snapping to their real height. That is a visible
+   regression, and full is the tier where nothing may regress. Below full the
+   trade is right: opening the tab is where the cost lands, and a card snapping
+   into place while the page is still settling reads as the card booting.
+
+   `contain-intrinsic-size` is set in style.css next to the rule it belongs to,
+   because it has to match the real card height; here we only flip the skipping
+   on, and only where the browser supports it. */
+@supports (content-visibility: auto) {
+    html.perf-lowish .roadmap-content {
+        content-visibility: auto;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+   2. Balanced: stop the decorative loops
+   -------------------------------------------------------------------------- */
+/* These nine animations repeat forever and communicate nothing that a static
+   frame does not. Each one keeps the main thread awake for the whole visit, and
+   on a 4-core phone that is the difference between a page that scrolls at 40fps
+   and one that scrolls at 15.
+
+   What is deliberately NOT killed here:
+     panel-in        a tab change, and it runs once
+     proj-lock/scan  the boot loader, which is gone within a second
+     model-swap-flare  feedback for a press the visitor just made
+     marker-glow     only on the "upcoming" roadmap markers
+     hover states    the underline travel, the card glow — those are responses
+   Anything that answers something the visitor did is kept; anything that only
+   moves because it is alive is stopped. */
+html.perf-lowish .scan-sweep,
+html.perf-lowish .equalizer-bars.playing span,
+html.perf-lowish .vinyl-disc.spinning,
+html.perf-lowish .term-blinking-cursor,
+html.perf-lowish .status-indicator .dot,
+html.perf-lowish .scroll-hint i,
+html.perf-lowish .variant-bubble,
+html.perf-lowish .refsheet-model-panel::before,
+html.perf-lowish .proj-reticle,
+html.perf-lowish .loader-charge i,
+html.perf-lowish body:not(.booting) .giant-cobby-text {
+    animation: none;
+}
+
+/* The vinyl still needs to read as a record, not as a static circle: with the
+   spin gone the label keeps the state the rotation was carrying. */
+html.perf-lowish .vinyl-disc.spinning {
+    box-shadow: 0 0 0 1px rgba(var(--holo-1-rgb), 0.22);
+}
+
+/* `aberration-settle` is the entrance, not a loop — it resolves the three
+   colour channels once. Killing the keyframes leaves `--aberr` at its initial
+   0.03em, which is the settled value, so the word simply starts resolved. */
+html.perf-lowish .giant-cobby-text {
+    --aberr: 0.03em;
+}
+
+/* -----------------------------------------------------------------------------
+   3. Balanced: the shimmer without the repaint
+   -------------------------------------------------------------------------- */
+/* The base stylesheet already moved every full-width shimmer off
+   `background-position` and onto a pre-painted highlight that travels by
+   transform, so there is no repaint left to remove here — this only stops the
+   travel on the two elements that sit in the hero and are visible from the
+   first frame. The gradient underneath stays exactly as drawn, so the bars
+   still carry the full cyan → magenta → gold material; they just hold still.
+
+   The dock's active underline is a state indicator, so it keeps its shimmer at
+   balanced and only loses it at lite. */
+html.perf-lowish .char-name::after,
+html.perf-lowish .refsheet-name .char-name::after,
+html.perf-lowish .social-link::after {
+    animation: none;
+    opacity: 0;
+}
+
+/* The vertical rule beside the model is the exception: it breathes rather than
+   travels, and its resting state is a low opacity rather than nothing, because
+   it is the only thing separating the name from the model. It keeps a slow
+   breath at balanced — opacity on a 2px rule is the cheapest thing on this
+   page — and goes completely still at lite. */
+html.perf-lowish .refsheet-name .char-name::after {
+    animation: holo-breathe 5s ease-in-out infinite;
+    opacity: 0.5;
+}
+
+/* Hover still has to light the hairline, so the painted gradient is what shows
+   instead of the travelling band. */
+html.perf-lowish .social-link:hover::before,
+html.perf-lowish .social-link:focus-visible::before {
+    opacity: 1;
+}
+
+/* The last two places that were still animating `background-position`. Both are
+   bounded — the event tag by its own clip-path, the card shine by living inside
+   a modal that is not on screen — but bounded is not free: a gradient whose
+   position changes is re-rastered every frame regardless of how small it is,
+   and the plan for this tier is that nothing animates a background at all.
+   Each keeps one frame of the same gradient, so the tag still reads as the only
+   filled chip in the list and the card still has its sheen. */
+html.perf-lowish .event-tag.tag-next,
+html.perf-lowish .card-shine {
+    animation: none;
+    background-position: 0% 50%;
+}
+
+/* -----------------------------------------------------------------------------
+   4. Balanced: halos and shadows
+   -------------------------------------------------------------------------- */
+/* These four filters are the expensive kind. `blur()` and `drop-shadow()` are
+   not free raster operations that get cached — a blurred layer has to be
+   re-rastered whenever its content or its transform changes, and the aura is
+   also being scaled by an animation, so it is re-rastered constantly.
+
+   Each is throttled rather than deleted, and each keeps the effect that the
+   design actually depends on:
+
+   - the hero's 44px drop-shadow is what seats the character on the emitter
+     pool. It goes from 44px to 18px: still a grounded shadow, a fraction of the
+     blur radius, and the ellipse under the feet does most of the work anyway.
+   - the model panel's aura drops `blur()` entirely and gains a wider, softer
+     gradient instead — the same glow, painted directly, no raster pass.
+   - the model viewer's rim goes from two stacked drop-shadows to one.
+   - `.g-blob` is a 46vmax circle behind a modal; 90px of blur on something that
+     size is the single most expensive filter on the page, and a plain radial
+     gradient does the same job. */
+html.perf-lowish .hero-character-png {
+    filter: drop-shadow(0 18px 18px rgba(0, 0, 0, 0.58));
+}
+
+html.perf-lowish .refsheet-model-panel::before {
+    filter: none;
+    /* Widened to compensate for the lost blur: a gradient that fades out
+       gradually reads the same as a sharp one that has been blurred. */
+    background: radial-gradient(ellipse 62% 62% at 50% 50%,
+            rgba(var(--holo-1-rgb), 0.22) 0%,
+            rgba(var(--holo-1-rgb), 0.1) 34%,
+            rgba(var(--holo-2-rgb), 0.06) 56%,
+            transparent 78%);
+}
+
+html.perf-lowish .refsheet-model-panel.is-loaded .refsheet-model-viewer {
+    filter: drop-shadow(0 0 14px rgba(var(--holo-1-rgb), 0.4));
+}
+
+html.perf-lowish .g-blob {
+    filter: none;
+    /* No blur means the circle's own edge would show, so it becomes the
+       gradient itself. 46vmax of one radial is cheap; 46vmax of blur is not. */
+    background: radial-gradient(circle at 50% 50%,
+            rgba(var(--holo-3-rgb), 0.14) 0%,
+            rgba(var(--holo-3-rgb), 0.06) 38%,
+            transparent 68%);
+}
+
+html.perf-lowish .gb2 {
+    background: radial-gradient(circle at 50% 50%,
+            rgba(var(--holo-2-rgb), 0.14) 0%,
+            rgba(var(--holo-2-rgb), 0.06) 38%,
+            transparent 68%);
+}
+
+/* The registration brackets' glow only exists on hover, but it is a
+   drop-shadow on a pseudo-element that is always laid out. One shadow is
+   enough to read as lit. */
+html.perf-lowish .hud:hover::after,
+html.perf-lowish .hud:focus-within::after {
+    filter: none;
+    opacity: 1;
+}
+
+/* -----------------------------------------------------------------------------
+   5. Balanced: the full-viewport fixed layers
+   -------------------------------------------------------------------------- */
+/* Four layers are `position: fixed` and cover the whole viewport. Every scroll
+   frame asks the compositor to re-blend all four, and each one carries either a
+   mask or a set of repeating gradients that have to be re-rastered at the new
+   offset.
+
+   The projection raster is the worst of them: four repeating gradients under a
+   radial mask. Balanced drops the two 18px fine rasters and keeps the 72px ones,
+   which is the part the eye actually reads as a lattice — the fine lines were
+   only ever visible in the pool of light at the centre, and the pool is where
+   the hero character is standing. */
+html.perf-lowish .projection-field {
+    background-image:
+        repeating-linear-gradient(0deg, rgba(var(--holo-1-rgb), 0.055) 0 1px, transparent 1px 72px),
+        repeating-linear-gradient(90deg, rgba(var(--holo-1-rgb), 0.045) 0 1px, transparent 1px 72px);
+}
+
+/* The slideshow's `filter` is a saturate/contrast pair over a full-viewport
+   image. The scrim above it already darkens and tints the whole stack, so the
+   filter is doing very little that the scrim is not. */
+html.perf-lowish .bg-slide {
+    filter: saturate(0.55);
+}
+
+/* The scrim is three stacked gradients across the whole viewport. Its job is to
+   keep the text readable; the two corner tints are decoration and go. */
+html.perf-lowish .bg-overlay {
+    background:
+        linear-gradient(180deg,
+            rgba(6, 8, 15, 0) 0%,
+            rgba(6, 8, 15, 0) 22%,
+            rgba(6, 8, 15, 0.72) 55%,
+            rgba(4, 5, 11, 0.98) 100%);
+}
+
+/* --- 5b. Long transitions --------------------------------------------------
+   The tier contract caps a transition at 0.4s here. That is not about how long
+   a fade looks nice for — it is about how long the compositor is asked to keep
+   producing new frames for something nobody is interacting with.
+
+   Listed by hand rather than with a blanket `transition-duration` override,
+   because most of this card's transitions are already short hover feedback and
+   a global cap would be a blunt instrument aimed at the wrong targets.
+
+   The progress bar is the one that actually matters: it animates `width`, which
+   is a layout property, so every step of that 0.9s fade re-lays-out the widget
+   footer. Shortening it does not stop the layout, but it stops it lasting most
+   of a second, and the bar is driven by a poll that already runs slower here. */
+html.perf-lowish .bg-slide {
+    transition-duration: 0.4s;
+}
+
+html.perf-lowish .spotify-progress-fill {
+    transition-duration: 0.2s;
+}
+
+html.perf-lowish .dock,
+html.perf-lowish .refsheet-image,
+html.perf-lowish .lang-btn,
+html.perf-lowish .modal img {
+    transition-duration: 0.4s;
+}
+
+/* These two are already off-screen or retired by the time anything is measured,
+   but they are the longest durations on the page and leaving them out would
+   make the rule above look like it had been forgotten rather than scoped. */
+html.perf-lowish .global-loader,
+html.perf-lowish .special-overlay {
+    transition-duration: 0.4s;
+}
+
+/* -----------------------------------------------------------------------------
+   6. Balanced: the 3D panels
+   -------------------------------------------------------------------------- */
+/* The gate button is the only way to the models on this tier, so it stays and
+   stays prominent. What goes is its hover transition length and the backdrop
+   work behind it — the button sits on an opaque background of its own, so the
+   blur is invisible anyway. */
+html.perf-lowish .model3d-gate {
+    transition: color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* -----------------------------------------------------------------------------
+   7. Lite: static, calm, still this card
+   -------------------------------------------------------------------------- */
+/* Lite is not "the same page, slower". It is the same page standing still.
+
+   The rules below take the page to zero infinite animation and zero blur
+   filters, and they do it without touching anything that makes it this card:
+   the void-and-holo palette, the chamfered panels, the hairline edges, the three
+   typefaces, the misregistered display word, the emitter, the character and the
+   social dock are all still exactly as drawn.
+
+   The one thing that must survive untouched is the first viewport: the
+   character and the dock have to be visible without scrolling, because a
+   stranger arriving on an old phone still needs to reach a handle. Nothing here
+   touches their layout, opacity or visibility. */
+
+/* --- 7a. No infinite animation, anywhere ---------------------------------- */
+/* This is a blanket kill rather than a list, because "no infinite animation at
+   all" has to be true by construction on this tier — a new loop added later
+   must not silently come back here. One-shot animations (the loader, panel-in,
+   the gate's own press feedback) are allowed to finish: they are bounded work
+   that ends, not work that repeats. */
+html[data-perf="lite"] *,
+html[data-perf="lite"] *::before,
+html[data-perf="lite"] *::after {
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+}
+
+/* ...and the specific loops that have a sensible resting state get one, so the
+   single frame they are allowed to play does not land mid-pose. */
+html[data-perf="lite"] .equalizer-bars.playing span {
+    animation: none;
+    transform: scaleY(0.22);
+}
+
+html[data-perf="lite"] .vinyl-disc,
+html[data-perf="lite"] .vinyl-disc.spinning {
+    animation: none;
+}
+
+html[data-perf="lite"] .status-indicator .dot,
+html[data-perf="lite"] .term-blinking-cursor {
+    animation: none;
+    opacity: 1;
+}
+
+html[data-perf="lite"] .scroll-hint i,
+html[data-perf="lite"] .variant-bubble,
+html[data-perf="lite"] .refsheet-model-panel::before,
+html[data-perf="lite"] .proj-reticle,
+html[data-perf="lite"] .loader-charge i,
+html[data-perf="lite"] body:not(.booting) .giant-cobby-text {
+    animation: none;
+}
+
+/* The vertical rule beside the model is the one highlight that breathes rather
+   than travels, and balanced keeps a slow breath on it. Lite holds it still at
+   the midpoint of that breath, so the rule is still there separating the name
+   from the model — it is simply not moving. */
+html[data-perf="lite"] .refsheet-name .char-name::after {
+    animation: none;
+    opacity: 0.5;
+}
+
+html[data-perf="lite"] .variant-bubble {
+    /* The bob is gone; the bubble is just a button again. */
+    translate: 0 0;
+}
+
+html[data-perf="lite"] .roadmap-item.upcoming .roadmap-marker::after {
+    animation: none;
+    opacity: 0;
+}
+
+/* The travelling highlight bands are decoration on top of decoration. The
+   painted gradient underneath still carries the colour, so the bands are not
+   drawn at all — that also stops them needing a composited layer each.
+   The vertical rule is excluded: it is handled above, where it is held still
+   rather than removed, because it separates the name from the model. */
+html[data-perf="lite"] .char-name::after,
+html[data-perf="lite"] .social-link::after,
+html[data-perf="lite"] .dock-btn::after,
+html[data-perf="lite"] .card-shine {
+    display: none;
+}
+
+/* With the travel gone, the dock's active state is the static gradient. */
+html[data-perf="lite"] .dock-btn.active::before {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+/* The event tag is the one place a moving gradient was still kept, because its
+   clip-path bounds the repaint to a 40px chip. At lite even that is a per-frame
+   repaint for decoration, so it settles on a single frame of the same gradient.
+   The chip still reads as "going next" — it is the only filled tag in the list. */
+html[data-perf="lite"] .event-tag.tag-next {
+    animation: none;
+    background-position: 0% 50%;
+}
+
+/* -----------------------------------------------------------------------------
+   8. Lite: the background stack
+   -------------------------------------------------------------------------- */
+/* The scan sweep is a 190px bar travelling the full height of the viewport for
+   thirteen seconds at a time. It is pure atmosphere, it is one of the four
+   fixed full-viewport layers, and it is the first thing to go. */
+html[data-perf="lite"] .scan-sweep {
+    display: none;
+}
+
+/* Without the sweep there is nothing for the raster's mask to be revealed by,
+   and a masked layer costs a separate raster pass for no benefit: the pool of
+   light it fades into is already painted by `.bg-overlay`. The raster keeps its
+   72px lattice, unmasked and flat. */
+html[data-perf="lite"] .projection-field {
+    background-image:
+        repeating-linear-gradient(0deg, rgba(var(--holo-1-rgb), 0.055) 0 1px, transparent 1px 72px),
+        repeating-linear-gradient(90deg, rgba(var(--holo-1-rgb), 0.045) 0 1px, transparent 1px 72px);
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+/* The slideshow's filter goes entirely, and the slide is held at a fixed
+   opacity so the one fade it gets is the one that puts it on screen. main.js
+   also skips the rotation on this tier; this is the belt to that braces. */
+html[data-perf="lite"] .bg-slide {
+    filter: none;
+}
+
+html[data-perf="lite"] .bg-slideshow {
+    /* One slide, painted once. Nothing here is going to change its opacity
+       again, so the browser never has to blend the stack under the page. */
+    contain: strict;
+    contain-intrinsic-size: 100vw 100vh;
+}
+
+/* -----------------------------------------------------------------------------
+   9. Lite: hero, emitter and instruments
+   -------------------------------------------------------------------------- */
+/* The character keeps its shape and its place; it loses the blur pass that
+   traces its silhouette. The emitter pool and rim below it still ground it, so
+   nothing floats. */
+html[data-perf="lite"] .hero-character-png {
+    filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.5));
+}
+
+/* The cone is a clipped trapezoid under an elliptical mask under a gradient.
+   That is three raster passes for a wash of light, and the pool and rim already
+   describe the emitter completely. The design language survives in them. */
+html[data-perf="lite"] .emitter-cone {
+    display: none;
+}
+
+html[data-perf="lite"] .emitter-pool {
+    background: radial-gradient(ellipse 50% 50% at 50% 50%,
+            rgba(var(--holo-1-rgb), 0.3) 0%,
+            rgba(var(--holo-1-rgb), 0.1) 46%,
+            transparent 74%);
+}
+
+html[data-perf="lite"] .emitter-rim {
+    box-shadow: none;
+    border-color: rgba(var(--holo-1-rgb), 0.38);
+}
+
+/* The misregistered channels are the design's signature and they are just three
+   text-shadows — cheap, and kept. Only the wide 60px bloom around them goes;
+   it is the part that costs a large blur. */
+html[data-perf="lite"] .giant-cobby-text {
+    text-shadow:
+        calc(var(--aberr) * -1) 0 0 rgba(var(--holo-2-rgb), 0.62),
+        var(--aberr) 0 0 rgba(var(--holo-1-rgb), 0.62);
+}
+
+/* -----------------------------------------------------------------------------
+   10. Lite: content surfaces
+   -------------------------------------------------------------------------- */
+/* No blur filters survive on this tier. The model panel's aura was the last
+   one standing, and the panel is not even populated until the gate is pressed,
+   so it is simply not drawn until then. */
+html[data-perf="lite"] .refsheet-model-panel::before {
+    display: none;
+}
+
+html[data-perf="lite"] .refsheet-model-panel.is-loaded .refsheet-model-viewer {
+    filter: none;
+}
+
+/* The variant bubbles are a control, so they stay visible and tappable; they
+   lose the frost and keep the radial gradient, which is what actually makes
+   them read as round chips. */
+html[data-perf="lite"] .variant-bubble {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+html[data-perf="lite"] .variant-bubble.is-active {
+    box-shadow: 0 0 0 1px rgba(var(--holo-1-rgb), 0.55);
+}
+
+/* Hover zooms on images are transform-only and compositor-friendly, so the
+   ref sheet keeps its. What goes is the saturate() it stacks on top — a filter
+   over a full-size image, on hover, is a full re-raster of that image. */
+html[data-perf="lite"] .refsheet-wrapper:hover .refsheet-image {
+    filter: none;
+}
+
+html[data-perf="lite"] .event-photo,
+html[data-perf="lite"] .roadmap-content:hover .event-photo {
+    filter: none;
+}
+
+html[data-perf="lite"] .special-content .greet-icon {
+    filter: none;
+}
+
+html[data-perf="lite"] .enter-btn:hover {
+    filter: none;
+    transform: none;
+}
+
+/* -----------------------------------------------------------------------------
+   11. Reduced motion, on top of the tier
+   -------------------------------------------------------------------------- */
+/* `prefers-reduced-motion` is not a tier — a desktop with the setting on still
+   gets the `full` composition — so these rules are keyed on the attribute, not
+   on a level. They only cover what the block at the end of style.css does not:
+   the travelling bands, which style.css already hides, and the tier-independent
+   guarantee that nothing here loops.
+
+   style.css's block is the authority and is left exactly as it was; everything
+   here is additive. */
+html[data-perf-rm="1"] .char-name::after,
+html[data-perf-rm="1"] .refsheet-name .char-name::after,
+html[data-perf-rm="1"] .social-link::after,
+html[data-perf-rm="1"] .dock-btn::after,
+html[data-perf-rm="1"] .card-shine {
+    display: none;
+}
+
+/* The band is gone, so the dock's active underline is the painted gradient. */
+html[data-perf-rm="1"] .dock-btn.active::before {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+html[data-perf-rm="1"] .scan-sweep {
+    display: none;
+}
+
+/* -----------------------------------------------------------------------------
+   12. Feature support guards
+   -------------------------------------------------------------------------- */
+/* A browser that has never heard of `content-visibility` would otherwise be
+   left with the property silently doing nothing, which is the correct
+   degradation — but it would also mean the tier rules above could be the only
+   thing between it and a very long first layout. This states the fallback
+   explicitly: the roadmap cards simply render normally. */
+@supports not (content-visibility: auto) {
+    html.perf-lowish .roadmap-content {
+        content-visibility: visible;
+        contain-intrinsic-size: none;
+    }
+}
+
+/* `backdrop-filter` is a progressive enhancement everywhere it is used — the
+   elements that carry it all have an opaque background of their own — so the
+   guard in style.css is all that is needed, and there is nothing to undo here.
+   This block exists so the next person editing this file knows it was
+   considered rather than missed. */
+
+/* The compositor is where every rule in this file is trying to move work to. A
+   browser without it will run the transform-based highlights on the main
+   thread; they are cheap there (a 2px band), but on such a browser it is more
+   honest to leave them static. */
+@supports not (will-change: transform) {
+    html .char-name::after,
+    html .refsheet-name .char-name::after,
+    html .social-link::after,
+    html .dock-btn::after {
+        display: none;
+    }
+}

@@ -224,7 +224,10 @@ h4 {
     opacity: 0;
     filter: saturate(0.55) contrast(1.05);
     transition: opacity 2.4s ease;
-    will-change: opacity;
+    /* No `will-change: opacity` here on purpose. There are several of these
+       stacked full-viewport, they are only ever transitioned once every eight
+       seconds, and a permanent will-change buys nothing for a transition that
+       short while costing a full-screen composited layer each, forever. */
 }
 
 .bg-slide.loaded.active {
@@ -622,9 +625,11 @@ body:not(.booting) .giant-cobby-text {
     animation: aberration-settle 1.5s var(--ease-out) 0.35s both;
 }
 
+/* The entrance timeline moves these once, through GSAP, which sets its own
+   will-change for the duration of the tween and clears it after. Declaring it
+   here made five permanently composited layers out of a one-second event. */
 .name-char {
     display: inline-block;
-    will-change: transform;
 }
 
 @keyframes aberration-settle {
@@ -1112,8 +1117,11 @@ body:not(.booting) .giant-cobby-text {
     background: rgba(var(--holo-1-rgb), 0.07);
 }
 
-/* Hover lights a holo hairline along the cell's top edge */
-.social-link::after {
+/* Hover lights a holo hairline along the cell's top edge.
+   The gradient is painted once; the travelling highlight is a second layer
+   above it that only moves. Same reasoning as the name underline — a sliding
+   background-position repaints the gradient every frame for a 2px line. */
+.social-link::before {
     content: "";
     position: absolute;
     top: 0;
@@ -1126,10 +1134,34 @@ body:not(.booting) .giant-cobby-text {
     transition: opacity 0.25s ease;
 }
 
+.social-link::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    width: 42%;
+    height: 2px;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.9) 50%,
+            transparent 100%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.social-link:hover::before,
+.social-link:focus-visible::before,
 .social-link:hover::after,
 .social-link:focus-visible::after {
     opacity: 1;
-    animation: holo-shift 2.6s linear infinite;
+}
+
+.social-link:hover::after,
+.social-link:focus-visible::after {
+    animation: holo-travel-x 2.6s linear infinite;
 }
 
 .social-link svg {
@@ -1300,8 +1332,11 @@ body:not(.booting) .giant-cobby-text {
     color: var(--holo-1);
 }
 
-/* Active state is a holographic underline, never a filled pill */
-.dock-btn::after {
+/* Active state is a holographic underline, never a filled pill.
+   ::before holds the painted gradient, ::after carries the travelling
+   highlight. The reveal still runs on `transform`, so the underline still
+   grows out of the centre; only the shimmer layer above it moves. */
+.dock-btn::before {
     content: "";
     position: absolute;
     left: 14px;
@@ -1316,16 +1351,34 @@ body:not(.booting) .giant-cobby-text {
     transition: opacity 0.3s ease, transform 0.4s var(--ease-out);
 }
 
-.dock-btn:hover::after {
+.dock-btn::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 7px;
+    height: 2px;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.9) 50%,
+            transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.dock-btn:hover::before {
     opacity: 0.45;
+    transform: scaleX(1);
+}
+
+.dock-btn.active::before {
+    opacity: 1;
     transform: scaleX(1);
 }
 
 .dock-btn.active::after {
     opacity: 1;
-    transform: scaleX(1);
-    background-size: 280% 100%;
-    animation: holo-shift 2.8s linear infinite;
+    animation: holo-travel-x 2.8s linear infinite;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1576,25 +1629,59 @@ body.lang-vi [lang="en"] {
     padding-bottom: 14px;
 }
 
-/* Underline accent replaces the old glitch pseudo-elements */
+/* Underline accent replaces the old glitch pseudo-elements.
+   The gradient is painted once, on ::before, and never moves. It used to crawl
+   by animating background-position, which makes the browser rebuild and
+   re-rasterise the gradient on every frame — a lot of work for a 2px line, on
+   several elements, forever.
+
+   ::after is the travelling highlight: a narrow band that slides along the bar.
+   It is deliberately narrower than the bar and only ever translates by less
+   than its own width, so it cannot paint past either end — `.char-name` must
+   not clip (that would eat the letters' text-shadow), so nothing here may rely
+   on an ancestor to contain it. Transform only, so the compositor runs it and
+   the paint happens once. */
+.char-name::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Centred by auto margins rather than a translate, so the travelling
+       highlight below has the transform channel to itself. */
+    margin-left: auto;
+    margin-right: auto;
+    width: min(100%, 190px);
+    height: 2px;
+    background: var(--holo);
+    background-size: 200% 100%;
+}
+
 .char-name::after {
     content: "";
     position: absolute;
-    left: 50%;
+    left: 0;
+    right: 0;
     bottom: 0;
-    transform: translateX(-50%);
-    width: min(100%, 190px);
+    margin-left: auto;
+    margin-right: auto;
+    width: min(36%, 68px);
     height: 2px;
-    /* Continuous holographic sweep. The --holo gradient starts and ends on the
-       same cyan, so shifting the oversized background by its own width loops seamlessly. */
-    background: var(--holo);
-    background-size: 200% 100%;
-    animation: holo-sweep 3.2s linear infinite;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.92) 50%,
+            transparent 100%);
+    animation: holo-travel-x 3.2s linear infinite;
 }
 
-@keyframes holo-sweep {
-    from { background-position: 0% 0; }
-    to   { background-position: -200% 0; }
+@keyframes holo-travel-x {
+    from {
+        transform: translateX(-70%);
+    }
+
+    to {
+        transform: translateX(70%);
+    }
 }
 
 .char-kind {
@@ -1631,6 +1718,8 @@ body.lang-vi [lang="en"] {
     background: rgba(var(--holo-1-rgb), 0.045);
 }
 
+/* Painted once, never shifted. The hover already lights the cell; the sweep
+   used to repaint this gradient every frame on top of that. */
 .readout-cell::after {
     content: "";
     position: absolute;
@@ -1646,7 +1735,6 @@ body.lang-vi [lang="en"] {
 
 .readout-cell:hover::after {
     opacity: 1;
-    animation: holo-shift 2.8s linear infinite;
 }
 
 .readout-key {
@@ -1736,27 +1824,61 @@ body.lang-vi [lang="en"] {
     text-align: center;
 }
 
-/* The shared underline becomes a vertical holo rule beside the letters. */
-.refsheet-name .char-name::after {
+/* The shared underline becomes a vertical holo rule beside the letters. Same
+   split as the horizontal bar: ::before is the painted gradient, ::after is the
+   life on top of it.
+
+   The horizontal bars carry a band that travels, because they are wide and
+   short and a band narrower than the bar can slide inside it. This rule is the
+   opposite shape — 2px wide and as tall as the name — and a band can do nothing
+   here but clip against the ends or spill past them. `.char-name` must not clip
+   (that would eat the letters' text-shadow), so it breathes on opacity instead:
+   compositor work, no spill, and it reads the same as the aura on the model
+   panel. */
+.refsheet-name .char-name::before {
     left: 0;
+    right: auto;
     top: 6%;
     bottom: 6%;
     width: 2px;
     height: auto;
-    transform: none;
+    margin: 0;
     background: linear-gradient(180deg, var(--holo-1), var(--holo-2), var(--holo-1));
     background-size: 100% 200%;
-    animation: holo-sweep-y 3.2s linear infinite;
 }
 
-@keyframes holo-sweep-y {
-    from { background-position: 0 0%; }
-    to   { background-position: 0 -200%; }
+.refsheet-name .char-name::after {
+    left: 0;
+    right: auto;
+    top: 6%;
+    bottom: 6%;
+    width: 2px;
+    height: auto;
+    margin: 0;
+    background: linear-gradient(180deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.92) 50%,
+            transparent 100%);
+    animation: holo-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes holo-breathe {
+
+    0%,
+    100% {
+        opacity: 0.18;
+    }
+
+    50% {
+        opacity: 0.9;
+    }
 }
 
 .char-letter {
     display: block;
-    will-change: transform;
+    /* The scroll-linked timeline in main.js sets its own will-change while the
+       letters are actually moving; keeping it here left a layer per letter for
+       the entire visit, to move them for a fraction of a second. */
     text-shadow: 0 0 18px rgba(var(--holo-1-rgb), 0.35);
 }
 
@@ -1795,11 +1917,24 @@ body.lang-vi [lang="en"] {
 }
 
 /* Rim glow that hugs the silhouette: the canvas is transparent around the
-   model, so drop-shadow traces its outline. */
+   model, so drop-shadow traces its outline.
+
+   `display: block` is load-bearing and was missing. Until someone taps the gate
+   this is an un-upgraded custom element, and an unknown element is `display:
+   inline` — with `width/height: 100%` doing nothing on an inline box, the panel
+   would collapse to nothing. As a block it keeps the panel's shape whether or
+   not the model-viewer module has ever loaded. */
 .refsheet-model-viewer {
+    display: block;
     width: 100%;
     height: 100%;
     --poster-color: transparent;
+}
+
+/* The rim glow is a filter over a live WebGL canvas. There is no canvas to
+   trace until the gate has been pressed, so there is nothing for it to cost and
+   nothing for it to do — it only applies once the model exists. */
+.refsheet-model-panel.is-loaded .refsheet-model-viewer {
     filter:
         drop-shadow(0 0 6px rgba(var(--holo-1-rgb), 0.55))
         drop-shadow(0 0 22px rgba(var(--holo-1-rgb), 0.3));
@@ -1818,6 +1953,27 @@ body.lang-vi [lang="en"] {
 
     .refsheet-model-panel {
         max-width: 66%;
+    }
+
+    /* The panel is narrower here and the gate has to keep clear of both the
+       sheet's edge and the A/B bubbles stacked off the outer side, so it drops
+       to a single compact row. The note stays — it is the honest half. */
+    .model3d-gate {
+        gap: 7px;
+        padding: 8px 11px;
+        font-size: 0.62rem;
+        letter-spacing: 0.1em;
+    }
+
+    .model3d-gate-icon {
+        width: 19px;
+        height: 19px;
+        font-size: 0.58rem;
+    }
+
+    .model3d-gate-note {
+        padding-left: 7px;
+        font-size: 0.55rem;
     }
 
     .refsheet-name .char-name {
@@ -1858,6 +2014,7 @@ body.lang-vi [lang="en"] {
     padding: 0 16px 0 0;
 }
 
+.refsheet-duo.is-mirrored .refsheet-name .char-name::before,
 .refsheet-duo.is-mirrored .refsheet-name .char-name::after {
     left: auto;
     right: 0;
@@ -1901,12 +2058,21 @@ body.lang-vi [lang="en"] {
     border-radius: 50%;
     background: radial-gradient(circle at 32% 28%,
             rgba(255, 255, 255, 0.18), rgba(var(--holo-1-rgb), 0.06) 45%, rgba(4, 5, 11, 0.7) 100%);
-    backdrop-filter: blur(6px);
     color: var(--muted);
     font-family: var(--mono);
     cursor: pointer;
     animation: bubble-bob 3.6s ease-in-out infinite;
     transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.35s ease;
+}
+
+/* The frosted backing is a nicety over an opaque radial gradient, so a browser
+   without backdrop-filter loses nothing but the frost — it must not be left
+   with a missing background. Declared in its own block for that reason. */
+@supports (backdrop-filter: blur(6px)) or (-webkit-backdrop-filter: blur(6px)) {
+    .variant-bubble {
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+    }
 }
 
 .variant-bubble + .variant-bubble {
@@ -1980,6 +2146,28 @@ body.lang-vi [lang="en"] {
 
     .variant-bubble-label {
         display: none;
+    }
+}
+
+/* On the narrowest phones the panel is only a third of the screen wide and the
+   gate would crowd the bubbles. It loses its icon and keeps the two things that
+   matter: what it does and how much it costs. */
+@media (max-width: 460px) {
+    .model3d-gate {
+        bottom: 8%;
+        gap: 0;
+        padding: 8px 10px;
+        font-size: 0.58rem;
+        letter-spacing: 0.06em;
+    }
+
+    .model3d-gate-icon {
+        display: none;
+    }
+
+    .model3d-gate-note {
+        padding-left: 6px;
+        font-size: 0.52rem;
     }
 }
 
@@ -2073,6 +2261,112 @@ body.lang-vi [lang="en"] {
     letter-spacing: 0.2em;
     text-transform: lowercase;
     margin: 0;
+}
+
+/* --- The 3D gate -------------------------------------------------------------
+   The two models are 9 MB and 6.5 MB of Blender export. They used to be fetched
+   at boot by everyone, including phones that would never scroll this far, and
+   parsing them was the single longest task on the page. Now nothing loads until
+   someone taps this button.
+
+   It has to read as an instrument control, not a call to action: same chamfer
+   as every panel, a hairline edge, mono type, and the holographic gradient only
+   on hover — the same contract every other interactive element on the card
+   keeps. The sizes are printed because that is the honest thing to do when
+   asking someone to spend 9 MB of their data.
+
+   It sits INSIDE `.refsheet-model-panel`, which is `pointer-events: none` so
+   clicks fall through to the reference sheet beneath, so this needs its own
+   `pointer-events: auto`. */
+.model3d-gate {
+    position: absolute;
+    left: 50%;
+    bottom: 12%;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    /* Only the button is interactive, so the centring transform is free. */
+    transform: translateX(-50%);
+    pointer-events: auto;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: lowercase;
+    white-space: nowrap;
+    color: var(--text);
+    background: rgba(8, 11, 22, 0.92);
+    clip-path: polygon(var(--c-sm) 0, 100% 0, 100% calc(100% - var(--c-sm)), calc(100% - var(--c-sm)) 100%, 0 100%, 0 var(--c-sm));
+    cursor: pointer;
+    /* The 1px edge is the same trick as `.hud`: the element's own background is
+       the edge, and an inset face is laid under it through the same clip. Doing
+       it with a border would not follow the chamfer diagonal. */
+    box-shadow: inset 0 0 0 1px var(--edge-lit);
+    transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.model3d-gate:hover,
+.model3d-gate:focus-visible {
+    color: var(--text-bright);
+    background: rgba(12, 16, 32, 0.96);
+    box-shadow: inset 0 0 0 1px var(--holo-1);
+}
+
+.model3d-gate:focus-visible {
+    outline: 2px solid var(--holo-1);
+    outline-offset: 3px;
+}
+
+.model3d-gate-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    font-size: 0.66rem;
+    color: var(--holo-1);
+    border: 1px solid rgba(var(--holo-1-rgb), 0.4);
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+
+.model3d-gate-label {
+    color: inherit;
+}
+
+.model3d-gate-note {
+    flex: none;
+    padding-left: 9px;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    border-left: 1px solid var(--edge);
+}
+
+/* Once the model is actually coming, the gate is gone and the poster takes over
+   the "loading" duty — one message at a time, never two. */
+.refsheet-model-panel.is-loaded .model3d-gate,
+.refsheet-model-panel.is-loading .model3d-gate {
+    display: none;
+}
+
+/* While the gate is up, model-viewer's own poster slot must stay empty: it also
+   says "loading 3d model…", and two of those stacked on one panel is a bug. The
+   poster only earns its place once the gate has been pressed. */
+.refsheet-model-panel:not(.is-loaded):not(.is-loading) .model3d-poster {
+    display: none;
+}
+
+/* And while the gate is up the viewer must not eat the tap. It is an empty,
+   un-upgraded custom element at that point, but it is also `width/height: 100%`
+   and sits on top of the button's stacking context, so it would swallow clicks
+   aimed at the gate. */
+.refsheet-model-panel:not(.is-loaded) .refsheet-model-viewer {
+    pointer-events: none;
+}
+
+.refsheet-model-panel.is-loaded .refsheet-model-viewer {
+    pointer-events: auto;
 }
 
 /* -----------------------------------------------------------------------------
@@ -2205,6 +2499,13 @@ body.lang-vi [lang="en"] {
     position: relative;
     --c: var(--c-lg);
 }
+
+/* `content-visibility: auto` would be tempting here and is deliberately NOT
+   used. This wrapper only ever exists inside `#tab-gallery`, which is
+   `display: none` until that tab is opened, so the layout it would skip is
+   already skipped. Worse, main.js fits the iframe with a ResizeObserver on the
+   sub-document's body; a wrapper that reports a skipped box can hand `fitGallery`
+   a stale height and clip the gallery. Nothing to win, something to lose. */
 
 .gallery-iframe {
     display: block;
@@ -2416,6 +2717,14 @@ body.lang-vi [lang="en"] {
     width: 50%;
     padding: 0 clamp(24px, 4vw, 46px);
     margin-bottom: var(--gap-4);
+    /* Layout and style containment only. This element is the containing block
+       for its marker, so layout containment changes nothing about where the
+       marker lands, and it stops anything inside from forcing a re-layout of
+       the whole timeline when one card changes height. NOT `contain: paint`
+       or `content-visibility` here: the marker deliberately overhangs the box
+       by 13px (and its pulse ring by another 7px), and either of those would
+       clip it against the axis. */
+    contain: layout style;
 }
 
 .roadmap-item.left-side {
@@ -2504,6 +2813,14 @@ body.lang-vi [lang="en"] {
     border: 1px solid var(--edge);
     clip-path: polygon(var(--c-md) 0, 100% 0, 100% calc(100% - var(--c-md)), calc(100% - var(--c-md)) 100%, 0 100%, 0 var(--c-md));
     transition: border-color 0.3s ease;
+    /* The intrinsic-size fallback for the card-skipping in perf.css: roughly one
+       card of text, so the timeline's scroll height does not lurch while a card
+       is still unmeasured. `auto` makes the browser remember the real height
+       once it has rendered. The skipping itself is tiered — it is NOT on at
+       full/ultra, where a card snapping from this fallback to its real height
+       would be a visible regression. Nothing overhangs a card body, so it is
+       the safe place for it when it does apply. */
+    contain-intrinsic-size: auto 210px;
 }
 
 .roadmap-content:hover {
@@ -2551,6 +2868,10 @@ body.lang-vi [lang="en"] {
     clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
 }
 
+/* This one genuinely clips (clip-path on the tag), so the sliding background
+   is safe to keep: the repaint is bounded to a 40px chip instead of a
+   full-width band, and the chip is the only element on the page that needs a
+   real moving gradient to read as "going next". */
 .event-tag.tag-next {
     position: relative;
     color: #08131a;
@@ -2871,6 +3192,12 @@ body.fuve-edition {
 /* -----------------------------------------------------------------------------
    27. Shared motion
    -------------------------------------------------------------------------- */
+/* Still used by the two elements that can afford it: `.event-tag.tag-next`,
+   whose clip-path bounds the repaint to a 40px chip, and `.card-shine`, which
+   is a one-shot overlay on a modal that is not on screen the rest of the time.
+   Everything full-width uses holo-travel-x / holo-travel-y instead — those move
+   a pre-painted layer with transform, which the compositor runs without
+   repainting anything. */
 @keyframes holo-shift {
     0% {
         background-position: 0% 50%;
@@ -3181,6 +3508,25 @@ html:has(body.booting) {
     .scan-sweep,
     .emitter-cone {
         display: none;
+    }
+
+    /* The travelling highlights are decoration on top of decoration: under
+       reduced motion the painted gradient underneath still carries the colour,
+       so the band is simply not drawn. The blanket rule above already collapses
+       the animation to one frame; this stops that frame sitting on the bar. */
+    .char-name::after,
+    .refsheet-name .char-name::after,
+    .social-link::after,
+    .dock-btn::after,
+    .card-shine {
+        display: none;
+    }
+
+    /* The gate's hover is a colour change, not a movement, but its focus ring
+       is the one thing that must still be obvious when it is the only control
+       in the panel. */
+    .model3d-gate {
+        transition: none;
     }
 
     .giant-cobby-text {

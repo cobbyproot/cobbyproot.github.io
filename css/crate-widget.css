@@ -1,0 +1,539 @@
+/* =============================================================================
+   THE CRATE — hero instrument skin
+
+   The right-hand HUD instrument used to be a Spotify panel. It is now the
+   crate's readout: the slot shows what you last pulled, the readout names it,
+   and the footer carries the transport.
+
+   This file only skins the shell. js/music.js owns every value inside it.
+
+   Sizing note: the old Spotify panel was ~330px wide with a 54px vinyl. The
+   crate slot is the same footprint so the hero composition — character centre,
+   two instruments flanking — does not shift.
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   1. Widget frame
+   -------------------------------------------------------------------------- */
+.crate-widget {
+    display: flex;
+    flex-direction: column;
+}
+
+.crate-widget-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px 10px;
+}
+
+/* -----------------------------------------------------------------------------
+   2. The slot — what you last pulled
+
+   One grid cell holds three faces so the swap can never move anything:
+   the artwork, the live spectrum, and the idle glyph. Which one is visible is
+   decided by a class on .crate-slot, never by markup order.
+   -------------------------------------------------------------------------- */
+.crate-slot {
+    position: relative;
+    flex: none;
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    background: var(--surface-sunk);
+    /* The same chamfer as the model gates and copy keys: this is a slot in the
+       instrument, so it takes the system's cut corner. */
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    isolation: isolate;
+}
+
+/* A single hairline, drawn as the element's own background showing through a
+   1px inset — the same trick .hud uses. */
+.crate-slot::before {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    z-index: -1;
+    background: var(--surface-sunk);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    transition: background-color 0.35s ease;
+}
+
+.crate-slot-art {
+    grid-area: 1 / 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.crate-slot-eq {
+    grid-area: 1 / 1;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+}
+
+.crate-slot-idle {
+    grid-area: 1 / 1;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    font-size: 1rem;
+    color: var(--faint);
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(var(--holo-1-rgb), 0.05) 0 6px,
+            transparent 6px 12px),
+        var(--surface-sunk);
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+/* The spin between songs. A holographic rosette that turns while the crate
+   looks for the next track, then fades out. `is-spinning` is stamped by
+   js/music.js; reduced-motion flattens it to a steady glint. */
+.crate-slot-spin {
+    grid-area: 1 / 1;
+    width: 22px;
+    height: 22px;
+    opacity: 0;
+    pointer-events: none;
+    background:
+        conic-gradient(from 0deg,
+            transparent 0deg,
+            rgba(var(--holo-2-rgb), 0.85) 40deg,
+            transparent 80deg,
+            transparent 180deg,
+            rgba(var(--holo-1-rgb), 0.85) 220deg,
+            transparent 260deg);
+    border-radius: 50%;
+    -webkit-mask: radial-gradient(circle, transparent 52%, #000 54%);
+    mask: radial-gradient(circle, transparent 52%, #000 54%);
+    /* Paused, not absent, when idle: the fade-out then holds the rosette at
+       whatever angle it reached, and the next pull resumes from there. */
+    animation: crate-spin-turn 1.8s linear infinite;
+    animation-play-state: paused;
+    transition: opacity 0.55s ease;
+}
+
+.crate-slot.is-spinning .crate-slot-spin {
+    opacity: 0.9;
+    animation-play-state: running;
+    transition: opacity 0.4s ease-out;
+}
+
+.crate-slot.is-spinning .crate-slot-art {
+    opacity: 0.16;
+}
+
+.crate-slot.is-spinning .crate-slot-idle {
+    opacity: 0;
+}
+
+@keyframes crate-spin-turn {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Loaded: artwork, no idle glyph. */
+.crate-slot.is-loaded .crate-slot-art {
+    opacity: 1;
+}
+
+.crate-slot.is-loaded .crate-slot-idle {
+    opacity: 0;
+}
+
+/* Playing: the spectrum takes over from the flat artwork so the instrument
+   reads as live rather than as a thumbnail. */
+.crate-slot.is-playing .crate-slot-eq {
+    opacity: 1;
+}
+
+.crate-slot.is-playing .crate-slot-art {
+    opacity: 0.22;
+}
+
+/* -----------------------------------------------------------------------------
+   2b. The mini case — the CS2 strip in miniature
+
+   A row of covers scrolls under a fixed reticle before every play, so the
+   hero box shows the same pull the retired music tab used to. The strip is
+   driven by a CSS transform transition (js/music.js), so reduced-motion can
+   flatten it in one rule.
+   -------------------------------------------------------------------------- */
+.crate-case {
+    position: relative;
+    height: 46px;
+    margin: 0 14px;
+    overflow: hidden;
+    background: var(--surface-sunk);
+    border-left: 1px solid var(--edge);
+    border-right: 1px solid var(--edge);
+    clip-path: polygon(var(--c-sm) 0,
+            100% 0,
+            100% calc(100% - var(--c-sm)),
+            calc(100% - var(--c-sm)) 100%,
+            0 100%,
+            0 var(--c-sm));
+    --case-cell-w: 44px;
+    --case-gap: 6px;
+}
+
+/* Covers dissolve into the case at its edges instead of being cut off, like
+   the CS2 window. Painted rather than masked: a mask would also eat the 1px
+   side hairlines, which sit exactly on the fade stops. */
+.crate-case::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(90deg,
+            var(--surface-sunk) 0,
+            transparent 18%,
+            transparent 82%,
+            var(--surface-sunk) 100%);
+}
+
+.crate-case-reel {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--case-gap);
+    transform: translate3d(0, -50%, 0);
+    will-change: transform;
+}
+
+.crate-case-cell {
+    flex: none;
+    width: var(--case-cell-w);
+    height: 38px;
+    background: var(--surface);
+    overflow: hidden;
+    opacity: 0.4;
+    transition: opacity 0.45s ease, box-shadow 0.45s ease;
+}
+
+/* Once the strip lands, the losers settle back so the winner reads. */
+.crate-case:not(.is-spinning) .crate-case-cell:not(.is-win) {
+    opacity: 0.22;
+}
+
+.crate-case-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.9;
+}
+
+.crate-case-cell.is-win {
+    opacity: 1;
+    box-shadow: inset 0 0 0 1px var(--rar, var(--holo-1));
+}
+
+.crate-case-cell.rarity-legendary { --rar: var(--holo-3); }
+.crate-case-cell.rarity-covert    { --rar: var(--holo-2); }
+.crate-case-cell.rarity-classified { --rar: var(--holo-1); }
+
+.crate-case-reticle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: calc(var(--case-cell-w) + 8px);
+    transform: translateX(-50%);
+    border-left: 1px solid rgba(var(--holo-1-rgb), 0.5);
+    border-right: 1px solid rgba(var(--holo-1-rgb), 0.5);
+    background: rgba(var(--holo-1-rgb), 0.06);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.crate-case.is-spinning .crate-case-reticle {
+    border-color: rgba(var(--holo-1-rgb), 0.8);
+}
+
+/* -----------------------------------------------------------------------------
+   3. Readout
+   -------------------------------------------------------------------------- */
+.crate-widget-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.crate-widget-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.crate-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    text-transform: lowercase;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.crate-badge i {
+    font-size: 0.56rem;
+    opacity: 0.8;
+}
+
+/* The rarity tag is a printed corner mark, not a badge: it carries the drop's
+   colour and nothing else. Empty until something has been pulled. */
+.crate-tier {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    opacity: 0;
+    transition: opacity 0.3s ease, color 0.3s ease;
+}
+
+.crate-tier:not(:empty) {
+    opacity: 1;
+}
+
+.crate-widget.is-live .crate-badge {
+    color: var(--holo-3);
+}
+
+.crate-widget.is-live .crate-tier {
+    color: var(--holo-3);
+}
+
+.crate-track {
+    min-width: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   4. Transport
+   -------------------------------------------------------------------------- */
+.crate-widget-footer {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 14px 12px;
+}
+
+.crate-btn {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    font-size: 0.62rem;
+    color: var(--muted);
+    border: 1px solid var(--edge);
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    transition: color 0.22s ease, border-color 0.22s ease, background-color 0.22s ease;
+}
+
+.crate-btn:hover:not(:disabled) {
+    color: var(--holo-1);
+    border-color: var(--edge-lit);
+    background: rgba(var(--holo-1-rgb), 0.08);
+}
+
+.crate-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.crate-widget.is-playing .crate-btn#crate-play {
+    color: var(--holo-1);
+    border-color: var(--edge-lit);
+}
+
+/* Muted readout, driven by aria-pressed on #crate-mute. */
+.crate-btn#crate-mute[aria-pressed="true"] {
+    color: var(--holo-2);
+    border-color: var(--edge-lit);
+    background: rgba(var(--holo-2-rgb), 0.08);
+}
+
+.crate-btn#crate-mute[aria-pressed="true"] i::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 130%;
+    height: 1px;
+    background: currentColor;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    transform-origin: center;
+}
+
+.crate-btn#crate-mute i {
+    position: relative;
+}
+
+/* The volume dial — a draggable slider sitting between mute and the progress
+   rail. The range input is the source of truth; the fill is drawn behind it. */
+.crate-volume {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 86px;
+}
+
+.crate-volume > i {
+    font-size: 0.5rem;
+    color: var(--faint);
+    flex: none;
+}
+
+.crate-volume input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 3px;
+    margin: 0;
+    background: linear-gradient(90deg, var(--holo-1), var(--holo-2));
+    outline: none;
+    cursor: pointer;
+}
+
+.crate-volume input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 0;
+    background: var(--text-bright);
+    border: 1px solid var(--edge-lit);
+    transform: rotate(45deg);
+    cursor: grab;
+}
+
+.crate-volume input[type="range"]::-moz-range-thumb {
+    width: 9px;
+    height: 9px;
+    border-radius: 0;
+    background: var(--text-bright);
+    border: 1px solid var(--edge-lit);
+    transform: rotate(45deg);
+    cursor: grab;
+}
+
+.crate-volume input[type="range"]::-moz-range-track {
+    height: 3px;
+    background: var(--edge);
+}
+
+/* The progress rail reuses the retired Spotify rail's geometry so the footer
+   keeps the same height it had before. */
+.crate-widget-footer .spotify-progress-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--edge);
+    overflow: hidden;
+}
+
+.crate-widget-footer .spotify-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--holo-1), var(--holo-2));
+    transition: width 0.9s linear;
+}
+
+.crate-clock {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    color: var(--faint);
+}
+
+/* -----------------------------------------------------------------------------
+   5. Rarity colouring on the slot edge
+
+   Each drop tints the slot's hairline. This is the only place the crate uses
+   colour as information rather than decoration, which is why it lives on the
+   1px edge and nowhere else.
+   -------------------------------------------------------------------------- */
+.crate-slot.rarity-legendary {
+    background: var(--holo-3);
+}
+
+.crate-slot.rarity-covert {
+    background: var(--holo-2);
+}
+
+.crate-slot.rarity-classified {
+    background: var(--holo-1);
+}
+
+/* -----------------------------------------------------------------------------
+   6. Narrow phones
+
+   Below 460px the hero instruments already collapse to full-width bars. The
+   crate keeps the slot visible but shrinks it, because at 58px it would push
+   the readout into two lines of ellipsis. The volume dial hides so the footer
+   stays a single row of controls.
+   -------------------------------------------------------------------------- */
+@media (max-width: 460px) {
+    .crate-widget-main {
+        padding: 10px 12px 8px;
+        gap: 10px;
+    }
+
+    .crate-slot {
+        width: 46px;
+        height: 46px;
+    }
+
+    .crate-widget-footer {
+        padding: 0 12px 10px;
+        gap: 7px;
+    }
+
+    .crate-volume {
+        display: none;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+   7. Reduced motion
+
+   The spectrum is a live audio readout, not decoration, so it keeps drawing
+   when it is actually playing; what stops is the transition machinery around
+   it. The idle hatch and the mini case strip flatten: the winner is shown
+   directly, no deceleration.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .crate-slot-idle {
+        background: var(--surface-sunk);
+    }
+
+    .crate-case-reel,
+    .crate-case-cell {
+        transition: none !important;
+    }
+
+    .crate-slot-spin {
+        display: none;
+    }
+}

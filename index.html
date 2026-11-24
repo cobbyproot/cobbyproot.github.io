@@ -19,6 +19,107 @@
     <meta name="twitter:image" content="https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789060845/gallery/jzbjonwksafpwnzmfews.webp">
     <meta name="theme-color" content="#00f0d4">
 
+    <!-- ===================================================================
+         Performance tier, decided before the first paint.
+
+         This has to be inline and synchronous: css/perf.css keys every
+         reduction off `data-perf` on <html>, and a stylesheet that paints the
+         full set piece and then un-paints it costs more than it saves. It is
+         deliberately tiny and cannot throw — anything it gets wrong is
+         corrected by js/perf.js once the page is up.
+
+         Tiers: lite (0) · balanced (1) · full (2) · ultra (3)
+         Override: ?perf=lite|balanced|full|ultra|auto
+         =================================================================== -->
+    <script>
+        (function () {
+            try {
+                var r = document.documentElement;
+                var T = ['lite', 'balanced', 'full', 'ultra'];
+                var L = { lite: 0, balanced: 1, full: 2, ultra: 3 };
+
+                // An explicit choice beats the device read, always.
+                var forced = null;
+                try {
+                    forced = new URLSearchParams(location.search).get('perf');
+                } catch (e) { }
+                if (forced) {
+                    forced = String(forced).toLowerCase();
+                    if (L[forced] !== undefined || forced === 'auto' || forced === 'reset') {
+                        try {
+                            if (forced === 'auto' || forced === 'reset') localStorage.removeItem('cobby.perf.v1');
+                            else localStorage.setItem('cobby.perf.v1', JSON.stringify({ tier: forced, source: 'query', ts: Date.now() }));
+                        } catch (e) { }
+                    }
+                }
+
+                var lvl = 3, why = [];
+                var nav = navigator;
+                var conn = nav.connection || nav.mozConnection || nav.webkitConnection || null;
+                var cores = nav.hardwareConcurrency || 0;
+                var mem = nav.deviceMemory || 0;
+                var dpr = window.devicePixelRatio || 1;
+                var vw = window.innerWidth || 1;
+
+                if (cores) {
+                    if (cores <= 2) { lvl = 0; why.push('cores'); }
+                    else if (cores <= 4) { lvl = Math.min(lvl, 1); why.push('cores'); }
+                }
+                if (mem) {
+                    if (mem <= 2) { lvl = 0; why.push('memory'); }
+                    else if (mem <= 4) { lvl = Math.min(lvl, 1); why.push('memory'); }
+                }
+                if (conn && conn.saveData) { lvl = 0; why.push('save-data'); }
+                if (conn && conn.effectiveType) {
+                    if (/^(slow-)?2g$/.test(conn.effectiveType)) { lvl = 0; why.push('2g'); }
+                    else if (conn.effectiveType === '3g') { lvl = Math.min(lvl, 1); why.push('3g'); }
+                }
+                if (dpr >= 3 && vw <= 480) { lvl = Math.min(lvl, 1); why.push('dpr'); }
+                if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    why.push('reduced-motion');
+                }
+
+                // A touch-first device tops out at `balanced`. See the long note
+                // in js/perf.js: core count and memory describe the machine, and
+                // a high-end laptop reports the same numbers as a phone. Pointer
+                // and hover capability describe how the page is being used, which
+                // is what decides whether 16 MB of 3D is worth its cost.
+                var touchFirst = false;
+                try {
+                    touchFirst = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+                        || (window.matchMedia && window.matchMedia('(hover: none)').matches)
+                        || (nav.maxTouchPoints || 0) > 0
+                        || (nav.userAgentData && nav.userAgentData.mobile === true);
+                } catch (e) { }
+                if (touchFirst && lvl > 1) { lvl = 1; why.push('touch'); }
+
+                // A tier remembered from a previous visit wins, but only in the
+                // downward direction: a device that got weaker since must not be
+                // held up by a stale "full".
+                try {
+                    var store = JSON.parse(localStorage.getItem('cobby.perf.v1') || 'null');
+                    if (store && store.tier && L[store.tier] !== undefined) {
+                        if (Date.now() - (store.ts || 0) < 6048e5) {
+                            if (store.source === 'query' || store.source === 'manual') lvl = L[store.tier];
+                            else lvl = Math.min(lvl, L[store.tier]);
+                        }
+                    }
+                } catch (e) { }
+
+                var tier = T[lvl];
+                r.setAttribute('data-perf', tier);
+                r.setAttribute('data-perf-lvl', String(lvl));
+                if (lvl === 0) r.className += ' perf-low perf-lowish';
+                else if (lvl === 1) r.className += ' perf-mid perf-lowish';
+                else r.className += ' perf-high';
+                if (why.length) r.setAttribute('data-perf-why', why.join(' '));
+            } catch (e) {
+                // Never let the governor be the reason the page fails.
+                document.documentElement.setAttribute('data-perf', 'full');
+            }
+        })();
+    </script>
+
     <!-- Favicon -->
     <link rel="icon" href="https://iili.io/BrOrpGj.png" type="image/png">
 
@@ -30,16 +131,43 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <link rel="stylesheet" href="./css/style.css">
+    <!-- Per-tab sheets. Each one only ever adds to style.css; nothing in them
+         redefines the base tokens. Loaded in tab order so a later sheet can
+         refine an earlier one without a specificity fight. -->
+    <link rel="stylesheet" href="./css/crate-widget.css">
+    <link rel="stylesheet" href="./css/gaming.css">
+    <link rel="stylesheet" href="./css/travel.css">
+    <!-- Tier rules. Loaded after the base sheet so it can only ever narrow it,
+         never fight it for the full-quality design. -->
+    <link rel="stylesheet" href="./css/perf.css">
 
+    <!-- Motion engine. Small and load-bearing for the entrance timeline, so it
+         loads everywhere; whether the smooth-scroll and 3D layers run at all is
+         decided by js/perf.js below.
+
+         model-viewer is deliberately NOT here: it is 935 KB of module for two
+         optional .glb files weighing 16 MB, and it used to load on every device
+         before the visitor had asked for a single model. js/main.js injects it
+         when the tier allows it or when someone taps "show me the 3d". -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js" defer></script>
-    <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+    <script src="./js/perf.js"></script>
 
     <link rel="dns-prefetch" href="https://res.cloudinary.com">
     <link rel="dns-prefetch" href="https://jnstohrqcfwfbybnjfhh.supabase.co">
 
-    <link rel="preload" as="image" href="https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png" fetchpriority="high">
+    <!-- The hero art is the LCP element on every device, so it is the one thing
+         preloaded. Two sizes: a phone-sized crop costs a fraction of the full
+         cutout, and the browser picks by width before it has parsed any CSS.
+
+         The sizes must stay in step with RESPONSIVE.hero in js/main.js — the
+         preload and the <img> have to ask for the same file or the browser
+         downloads both. -->
+    <link rel="preload" as="image" fetchpriority="high"
+        href="https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto,w_1000/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png"
+        imagesrcset="https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto,w_480/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png 480w, https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto,w_720/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png 720w, https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto,w_1000/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png 1000w, https://res.cloudinary.com/ffppnh9h/image/upload/f_auto,q_auto,w_1400/v1789146261/Kho%CC%82ng_Co%CC%81_Tie%CC%82u_%C4%90e%CC%82%CC%80844_20260606005456.png 1400w"
+        imagesizes="(max-width: 900px) 92vw, min(66vh, 720px)">
 
     <!-- The boot gate is a JS contract. Without JS, nothing may stay hidden. -->
     <noscript>
@@ -122,7 +250,8 @@
                         <div class="emitter-rim"></div>
                     </div>
                     <img data-image-key="hero"
-                        alt="Cobby, a cyan and purple wolf protogen" class="hero-character-png">
+                        alt="Cobby, a cyan and purple wolf protogen" class="hero-character-png"
+                        width="900" height="1200" fetchpriority="high" decoding="async">
                 </div>
 
                 <div class="ios-widget widget-left hud">
@@ -146,41 +275,61 @@
                     </div>
                 </div>
 
-                <div class="ios-widget widget-right hud">
-                    <div class="spotify-bar-main">
-                        <div class="vinyl-container">
-                            <div class="vinyl-disc spinning no-art" id="spotify-vinyl">
-                                <div class="vinyl-center-hole" aria-hidden="true"></div>
-                                <img alt="" class="vinyl-cover" id="spotify-album-cover">
-                            </div>
+                <!-- The live crate. Static markup on purpose: if js/music.js never
+                     loads, this is still a legible readout rather than an empty
+                     hole where the old Spotify panel used to be. music.js
+                     upgrades it into a real <audio> player. -->
+                <div class="ios-widget widget-right hud crate-widget" id="crate-widget">
+                    <div class="crate-widget-main">
+                        <div class="crate-slot is-empty" id="crate-slot" aria-hidden="true">
+                            <img alt="" class="crate-slot-art" id="crate-slot-art" width="58" height="58" loading="lazy" decoding="async">
+                            <canvas class="crate-slot-eq" id="crate-eq" width="116" height="116"></canvas>
+                            <span class="crate-slot-spin" id="crate-slot-spin" aria-hidden="true"></span>
+                            <span class="crate-slot-idle"><i class="fas fa-box-open"></i></span>
                         </div>
 
-                        <div class="spotify-bar-content">
-                            <div class="spotify-bar-top">
-                                <div class="spotify-badge">
-                                    <i class="fab fa-spotify spotify-green-icon" aria-hidden="true"></i>
-                                    <span id="spotify-status-label">LISTENING TO</span>
-                                </div>
-                                <div class="equalizer-bars playing" id="spotify-equalizer" aria-hidden="true">
-                                    <span></span><span></span><span></span><span></span>
-                                </div>
+                        <div class="crate-widget-body">
+                            <div class="crate-widget-top">
+                                <span class="crate-badge" id="crate-badge">
+                                    <i class="fas fa-satellite-dish" aria-hidden="true"></i>
+                                    <span id="crate-status"><span lang="en">crate idle</span><span lang="vi">thùng đang trống</span></span>
+                                </span>
+                                <span class="crate-tier" id="crate-tier" aria-hidden="true"></span>
                             </div>
 
-                            <div class="spotify-track-info">
-                                <div class="track-title" id="spotify-track-title">you</div>
-                                <div class="track-artist" id="spotify-track-artist">hehe x3</div>
+                            <div class="crate-track">
+                                <div class="track-title" id="crate-track-title">—</div>
+                                <div class="track-artist" id="crate-track-artist">—</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="spotify-widget-footer">
-                        <div class="spotify-progress-bar" role="progressbar" aria-label="track position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="45">
-                            <div class="spotify-progress-fill" id="spotify-progress-fill" style="width: 45%;"></div>
+                    <!-- The mini case: the CS2 strip in miniature. It scrolls
+                         under a fixed reticle before every play, so the hero
+                         box shows the same pull the old tab used to. -->
+                    <div class="crate-case" id="crate-case" aria-hidden="true">
+                        <div class="crate-case-reel" id="crate-case-reel"></div>
+                        <div class="crate-case-reticle"></div>
+                    </div>
+
+                    <div class="crate-widget-footer">
+                        <button class="crate-btn" type="button" id="crate-play" aria-label="Play or pause the loaded track">
+                            <i class="fas fa-play" aria-hidden="true"></i>
+                        </button>
+                        <button class="crate-btn" type="button" id="crate-next" aria-label="Next song">
+                            <i class="fas fa-forward-step" aria-hidden="true"></i>
+                        </button>
+                        <button class="crate-btn" type="button" id="crate-mute" aria-label="Mute" aria-pressed="false">
+                            <i class="fas fa-volume-up" aria-hidden="true"></i>
+                        </button>
+                        <div class="crate-volume" aria-label="volume">
+                            <i class="fas fa-volume-down" aria-hidden="true"></i>
+                            <input type="range" id="crate-volume" min="0" max="100" step="1" value="5" aria-label="Volume">
                         </div>
-                        <div class="spotify-time">
-                            <span id="spotify-current-time">1:24</span>
-                            <span id="spotify-total-time">3:10</span>
+                        <div class="spotify-progress-bar" role="progressbar" aria-label="track position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                            <div class="spotify-progress-fill" id="crate-progress-fill" style="width: 0%;"></div>
                         </div>
+                        <span class="crate-clock" id="crate-current-time">0:00</span>
                     </div>
                 </div>
 
@@ -237,7 +386,15 @@
 
             <section id="view-profile" class="view-section active">
 
-                <div class="game-panel hud">
+                <div id="tabs-container">
+
+                    <!-- FURSONA — the only tab that carries the introduction.
+                         It lives inside the panel, not above the tab container,
+                         so switching tabs removes it structurally instead of
+                         hiding it with a rule that has to be maintained. -->
+                    <div id="tab-fursona" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-fursona">
+
+                <div class="game-panel hud" id="intro-panel">
                     <div class="dashboard-header">
                         <h2>
                             <span lang="en">INTRODUCTION</span>
@@ -268,11 +425,7 @@
                     </div>
                 </div>
 
-                <div id="tabs-container">
-
-                    <!-- FURSONA -->
-                    <div id="tab-fursona" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-fursona">
-
+                    <!-- COBBY — reference sheet + 3D -->
                         <div class="refsheet-duo" id="cobby-scene">
                             <div class="refsheet-name">
                                 <p class="char-kind">WOLF PROTOGEN</p>
@@ -293,7 +446,9 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="refsheet-model-panel">
+                            <div class="refsheet-model-panel" data-model-panel
+                                data-model-src="./assets/models/cobby.glb"
+                                data-model-name="cobby">
                                 <model-viewer id="cobby-model3d" class="refsheet-model-viewer"
                                     data-model-key="cobbyModel3d"
                                     alt="Cobby's 3D VRChat model"
@@ -308,6 +463,16 @@
                                         <p class="model3d-poster-text">loading 3d model…</p>
                                     </div>
                                 </model-viewer>
+                                <!-- The sizes are honest: this is a Blender export,
+                                     not a web asset. Telling someone that before
+                                     they tap is the difference between a considered
+                                     choice and a stall they did not ask for. -->
+                                <button type="button" class="model3d-gate" data-model-load
+                                    aria-label="Load Cobby's 3D model, about 9 megabytes">
+                                    <span class="model3d-gate-icon" aria-hidden="true"><i class="fas fa-cube"></i></span>
+                                    <span class="model3d-gate-label">show me in 3d</span>
+                                    <span class="model3d-gate-note">~9 mb</span>
+                                </button>
                             </div>
                         </div>
 
@@ -341,7 +506,10 @@
                                 </span>
                             </div>
                             </div>
-                            <div class="refsheet-model-panel">
+                            <div class="refsheet-model-panel" data-model-panel
+                                data-model-src="./assets/models/cobbie.glb"
+                                data-model-name="cobbie"
+                                data-model-variants='{"2":"./assets/models/cobbie-kemo.glb"}'>
                                 <model-viewer id="cobbie-model3d" class="refsheet-model-viewer"
                                     data-model-key="cobbieModel3d"
                                     alt="Cobbie's 3D model"
@@ -356,6 +524,12 @@
                                         <p class="model3d-poster-text">loading 3d model…</p>
                                     </div>
                                 </model-viewer>
+                                <button type="button" class="model3d-gate" data-model-load
+                                    aria-label="Load Cobbie's 3D model, about 6 megabytes">
+                                    <span class="model3d-gate-icon" aria-hidden="true"><i class="fas fa-cube"></i></span>
+                                    <span class="model3d-gate-label">show me in 3d</span>
+                                    <span class="model3d-gate-note">~6 mb</span>
+                                </button>
                             </div>
                         </div>
 
@@ -368,234 +542,114 @@
                         </div>
                     </div>
 
-                    <!-- GAMING -->
+                    <!-- GAMING — the arcade shelf. Replaces the old account list
+                         entirely: each game is a card you can pick up, and the
+                         account handle you actually need is on its back. -->
                     <div id="tab-gaming" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-gaming">
                         <div class="game-panel hud">
                             <div class="dashboard-header">
-                                <h2>GAME ACCOUNTS</h2>
+                                <h2>
+                                    <span lang="en">THE SHELF</span>
+                                    <span lang="vi">KỆ GAME</span>
+                                </h2>
                                 <div class="status-indicator is-magenta">
-                                    <span class="dot" aria-hidden="true"></span> gaming
+                                    <span class="dot" aria-hidden="true"></span>
+                                    <span lang="en">5 titles · tap to flip</span>
+                                    <span lang="vi">5 tựa game · chạm để lật</span>
                                 </div>
                             </div>
 
-                            <div class="game-accounts-grid">
+                            <div class="shelf-deck" id="shelf-deck" role="list" aria-label="games cobby plays">
+                                <!-- Cards are generated by js/gaming.js from DECK:
+                                     real art, real handles, invented ranks. -->
+                            </div>
 
-                                <div class="game-account-row">
-                                    <span class="game-icon-wrap gi-vrchat"><i class="fas fa-vr-cardboard" aria-hidden="true"></i></span>
-                                    <span class="game-info">
-                                        <span class="game-label">VRChat</span>
-                                        <span class="game-id">JacobUwU</span>
-                                    </span>
-                                    <button class="copy-game-btn" type="button" onclick="copyGameUsername('JacobUwU', this)" aria-label="Copy VRChat username">
-                                        <i class="far fa-copy" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-
-                                <div class="game-account-row">
-                                    <span class="game-icon-wrap gi-riot"><i class="fas fa-chess-knight" aria-hidden="true"></i></span>
-                                    <span class="game-info">
-                                        <span class="game-label">League of Legends / TFT (VN)</span>
-                                        <span class="game-id">Cobbi<span class="tag-hash">#GRRR</span></span>
-                                    </span>
-                                    <button class="copy-game-btn" type="button" onclick="copyGameUsername('Cobbi#GRRR', this)" aria-label="Copy League of Legends username">
-                                        <i class="far fa-copy" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-
-                                <div class="game-account-row">
-                                    <span class="game-icon-wrap gi-valorant"><i class="fas fa-crosshairs" aria-hidden="true"></i></span>
-                                    <span class="game-info">
-                                        <span class="game-label">Valorant</span>
-                                        <span class="game-id">Con Cobbi Báo<span class="tag-hash">#PROOT</span></span>
-                                    </span>
-                                    <button class="copy-game-btn" type="button" onclick="copyGameUsername('Con Cobbi Báo#PROOT', this)" aria-label="Copy Valorant username">
-                                        <i class="far fa-copy" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-
-                                <div class="game-account-row">
-                                    <span class="game-icon-wrap gi-roblox"><i class="fas fa-cube" aria-hidden="true"></i></span>
-                                    <span class="game-info">
-                                        <span class="game-label">Roblox</span>
-                                        <span class="game-id">CobbyProto</span>
-                                    </span>
-                                    <button class="copy-game-btn" type="button" onclick="copyGameUsername('CobbyProto', this)" aria-label="Copy Roblox username">
-                                        <i class="far fa-copy" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-
-                                <div class="game-account-row">
-                                    <a href="https://steamcommunity.com/id/BasicallyJacob/" target="_blank" rel="noopener" class="game-account-link">
-                                        <span class="game-icon-wrap gi-steam"><i class="fab fa-steam" aria-hidden="true"></i></span>
-                                        <span class="game-info">
-                                            <span class="game-label">Steam</span>
-                                            <span class="game-id">Cobby <i class="fas fa-external-link-alt" aria-hidden="true"></i></span>
-                                        </span>
-                                    </a>
-                                </div>
-
-                                <div class="game-account-row pong-easter-row">
+                            <div class="shelf-footer">
+                                <p class="shelf-note">
+                                    <i class="fas fa-circle-info" aria-hidden="true"></i>
+                                    <span lang="en">handles are real — tap the copy key on a card's back</span>
+                                    <span lang="vi">tài khoản đều thật — chạm nút copy ở mặt sau thẻ nha</span>
+                                </p>
+                                <div class="shelf-pong">
                                     <canvas id="pong-canvas" role="img" aria-label="a tiny game of pong, playing itself"></canvas>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- TRAVEL -->
+                    <!-- MUSIC lives in the hero's crate widget now — there is no
+                         music tab. The tiny box in the hero IS the player. -->
+
+                    <!-- TRAVEL — the globe. The old roadmap is still here, but the
+                         flight path is now the thing you look at first. -->
                     <div id="tab-travel" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-travel">
-                        <div class="roadmap-timeline">
-
-                            <div class="roadmap-year-divider"><span>2026</span></div>
-
-                            <div class="roadmap-item upcoming">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">FURUM 2026</h4>
-                                        <span class="event-tag">Planned</span>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 11-13 Dec 2026
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Petaling Jaya, Malaysia
-                                        <img src="https://flagcdn.com/w20/my.png" alt="" class="flag">
-                                    </p>
+                        <div class="game-panel hud travel-panel">
+                            <div class="dashboard-header">
+                                <h2>
+                                    <span lang="en">FLIGHT LOG</span>
+                                    <span lang="vi">NHẬT KÝ BAY</span>
+                                </h2>
+                                <div class="status-indicator is-magenta">
+                                    <span class="dot" aria-hidden="true"></span>
+                                    <span id="globe-readout">
+                                        <span lang="en">standby · 9 pins</span>
+                                        <span lang="vi">chờ lệnh · 9 ghim</span>
+                                    </span>
                                 </div>
                             </div>
 
-                            <div class="roadmap-item upcoming">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">FurGIV 2026</h4>
-                                        <span class="event-tag">Planned</span>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 19 Sep 2026
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Hanoi, Vietnam
-                                        <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
-                                    </p>
+                            <div class="globe-stage" id="globe-stage">
+                                <div class="globe-view">
+                                    <canvas id="globe-canvas" aria-label="a 3D globe plotting every convention cobby has flown to" role="img"></canvas>
                                 </div>
+
+                                <div class="globe-hud hud" id="globe-hud">
+                                    <div class="globe-plane-readout" id="globe-plane-readout">
+                                        <span class="globe-plane-callsign" id="globe-callsign">STANDBY</span>
+                                        <span class="globe-plane-route" id="globe-route">
+                                            <span lang="en">select a convention</span>
+                                            <span lang="vi">chọn một sự kiện</span>
+                                        </span>
+                                    </div>
+
+                                    <p class="globe-detail" id="globe-detail">
+                                        <span lang="en">the earth, plotted from nine real conventions</span>
+                                        <span lang="vi">trái đất, vẽ lại từ chín sự kiện có thật</span>
+                                    </p>
+
+                                    <dl class="globe-gauges">
+                                        <div class="globe-gauge">
+                                            <dt><span lang="en">legs</span><span lang="vi">chặng</span></dt>
+                                            <dd id="gauge-legs">09</dd>
+                                        </div>
+                                        <div class="globe-gauge">
+                                            <dt><span lang="en">countries</span><span lang="vi">quốc gia</span></dt>
+                                            <dd id="gauge-countries">03</dd>
+                                        </div>
+                                        <div class="globe-gauge">
+                                            <dt><span lang="en">range</span><span lang="vi">tổng km</span></dt>
+                                            <dd id="gauge-range">—</dd>
+                                        </div>
+                                    </dl>
+
+                                    <button class="globe-toggle" type="button" id="globe-tour">
+                                        <i class="fas fa-plane-departure" aria-hidden="true"></i>
+                                        <span lang="en">fly the whole route</span>
+                                        <span lang="vi">bay toàn bộ hành trình</span>
+                                    </button>
+                                </div>
+
+                                <p class="globe-hint" id="globe-hint">
+                                    <i class="fas fa-hand-pointer" aria-hidden="true"></i>
+                                    <span lang="en">drag to spin · tap a pin to fly there</span>
+                                    <span lang="vi">kéo để xoay · chạm ghim để bay tới</span>
+                                </p>
                             </div>
 
-                            <div class="roadmap-item upcoming">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">FUVE 2026</h4>
-                                        <span class="event-tag tag-next">Going next</span>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 15 Aug 2026
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ho Chi Minh City, Vietnam
-                                        <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
-                                    </p>
-                                </div>
+                            <div class="roadmap-timeline">
+                                <!-- Rendered by js/travel.js from the same FLIGHTS table
+                                     that drives the globe, so the two can never drift. -->
                             </div>
-
-                            <div class="roadmap-item past left-side">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">SiamPaws 2026</h4>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 6-7 Jun 2026
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Bangkok, Thailand
-                                        <img src="https://flagcdn.com/w20/th.png" alt="" class="flag">
-                                    </p>
-                                    <img data-image-key="event0" class="event-photo" alt="Cobby at SiamPaws 2026" loading="lazy" decoding="async">
-                                </div>
-                            </div>
-
-                            <div class="roadmap-year-divider"><span>2025</span></div>
-
-                            <div class="roadmap-item past right-side">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">FurGIV 2025</h4>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 20 Sep 2025
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Hanoi, Vietnam
-                                        <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
-                                    </p>
-                                    <img data-image-key="event1" class="event-photo" alt="Cobby at FurGIV 2025" loading="lazy" decoding="async">
-                                </div>
-                            </div>
-
-                            <div class="roadmap-item past left-side">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">FUVE 2025</h4>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 2 Aug 2025
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ho Chi Minh City, Vietnam
-                                        <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
-                                    </p>
-                                    <img data-image-key="event2" class="event-photo" alt="Cobby at FUVE 2025" loading="lazy" decoding="async">
-                                </div>
-                            </div>
-
-                            <div class="roadmap-item past right-side">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">Thaitails 2025</h4>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 22-23 Mar 2025
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Nothaburi, Thailand
-                                        <img src="https://flagcdn.com/w20/th.png" alt="" class="flag">
-                                    </p>
-                                    <img data-image-key="event3" class="event-photo" alt="Cobby at Thaitails 2025" loading="lazy" decoding="async">
-                                </div>
-                            </div>
-
-                            <div class="roadmap-year-divider"><span>2024</span></div>
-
-                            <div class="roadmap-item past left-side">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">FUVE 2024</h4>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 18 Aug 2024
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ho Chi Minh City, Vietnam
-                                        <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
-                                    </p>
-                                    <img data-image-key="event4" class="event-photo" alt="Cobby at FUVE 2024" loading="lazy" decoding="async">
-                                </div>
-                            </div>
-
-                            <div class="roadmap-year-divider"><span>2023</span></div>
-
-                            <div class="roadmap-item past right-side">
-                                <div class="roadmap-marker" aria-hidden="true"><i class="fas fa-map-marker-alt"></i></div>
-                                <div class="roadmap-content">
-                                    <div class="event-header">
-                                        <h4 class="event-name">FUVE 2023</h4>
-                                    </div>
-                                    <p class="event-meta">
-                                        <i class="far fa-calendar-alt" aria-hidden="true"></i> 15 Oct 2023
-                                        <span class="meta-separator" aria-hidden="true">·</span>
-                                        <i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ho Chi Minh City, Vietnam
-                                        <img src="https://flagcdn.com/w20/vn.png" alt="" class="flag">
-                                    </p>
-                                </div>
-                            </div>
-
                         </div>
                     </div>
                 </div>
@@ -613,10 +667,10 @@
                 <i class="fas fa-image" aria-hidden="true"></i> Gallery
             </button>
             <button class="dock-btn" type="button" role="tab" id="tab-btn-gaming" aria-controls="tab-gaming" aria-selected="false" tabindex="-1" onclick="switchTab('gaming')">
-                <i class="fas fa-gamepad" aria-hidden="true"></i> Gaming
+                <i class="fas fa-gamepad" aria-hidden="true"></i> <span lang="en">Gaming</span><span lang="vi">Game</span>
             </button>
             <button class="dock-btn" type="button" role="tab" id="tab-btn-travel" aria-controls="tab-travel" aria-selected="false" tabindex="-1" onclick="switchTab('travel')">
-                <i class="fas fa-plane" aria-hidden="true"></i> Travel Plan
+                <i class="fas fa-plane" aria-hidden="true"></i> <span lang="en">Travel</span><span lang="vi">Du lịch</span>
             </button>
         </div>
     </nav>
@@ -639,6 +693,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./js/main.js"></script>
+    <script src="./js/music.js" defer></script>
+    <script src="./js/gaming.js" defer></script>
+    <script src="./js/travel.js" defer></script>
 </body>
 
 </html>

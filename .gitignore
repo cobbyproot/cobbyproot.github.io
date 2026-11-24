@@ -7,3 +7,12 @@ skills-lock.json
 # OS / editor cruft
 .DS_Store
 Thumbs.db
+
+# Scratch space
+.spotify-test/
+.perf-work/
+
+# Secrets — never commit
+.env
+.env.local
+server/.env
