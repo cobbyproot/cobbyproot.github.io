@@ -1487,6 +1487,12 @@ document.addEventListener("DOMContentLoaded", () => {
         document.removeEventListener('keydown', trapFocus);
         document.removeEventListener('keydown', onBootKey);
 
+        // The arrow's click is the gesture the browser wants before it will
+        // allow sound, so hand it to the pod now: the mix starts as the card
+        // opens instead of waiting for a second tap. Must stay synchronous
+        // inside the click for the activation to count.
+        if (window.startPodMusic) window.startPodMusic();
+
         const open = () => {
             loader.classList.add('hidden');
             // Retire it from the render tree once the fade has played out.

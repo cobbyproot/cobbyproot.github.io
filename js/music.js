@@ -643,6 +643,42 @@
         events.forEach((ev) => window.addEventListener(ev, go, { capture: true, passive: true }));
     }
 
+    /* The way in. The boot screen's "see full card" arrow is the visitor's
+       first real gesture, so it doubles as the hand-off autoplay is waiting
+       for: the mix comes up with sound as the card opens, instead of muted
+       until a later tap on the pod. Called from main.js inside the click, so
+       the browser's activation is still live. */
+    function startWithSound() {
+        if (state.lost) return;
+        state.gestured = true;
+
+        if (!state.ready || !state.player) {
+            /* Still tuning. onPlayerReady already asks for sound, and this
+               click is the activation that finally lets it through. */
+            paintMode();
+            return;
+        }
+
+        if (state.blocked) {
+            unblock();
+            return;
+        }
+
+        /* The frame may be playing silently and the probe has not fired yet;
+           open the sound now rather than waiting for it to arm a second tap. */
+        if (!state.muted) {
+            audioMuted(false);
+            fadeVolume(volumePct(), 700);
+        }
+        try { state.player.unMute(); } catch (err) { /* the probe will confirm */ }
+        if (!state.playing) {
+            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
+        }
+        paintMode();
+    }
+
+    window.startPodMusic = startWithSound;
+
     /* -----------------------------------------------------------------------
        9. The readout
        --------------------------------------------------------------------- */
