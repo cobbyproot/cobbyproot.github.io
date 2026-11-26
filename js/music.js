@@ -1,34 +1,44 @@
 /* =============================================================================
-   THE POD — hidden YouTube transport (js/music.js)
+   THE POD — ad-free radio dial (js/music.js)
 
    The music lives entirely in the hero's right-hand HUD instrument. There is
-   no music tab, no Spotify and no video: the pod plays the owner's *after
-   dark* mix playlist (sole space., YouTube PLJESZmrEx7TM) from a player that
-   is never shown. No embed chrome, no thumbnails — just the mix, quietly.
+   no music tab, no Spotify and no video: the pod is a tuner for six SomaFM
+   channels — listener-supported, carried without ads — played through an
+   <audio> element that is never shown. No embed chrome, no thumbnails, and no
+   spot breaking in halfway through the night.
 
-   The window above the readout is a night-signal visualiser. YouTube hands the
-   page no audio stream to analyse, so the drawing is generated rather than
-   measured: a trace and a signal fan seeded from the mix's own id and advanced
-   by the player's own clock. It freezes when the mix is paused, re-seeds when
-   the next mix lands, and is labelled "night signal" — never "spectrum" —
-   because nothing in it comes from the audio. What *is* real is everything the
-   visitor can check: the titles, the lengths, the mix counter, the position,
-   the state of the transport.
+   Why radio, when the pod used to play the owner's *after dark* playlist
+   (sole space., YouTube PLJESZmrEx7TM): an embedded YouTube player serves
+   pre-roll and mid-roll ads on monetised videos, and the IFrame API exposes no
+   control over them at all — not `youtube-nocookie`, not `modestbranding`, not
+   anything else. SomaFM's streams are the closest thing to that playlist's
+   mood (ambient, downtempo, drone, late-night deep house) that can run all
+   visit with nothing interrupting it.
 
-   The playlist is a snapshot, not a live feed. There is no API key and no
-   build step; to change the list, edit MIXES below by hand. Every entry was
-   checked for embedding: one playlist video (xnFhFEq9y8) is owned with
-   embedding disabled and is deliberately absent.
+   The window above the readout is a night-signal visualiser. The stream is
+   deliberately not routed through Web Audio: createMediaElementSource() would
+   leave the pod silent whenever the AudioContext is suspended, which is a bad
+   trade for a drawing. So the trace is generated rather than measured — seeded
+   from the station's own id and advanced by a local clock. It freezes when the
+   station is paused, re-seeds when the dial moves, and is never called a
+   "spectrum" — nothing in it comes from the audio.
+   What *is* real is everything the visitor can check: the station, the artist
+   and track the station is playing right now (its own now-playing feed), the
+   dial position, and the state of the transport.
+
+   A live stream has no duration and cannot be seeked, so the readout carries
+   no position rail and no scrub: dragging the wheel tunes up and down the dial
+   instead, and the foot shows the stream's format and its source rather than a
+   track clock.
+
+   The dial is a hand-kept snapshot, not a live directory. There is no API key
+   and no build step; to change the stations, edit STATIONS below by hand.
 
    Playback policy, handled rather than fought: a page may not start audible
-   sound before the visitor touches it. The pod therefore starts the mix anyway
-   — muted, with the visualiser running and the clock counting — and brings the
-   sound up, faded in, on the first gesture of any kind. Nothing is asked of the
-   visitor and nothing is lost if they never touch the page.
-
-   The deck is a shuffled permutation of the playlist, not a random draw: a mix
-   cannot come back until every other mix has played, and the counter on the
-   screen is the mix's real index in the playlist, not its place in the deck.
+   sound before the visitor touches it. The pod therefore starts the stream
+   anyway — muted, with the visualiser running — and brings the sound up, faded
+   in, on the first gesture of any kind. Nothing is asked of the visitor and
+   nothing is lost if they never touch the page.
    ========================================================================== */
 (() => {
     'use strict';
@@ -75,10 +85,6 @@
     const seqEl = $('pod-seq');
     const titleEl = $('pod-title');
     const artistEl = $('pod-artist');
-    const railEl = $('pod-rail');
-    const railFill = $('pod-rail-fill');
-    const clockEl = $('pod-clock');
-    const durEl = $('pod-duration');
     const openEl = $('pod-open');
     const bodyEl = $('pod-body');
     const moreBtn = $('pod-more');
@@ -98,85 +104,53 @@
     /* -----------------------------------------------------------------------
        2. Constants
        --------------------------------------------------------------------- */
-    const PLAYLIST = {
-        id: 'PLJESZmrEx7TM',
-        title: 'after dark',
-        channel: 'sole space.',
-        playlistUrl: 'https://www.youtube.com/playlist?list=PLJESZmrEx7TM',
-        watchUrl: 'https://www.youtube.com/watch?v=',
-    };
-
-    /* Snapshotted 2026-11-25, in playlist order. Titles, lengths and ids are
-       the playlist's own; nothing here is invented. */
-    const MIXES = [
-        { id: 'na_2cd4-_lo', title: 'nighttime.', len: '1:00:12' },
-        { id: 'ZA0dZQTSK-0', title: 'funky night.', len: '1:00:12' },
-        { id: 'S5DV8dlJYHI', title: 'midnight.', len: '1:00:12' },
-        { id: 'Oai4Nrz9FE4', title: 'midnight gaze.', len: '1:00:55' },
-        { id: 'lr1vdOcNEV4', title: 'blue star.', len: '1:00:12' },
-        { id: 'YAYstVex08o', title: 'moonshade.', len: '1:00:12' },
-        { id: 'h2cI4CAS5XA', title: 'starry night.', len: '1:00:12' },
-        { id: 'VgYca053G78', title: 'late shift.', len: '1:00:13' },
-        { id: 'm0EXzfzAz3s', title: 'lost signals.', len: '1:00:12' },
-        { id: 'd28t7N0XV1Y', title: 'rainy days.', len: '1:00:12' },
-        { id: 'JHzWQIEa3a4', title: 'rainy day.', len: '1:00:12' },
-        { id: 'wfrsQrh2dnY', title: 'welcome home.', len: '1:00:12' },
-        { id: 'Ba9lPcu-1Tg', title: 'rainy mood.', len: '2:00:06' },
-        { id: 'TWEgPtXqfGg', title: 'cloudy day.', len: '1:00:12' },
-        { id: 'pOW_u5tfekM', title: 'skyfall.', len: '1:00:12' },
-        { id: 'ZSbOUKuTAwM', title: 'lunar track.', len: '2:00:03' },
-        { id: 'CNjsEmH73oc', title: 'moon cat.', len: '1:00:12' },
-        { id: '-ZXtXfGKntU', title: 'purrverse.', len: '2:00:06' },
-        { id: 'bcoUf7YINUI', title: 'space time.', len: '1:00:12' },
-        { id: '9LWWdAAEu5M', title: 'homebound.', len: '1:00:12' },
-        { id: 'sdjaUUrqWBs', title: 'starry night.', len: '1:00:12' },
-        { id: 'P50wTi0Pog0', title: 'Interstellar.', len: '1:00:12' },
-        { id: '6O15C3IXNkM', title: 'cloudy night.', len: '1:00:12' },
-        { id: 'iuDDgh1yMTw', title: 'cyber cat.', len: '1:00:12' },
-        { id: 'fVS48Ueh_f0', title: 'nightcall.', len: '1:00:12' },
-        { id: '7CakT-rs5Mg', title: 'overthinker.', len: '1:00:13' },
-        { id: 'PcqNyCm5h0Q', title: 'outer space.', len: '2:00:06' },
-        { id: 'goOFIrR1j6Y', title: 'spooky files.', len: '2:00:06' },
-        { id: 'bR38g6E4xfQ', title: 'ghost club.', len: '2:00:06' },
-        { id: 'uEi0EqnZ0Tw', title: 'pumpkin head.', len: '2:00:06' },
-        { id: 'NHD0CTqOfZg', title: 'silly scarf.', len: '2:00:06' },
-        { id: 'GNRwiNe13hE', title: 'camptime.', len: '2:00:06' },
-        { id: 'touqOAt4Ago', title: 'wizardly time.', len: '2:00:06' },
+    /* Six channels that sit in the same after-dark corner as the playlist the
+       pod used to carry: downtempo beats, drone, deep space, late-night house,
+       spy lounge and instrumental hiphop. Ids, titles and blurbs are SomaFM's
+       own; the stream and feed paths are derived from the id. */
+    const STATIONS = [
+        { id: 'groovesalad', title: 'groove salad', blurb: 'ambient / downtempo beats' },
+        { id: 'dronezone', title: 'drone zone', blurb: 'atmospheric textures, minimal beats' },
+        { id: 'deepspaceone', title: 'deep space one', blurb: 'deep ambient / space music' },
+        { id: 'beatblender', title: 'beat blender', blurb: 'late-night deep house / downtempo' },
+        { id: 'secretagent', title: 'secret agent', blurb: 'lounge for spies and PIs' },
+        { id: 'fluid', title: 'fluid', blurb: 'instrumental hiphop / future soul' },
     ];
 
-    /* The mix plays as ambience, not as a broadcast. The slider owns the real
+    const STREAM = (id) => 'https://ice1.somafm.com/' + id + '-128-mp3';
+    const FEED = (id) => 'https://somafm.com/songs/' + id + '.json';
+    const PAGE = (id) => 'https://somafm.com/' + id + '/';
+
+    /* The stream plays as ambience, not as a broadcast. The slider owns the real
        level; mute silences without moving the slider. */
     const DEFAULT_VOLUME = 0.10;
-    const SEEK_PER_PX = 1.9;          /* a drag across the wheel ≈ 3 minutes */
     const TAU = Math.PI * 2;
 
     /* -----------------------------------------------------------------------
        3. State
        --------------------------------------------------------------------- */
     const state = {
-        deck: [],               /* the shuffled permutation, never mutated in place */
-        cursor: 0,
-        track: null,
-        player: null,
-        ready: false,
-        apiTries: 0,
-        apiPending: false,
+        cursor: 0,              /* the dial's index, not a deck position */
+        station: null,
+        audio: null,            /* the <audio> transport, created once */
+        ready: false,           /* the transport exists and has a source */
         lost: false,
-        switching: false,
+        switching: false,       /* a tune is loading; its stream has not spoken */
         buffering: false,
-        seeking: false,         /* a wheel drag owns the readout until release */
-        pending: 0,             /* presses that arrived while a mix was loading */
+        pending: 0,             /* presses that arrived while a station loaded */
         playing: false,
         blocked: true,          /* the browser holds the sound until a gesture */
         muted: false,
         volume: DEFAULT_VOLUME,
-        applied: -1,            /* the level last written to the player */
+        applied: -1,            /* the level last written to the transport */
         gestured: false,        /* the visitor has touched the page at all */
-        time: 0,
-        duration: 0,
-        dead: new Set(),        /* ids the embedder refused this session */
+        time: 0,                /* seconds of *this* station, this visit */
+        baseTime: 0,
+        startedAt: 0,
+        now: null,              /* {artist, title} from the station's own feed */
+        dead: new Set(),        /* ids that failed to stream this session */
         switchTimer: 0,
-        pollTimer: 0,
+        metaTimer: 0,
     };
 
     /* -----------------------------------------------------------------------
@@ -184,31 +158,6 @@
        --------------------------------------------------------------------- */
     const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
     const mod = (n, m) => ((n % m) + m) % m;
-
-    function hms(sec) {
-        if (!isFinite(sec) || sec < 0) sec = 0;
-        const s = Math.floor(sec % 60);
-        const m = Math.floor(sec / 60) % 60;
-        const h = Math.floor(sec / 3600);
-        const pad = (n) => (n < 10 ? '0' : '') + n;
-        return h ? h + ':' + pad(m) + ':' + pad(s) : m + ':' + pad(s);
-    }
-
-    function secondsOf(len) {
-        return String(len || '').split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0);
-    }
-
-    /* Fisher-Yates, in place on a copy, so every order is equally likely. */
-    function shuffle(arr) {
-        const a = arr.slice();
-        for (let i = a.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const t = a[i];
-            a[i] = a[j];
-            a[j] = t;
-        }
-        return a;
-    }
 
     function setMode(en, vi, icon) {
         if (!modeEl) return;
@@ -223,208 +172,174 @@
     const rgba = (tok, a) => 'rgba(' + tok + ', ' + a.toFixed(3) + ')';
 
     /* -----------------------------------------------------------------------
-       5. The deck
+       5. The dial
 
-       A shuffled permutation of the playlist. Advancing wraps around the deck,
-       so every mix plays before any repeats; the counter on screen is the
-       mix's real index in the playlist, not its place in the deck.
+       Six stations in a fixed order — a dial has a place, and there is no deck
+       state to keep in step. Advancing wraps, skipping any station that failed
+       to stream this visit; the counter on the screen is the station's real
+       index in the dial.
        --------------------------------------------------------------------- */
-    function buildDeck() {
-        state.deck = shuffle(MIXES);
-        state.cursor = state.deck.length ? Math.floor(Math.random() * state.deck.length) : 0;
-    }
-
-    function firstMix() {
-        return state.deck[state.cursor] || MIXES[0];
+    function stationAt(i) {
+        return STATIONS[mod(i, STATIONS.length)];
     }
 
     function advance(step) {
-        if (!state.deck.length) return;
-        if (!state.ready) { loadApi(); return; }
+        if (!STATIONS.length) return;
+        if (!state.audio) { boot(); return; }
         if (state.switching) { state.pending += step > 0 ? 1 : -1; return; }
 
-        const n = state.deck.length;
+        const n = STATIONS.length;
+        let i = state.cursor;
         let tries = 0;
-        let mix = null;
         do {
-            state.cursor = mod(state.cursor + step, n);
-            mix = state.deck[state.cursor];
+            i = mod(i + step, n);
             tries++;
-        } while (state.dead.has(mix.id) && tries < n);
-        playMix(mix);
+        } while (state.dead.has(STATIONS[i].id) && tries < n);
+        tune(i);
+    }
+
+    function tune(i) {
+        const st = stationAt(i);
+        if (!st) return;
+
+        state.cursor = mod(i, STATIONS.length);
+        state.station = st;
+        state.switching = true;
+        state.buffering = false;
+        state.playing = false;
+        state.time = 0;
+        state.baseTime = 0;
+        state.startedAt = 0;
+        state.now = null;
+        pod.classList.remove('is-playing');
+        paintStation(st);
+        paintMode();
+
+        const a = state.audio;
+        if (a) {
+            try {
+                a.pause();
+                a.src = STREAM(st.id);
+                a.load();
+                const p = a.play();
+                if (p && typeof p.catch === 'function') p.catch(() => { armUnmute(); });
+            } catch (err) {
+                onStreamError();
+            }
+        }
+
+        /* A stream that never says PLAYING must not lock the transport; the
+           timer releases it and the next press is honoured. */
+        clearTimeout(state.switchTimer);
+        state.switchTimer = setTimeout(() => {
+            if (!state.switching) return;
+            state.switching = false;
+            paintMode();
+        }, 2600);
+
+        pollNow(0);
+    }
+
+    function handlePending() {
+        if (!state.pending) return;
+        const again = state.pending;
+        state.pending = 0;
+        advance(again > 0 ? 1 : -1);
     }
 
     /* -----------------------------------------------------------------------
-       6. The hidden player
+       6. The transport
 
-       YouTube is the only source of audio, and the iframe is kept off-screen
-       rather than hidden: a `display:none` or `visibility:hidden` frame can be
-       paused by some browsers, and this one has to keep playing all visit.
+       A plain <audio> element, created once and never shown: a live stream has
+       no duration and no chrome worth offering. It is not given `crossorigin`,
+       because the stream is played rather than sampled — playback must not
+       depend on the station answering a CORS preflight.
        --------------------------------------------------------------------- */
-    function loadApi() {
-        if (state.lost || state.apiPending || state.player) return;
-        if (window.YT && typeof window.YT.Player === 'function') { createPlayer(); return; }
-        if (state.apiTries >= 2) { setLost(); return; }
+    function createTransport() {
+        if (state.audio || state.lost) return;
 
-        state.apiTries++;
-        state.apiPending = true;
-        window.onYouTubeIframeAPIReady = () => { state.apiPending = false; createPlayer(); };
+        const a = new Audio();
+        a.preload = 'none';
+        a.autoplay = false;
+        /* Muted, because an unmuted play() is refused before the first gesture.
+           The level starts at zero so the first fade has somewhere to rise from. */
+        a.muted = true;
+        a.volume = 0;
+        state.applied = 0;
+        a.setAttribute('aria-hidden', 'true');
+        a.style.display = 'none';
 
-        const s = document.createElement('script');
-        s.src = 'https://www.youtube.com/iframe_api';
-        s.async = true;
-        s.onerror = () => { state.apiPending = false; loadApi(); };
-        document.head.appendChild(s);
+        a.addEventListener('playing', onPlaying);
+        a.addEventListener('pause', onPaused);
+        a.addEventListener('waiting', () => { state.buffering = true; paintMode(); });
+        a.addEventListener('stalled', () => { state.buffering = true; paintMode(); });
+        a.addEventListener('ended', onStreamEnded);
+        a.addEventListener('error', onStreamError);
 
-        /* The API announces itself by calling the global above. If the script
-           loaded but the callback never arrives (an extension swallowed it,
-           say), try once more rather than waiting out the visit. */
-        setTimeout(() => {
-            if (!state.ready && !state.lost) {
-                state.apiPending = false;
-                loadApi();
-            }
-        }, 9000);
-    }
-
-    function createPlayer() {
-        if (state.player || state.lost) return;
-        if (!window.YT || typeof window.YT.Player !== 'function') { setLost(); return; }
-
-        const mount = document.createElement('div');
-        mount.id = 'pod-yt';
-        mount.setAttribute('aria-hidden', 'true');
-        mount.style.cssText = 'position:fixed;left:-10000px;top:0;width:320px;height:180px;' +
-            'pointer-events:none;z-index:-1;';
-        const host = document.createElement('div');
-        host.id = 'pod-yt-host';
-        mount.appendChild(host);
-        document.body.appendChild(mount);
-
-        const mix = state.track || firstMix();
-        try {
-            state.player = new window.YT.Player(host, {
-                width: 320,
-                height: 180,
-                host: 'https://www.youtube-nocookie.com',
-                videoId: mix.id,
-                playerVars: {
-                    autoplay: 1,
-                    /* Not pre-muted: modern browsers allow muted autoplay and
-                       many allow audible autoplay on a site the visitor has
-                       already engaged with. Ask for sound, and fall back to
-                       muted only if the frame reports back silent. */
-                    mute: 0,
-                    controls: 0,
-                    disablekb: 1,
-                    fs: 0,
-                    playsinline: 1,
-                    modestbranding: 1,
-                    rel: 0,
-                    iv_load_policy: 3,
-                    enablejsapi: 1,
-                },
-                events: {
-                    onReady: onPlayerReady,
-                    onStateChange: onPlayerState,
-                    onError: onPlayerError,
-                },
-            });
-        } catch (err) {
-            setLost();
-        }
-    }
-
-    function onPlayerReady() {
+        document.body.appendChild(a);
+        state.audio = a;
         state.ready = true;
-        state.lost = false;
-        const p = state.player;
-        try { p.setVolume(Math.round(state.volume * 100)); } catch (err) { /* not ready */ }
-        state.applied = Math.round(state.volume * 100);
-        try { p.unMute(); } catch (err) { /* stays muted */ }
-        state.blocked = false;
-        pod.classList.remove('is-blocked');
-        paintMode();
-        try { p.playVideo(); } catch (err) { /* autoplay already asked */ }
-        startPolling();
+        tune(state.cursor);
 
-        /* The probe. Asking for sound is not the same as getting it: Chrome and
-           Firefox will refuse audible playback to a page the visitor has not
-           touched, and YouTube's own embed quietly falls back to autoplay-
-           muted when that happens. So the honest signal is not "is it playing"
-           — a muted frame plays happily — but "is it muted".
-
-           Read that at 1.8s, once the frame has had time to settle, and if the
-           answer is muted, say so on the capsule and arm the first-gesture
-           unmute. If the visitor already touched the page, the unmute asked for
-           at ready has already taken effect and this finds `false`.
-
-           `isMuted()` is what gets read, never `state.playing`: a browser that
-           refused sound still reports PLAYING while silent, and trusting that
-           is exactly how a pod ends up drawing a lively signal in total
-           silence. */
-        clearTimeout(silentProbe);
-        silentProbe = setTimeout(() => {
-            if (!state.player || state.lost) return;
-            let muted = true;
-            try { muted = state.player.isMuted(); } catch (err) { muted = true; }
-            if (!muted) {
-                state.blocked = false;
-                pod.classList.remove('is-blocked');
-                paintMode();
-                return;
-            }
-            state.blocked = true;
-            pod.classList.add('is-blocked');
-            paintMode();
-            armUnmute();
-        }, 1800);
+        /* Nothing was pressed to get here, so the stream is muted. Arm the first
+           gesture of any kind — a tab, a scroll, a key — to bring the sound up,
+           rather than making the visitor find the pod first. */
+        armUnmute();
     }
 
-    function onPlayerState(e) {
-        const S = window.YT && window.YT.PlayerState;
-        if (!S) return;
-
-        if (e.data === S.PLAYING) {
-            state.playing = true;
-            state.buffering = false;
-            state.switching = false;
-            clearTimeout(state.switchTimer);
-            pod.classList.add('is-playing');
-            anchor(readTime());
-            paintMode();
-            startSignal();
-            handlePending();
-        } else if (e.data === S.PAUSED) {
-            state.playing = false;
-            state.buffering = false;
-            pod.classList.remove('is-playing');
-            anchor(readTime());
-            paintMode();
-            stopSignal();
-        } else if (e.data === S.BUFFERING) {
-            state.buffering = true;
-            paintMode();
-        } else if (e.data === S.ENDED) {
-            state.playing = false;
-            pod.classList.remove('is-playing');
-            stopSignal();
-            anchor(0);
-            if (!state.blocked) advance(1);
-        } else if (e.data === S.CUED) {
-            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
+    function onPlaying() {
+        if (!state.playing) {
+            state.baseTime = state.time;
+            state.startedAt = performance.now();
         }
+        state.playing = true;
+        state.buffering = false;
+        state.switching = false;
+        state.ready = true;
+        clearTimeout(state.switchTimer);
+        pod.classList.add('is-playing');
+        anchor(readTime());
+        paintMode();
+        startSignal();
+        handlePending();
     }
 
-    function onPlayerError(code) {
-        const mix = state.track;
-        if (mix) state.dead.add(mix.id);
-        if (state.dead.size >= state.deck.length) { setLost(); return; }
-        /* 101 and 150 mean the owner disallows embedding; the rest are dead
-           ends too. Drop the id for this visit and try the next mix. */
+    function onPaused() {
+        state.time = readTime();
+        state.playing = false;
+        state.buffering = false;
+        pod.classList.remove('is-playing');
+        anchor(state.time);
+        paintMode();
+        stopSignal();
+    }
+
+    function onStreamEnded() {
+        /* A live stream that ends is a dropped connection, not a finished
+           track: reopen it rather than moving the dial. */
+        setTimeout(() => {
+            if (!state.audio || state.lost) return;
+            try {
+                state.audio.load();
+                const p = state.audio.play();
+                if (p && typeof p.catch === 'function') p.catch(() => { /* still offline */ });
+            } catch (err) { onStreamError(); }
+        }, 800);
+    }
+
+    function onStreamError() {
+        /* Code 1 is MEDIA_ERR_ABORTED — we changed stations on purpose. */
+        try {
+            if (state.audio && state.audio.error && state.audio.error.code === 1) return;
+        } catch (err) { /* read what you can */ }
+
+        const st = state.station;
+        if (st) state.dead.add(st.id);
+        if (state.dead.size >= STATIONS.length) { setLost(); return; }
         state.switching = false;
+        state.buffering = false;
         clearTimeout(state.switchTimer);
-        setTimeout(() => { if (!state.lost) advance(1); }, 500);
+        setTimeout(() => { if (!state.lost) advance(1); }, 600);
     }
 
     function setLost() {
@@ -437,133 +352,96 @@
         paintMode();
     }
 
-    function playMix(mix) {
-        if (!mix) return;
-        state.switching = true;
-        state.buffering = false;
-        paintTrack(mix);
-        paintMode();
-
-        if (state.player && state.ready) {
-            try {
-                state.player.loadVideoById(mix.id);
-            } catch (err) {
-                onPlayerError(5);
-            }
-        }
-
-        clearTimeout(state.switchTimer);
-        /* A mix that never reports PLAYING (a stalled embed) must not lock the
-           transport; the timer releases it and the next press is honoured. */
-        state.switchTimer = setTimeout(() => {
-            state.switching = false;
-            paintMode();
-            handlePending();
-        }, 1600);
-    }
-
-    function handlePending() {
-        if (!state.pending) return;
-        const again = state.pending;
-        state.pending = 0;
-        advance(again > 0 ? 1 : -1);
-    }
-
     /* -----------------------------------------------------------------------
        7. Transport
+
+       There is no position to read: a live stream reports no useful duration
+       and its currentTime is the stream's own, not the station's. The clock
+       below is our own — seconds of this station, this visit — which is what
+       the visualiser advances on and nothing more.
        --------------------------------------------------------------------- */
     function readTime() {
-        try {
-            const t = state.player.getCurrentTime();
-            return isFinite(t) && t > 0 ? t : 0;
-        } catch (err) {
-            return 0;
+        if (state.playing) {
+            return state.baseTime + Math.max(0, (performance.now() - state.startedAt) / 1000);
         }
-    }
-
-    function startPolling() {
-        clearInterval(state.pollTimer);
-        state.pollTimer = setInterval(tick, stretchPoll(500));
-        tick();
-    }
-
-    function tick() {
-        if (!state.player || !state.ready) return;
-        try {
-            const d = state.player.getDuration();
-            if (isFinite(d) && d > 0 && Math.abs(d - state.duration) > 0.5) {
-                state.duration = d;
-                if (durEl) durEl.textContent = hms(d);
-            }
-            const t = state.player.getCurrentTime();
-            /* A drag owns the readout: the poll must not walk the clock out from
-               under the thumb that is scrubbing. */
-            if (isFinite(t) && t >= 0 && !state.seeking) paintTime(t);
-        } catch (err) { /* a torn-down frame reports nothing */ }
+        return state.time;
     }
 
     /* A lost pod is not a dead pod: a tap on the transport tears the failed
-       frame down and tries the API once more, because the usual cause is a
-       transient block (an extension, a flaky network), not a bad playlist. */
+       element down and builds a fresh one, because the usual cause is a
+       transient block (offline, a flaky stream), not a dead dial. */
     function retry() {
         state.lost = false;
-        state.apiTries = 0;
-        state.apiPending = false;
         state.dead = new Set();
-        try { if (state.player && state.player.destroy) state.player.destroy(); } catch (err) { /* torn down */ }
-        state.player = null;
         state.ready = false;
-        const stale = document.getElementById('pod-yt');
-        if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+        /* The fresh element starts muted, as any autoplay must; if this retry
+           came from a tap, that same tap can open the sound. */
+        state.blocked = true;
+        pod.classList.add('is-blocked');
+        if (state.audio) {
+            try {
+                state.audio.pause();
+                state.audio.removeAttribute('src');
+                state.audio.load();
+            } catch (err) { /* already detached */ }
+            if (state.audio.parentNode) state.audio.parentNode.removeChild(state.audio);
+            state.audio = null;
+        }
         paintMode();
-        loadApi();
+        createTransport();
+        if (state.gestured && state.audio) unblock();
     }
 
     function togglePlay() {
         if (state.lost) { retry(); return; }
-        if (!state.ready) { loadApi(); return; }
+        if (!state.audio) { boot(); return; }
 
         if (state.blocked) {
             /* A press on the pod is a gesture: bring the sound up. */
             unblock();
-            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
-            paintMode();
             return;
         }
 
         if (state.playing) {
-            try { state.player.pauseVideo(); } catch (err) { /* next state will tell */ }
-        } else {
-            anchor(readTime());
-            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
-            paintMode();
-            startSignal();
+            try { state.audio.pause(); } catch (err) { /* the state event will tell */ }
+            return;
         }
+
+        /* A live stream cannot resume where it stopped: re-open it so the
+           visitor hears the station as it is now, not the buffer they left. */
+        try { state.audio.load(); } catch (err) { /* the play attempt will tell */ }
+        playStation();
+        paintMode();
+    }
+
+    function playStation() {
+        if (!state.audio) return;
+        const p = state.audio.play();
+        if (p && typeof p.catch === 'function') p.catch(() => { armUnmute(); paintMode(); });
     }
 
     function previous() {
         if (state.lost) { retry(); return; }
-        if (!state.ready) { loadApi(); return; }
         advance(-1);
     }
 
     function next() {
         if (state.lost) { retry(); return; }
-        if (!state.ready) { loadApi(); return; }
         advance(1);
     }
 
-    /* Shuffle is a spin, not a toggle: a fresh deck with the current mix at its
-       head, then a jump, so the gesture reads as "deal me something else". */
-    function shuffleDeck() {
+    /* Shuffle is a spin, not a toggle: land on a different station, so the
+       gesture reads as "find me something else on the dial". */
+    function shuffleStation() {
         if (state.lost) { retry(); return; }
-        if (!state.ready || !state.deck.length) return;
-        const current = state.track;
-        const rest = state.deck.filter((m) => m !== current);
-        state.deck = current ? [current].concat(shuffle(rest)) : shuffle(rest);
-        state.cursor = 0;
-        state.pending = 0;
-        advance(1);
+        if (!state.audio || STATIONS.length < 2) return;
+        let i = state.cursor;
+        let guard = 0;
+        do {
+            i = Math.floor(Math.random() * STATIONS.length);
+            guard++;
+        } while (i === state.cursor && guard < 12);
+        tune(i);
     }
 
     /* -----------------------------------------------------------------------
@@ -578,15 +456,11 @@
 
     function writeVolume(pct) {
         state.applied = pct;
-        try { state.player.setVolume(pct); } catch (err) { /* not ready yet */ }
+        try { if (state.audio) state.audio.volume = clamp(pct, 0, 100) / 100; } catch (err) { /* not ready yet */ }
     }
 
     function audioMuted(v) {
-        try {
-            if (!state.player) return;
-            if (v) state.player.mute();
-            else state.player.unMute();
-        } catch (err) { /* the frame is gone */ }
+        try { if (state.audio) state.audio.muted = !!v; } catch (err) { /* the element is gone */ }
     }
 
     function fadeVolume(to, ms) {
@@ -606,11 +480,10 @@
     }
 
     /* The browser may refuse audible playback before a gesture. Start muted
-       instead: the mix, the clock and the signal all run, and the first touch
+       instead: the station, the signal and the feed all run, and the first touch
        of any kind brings the sound up in a fade. No prompt is shown, because
        the pod is already playing. */
     let unmuteArmed = false;
-    let silentProbe = 0;
 
     function unblock() {
         if (!state.blocked) return;
@@ -623,10 +496,8 @@
             fadeVolume(volumePct(), 700);
         }
         /* The gesture that opened the gate is also the one that may re-start a
-           player the browser paused at the unmute. */
-        if (!state.playing) {
-            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
-        }
+           transport the browser paused at the unmute. */
+        if (!state.playing && state.audio && state.audio.paused) playStation();
         paintMode();
     }
 
@@ -645,18 +516,19 @@
 
     /* The way in. The boot screen's "see full card" arrow is the visitor's
        first real gesture, so it doubles as the hand-off autoplay is waiting
-       for: the mix comes up with sound as the card opens, instead of muted
+       for: the station comes up with sound as the card opens, instead of muted
        until a later tap on the pod. Called from main.js inside the click, so
        the browser's activation is still live. */
     function startWithSound() {
         if (state.lost) return;
         state.gestured = true;
 
-        if (!state.ready || !state.player) {
-            /* Still tuning. onPlayerReady already asks for sound, and this
-               click is the activation that finally lets it through. */
-            paintMode();
-            return;
+        if (!state.audio) {
+            /* Built inside the click, not on idle: the visitor's activation is
+               still live right now, which is the only moment a browser will let
+               the stream start audible. */
+            createTransport();
+            if (!state.audio) { paintMode(); return; }
         }
 
         if (state.blocked) {
@@ -664,16 +536,11 @@
             return;
         }
 
-        /* The frame may be playing silently and the probe has not fired yet;
-           open the sound now rather than waiting for it to arm a second tap. */
         if (!state.muted) {
             audioMuted(false);
             fadeVolume(volumePct(), 700);
         }
-        try { state.player.unMute(); } catch (err) { /* the probe will confirm */ }
-        if (!state.playing) {
-            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
-        }
+        if (!state.playing && state.audio.paused) playStation();
         paintMode();
     }
 
@@ -681,38 +548,60 @@
 
     /* -----------------------------------------------------------------------
        9. The readout
+
+       The screen names the station — stable, and what the capsule mirrors — and
+       its second line carries whatever the station says it is playing. That
+       line comes from the station's own now-playing feed, so it is real, late
+       by however long the feed lags, and falls back to the station's blurb when
+       the feed cannot be reached.
        --------------------------------------------------------------------- */
-    function paintTrack(mix) {
-        state.track = mix;
-        const i = MIXES.indexOf(mix);
-        if (titleEl) titleEl.textContent = mix.title;
-        if (artistEl) artistEl.textContent = PLAYLIST.channel;
-        if (clockEl) clockEl.textContent = '0:00';
-        if (durEl) durEl.textContent = mix.len || hms(0);
-        if (seqEl) seqEl.textContent = (i >= 0 ? String(i + 1).padStart(2, '0') : '—') + ' / ' + MIXES.length;
-        if (pillTitle) pillTitle.textContent = mix.title;
+    function paintStation(st) {
+        const i = STATIONS.indexOf(st);
+        if (titleEl) titleEl.textContent = st.title;
+        if (artistEl) artistEl.textContent = st.blurb;
+        if (seqEl) seqEl.textContent = (i >= 0 ? String(i + 1).padStart(2, '0') : '—') + ' / ' + String(STATIONS.length).padStart(2, '0');
+        if (pillTitle) pillTitle.textContent = st.title;
         if (openEl) {
-            openEl.href = PLAYLIST.watchUrl + mix.id;
-            openEl.setAttribute('title', mix.title + ' — on youtube');
+            openEl.href = PAGE(st.id);
+            openEl.setAttribute('title', st.title + ' — on somafm');
+            openEl.setAttribute('aria-label', 'Open ' + st.title + ' on SomaFM');
         }
-        state.time = 0;
-        state.duration = secondsOf(mix.len);
-        paintRail(0);
         anchor(0);
-        seedSignal(mix.id);
+        seedSignal(st.id);
         paintMode();
     }
 
-    function paintTime(t) {
-        state.time = t;
-        const d = state.duration;
-        paintRail(d > 0 ? clamp((t / d) * 100, 0, 100) : 0);
-        if (clockEl) clockEl.textContent = hms(t);
+    function paintNow(song) {
+        state.now = song && (song.title || song.artist) ? song : null;
+        if (!state.station || !artistEl) return;
+        const line = state.now
+            ? [state.now.artist, state.now.title].filter(Boolean).join(' — ')
+            : state.station.blurb;
+        artistEl.textContent = line;
     }
 
-    function paintRail(pct) {
-        if (railFill) railFill.style.transform = 'scaleX(' + (pct / 100).toFixed(4) + ')';
-        if (railEl) railEl.setAttribute('aria-valuenow', String(Math.round(pct)));
+    /* The feed is a nicety, not the product: a failed fetch keeps whatever the
+       screen last said, and the stream keeps playing. */
+    function pollNow(delay) {
+        clearTimeout(state.metaTimer);
+        const st = state.station;
+        if (!st) return;
+        state.metaTimer = setTimeout(() => { refreshNow(st); }, delay);
+    }
+
+    async function refreshNow(st) {
+        if (!state.station || state.station.id !== st.id) return;
+        try {
+            const res = await fetch(FEED(st.id), { cache: 'no-store' });
+            if (!res.ok) throw new Error('feed ' + res.status);
+            const data = await res.json();
+            if (!state.station || state.station.id !== st.id) return;
+            const song = (data.songs || [])[0];
+            if (song) paintNow({ artist: song.artist || '', title: song.title || '' });
+        } catch (err) { /* the screen keeps the station's blurb */ }
+        finally {
+            if (!state.lost && state.station && state.station.id === st.id) pollNow(stretchPoll(20000));
+        }
     }
 
     function paintMode() {
@@ -725,9 +614,9 @@
         } else if (state.switching || state.buffering) {
             setMode('tuning', 'đang dò sóng', 'fas fa-satellite-dish');
         } else if (state.playing) {
-            setMode('night signal', 'tín hiệu đêm', 'fas fa-wave-square');
-        } else if (state.track) {
-            setMode('paused', 'tạm dừng', 'fas fa-circle-pause');
+            setMode('on air', 'đang phát sóng', 'fas fa-tower-broadcast');
+        } else if (state.station) {
+            setMode('off air', 'tạm dừng', 'fas fa-circle-pause');
         } else {
             setMode('ready', 'sẵn sàng', 'fas fa-circle-play');
         }
@@ -762,14 +651,14 @@
                 : !state.ready ? ['tuning', 'đang dò sóng']
                     : state.blocked ? ['tap for sound', 'chạm để nghe']
                         : state.switching || state.buffering ? ['tuning', 'đang dò sóng']
-                            : state.playing ? ['night signal', 'tín hiệu đêm']
-                                : ['paused', 'tạm dừng'];
+                            : state.playing ? ['on air', 'đang phát sóng']
+                                : ['off air', 'tạm dừng'];
             if (en) en.textContent = pair[0];
             if (vi) vi.textContent = pair[1];
         }
         if (stage) {
             stage.setAttribute('aria-label',
-                state.blocked ? 'Turn the sound on' : state.playing ? 'Pause the mix' : 'Play the mix');
+                state.blocked ? 'Turn the sound on' : state.playing ? 'Pause the station' : 'Play the station');
         }
     }
 
@@ -777,10 +666,10 @@
        10. The night signal
 
        A generated instrument reading, not an analyser: four seeded sine
-       components ride the mix's own clock, a pulse derived from the mix's seed
-       drives the bars, and the pointer bends the trace toward itself. The
-       player's clock is the only measured input, so pausing freezes the frame
-       exactly where the music stopped.
+       components ride our own clock, a pulse derived from the station's seed
+       drives the bars, and the pointer bends the trace toward itself. Nothing
+       here is sampled from the stream, so pausing freezes the frame exactly
+       where it stands, and the label never claims otherwise.
        --------------------------------------------------------------------- */
     const scope = {
         cv: canvas,
@@ -815,7 +704,7 @@
         return h >>> 0;
     }
 
-    /* mulberry32 — small, fast, and the same seed always draws the same mix. */
+    /* mulberry32 — small, fast, and the same seed always draws the same signal. */
     function rand(seed) {
         let a = seed >>> 0;
         return () => {
@@ -925,7 +814,7 @@
         const w = scope.w;
         const h = scope.h;
         const T = scope.tokens;
-        const live = state.playing && !!state.player;
+        const live = state.playing && !!state.audio;
         const t = (scope.running && state.playing)
             ? scope.base + (now - scope.baseAt) / 1000
             : scope.base;
@@ -963,8 +852,8 @@
         }
         ctx.stroke();
 
-        /* Dust. It drifts only while the mix is playing, so a paused pod looks
-           paused rather than merely quiet. */
+        /* Dust. It drifts only while the station is playing, so a paused pod
+           looks paused rather than merely quiet. */
         if (live) {
             for (let i = 0; i < scope.dust.length; i++) {
                 const m = scope.dust[i];
@@ -1013,7 +902,7 @@
         }
         ctx.restore();
 
-        /* The mix's own light spilling under the fan. */
+        /* The station's own light spilling under the fan. */
         const spill = ctx.createLinearGradient(0, horizon, 0, h);
         spill.addColorStop(0, rgba(T.one, 0.07 + beat * 0.09));
         spill.addColorStop(1, rgba(T.one, 0));
@@ -1089,7 +978,7 @@
             ctx.fillRect(at[0] - 1, at[1] - 1, 2.4, 2.4);
         }
 
-        /* A landing mix washes the screen once, then decays. */
+        /* A landing station washes the screen once, then decays. */
         if (scope.flash > 0) {
             ctx.fillStyle = rgba(T.one, scope.flash * 0.1);
             ctx.fillRect(0, 0, w, h);
@@ -1127,8 +1016,8 @@
        11. Wiring
        --------------------------------------------------------------------- */
     /* Collapse and expand. The collapsed capsule stays a live player; opening
-       the body only reveals the wheel, the clock and the volume, and never
-       interrupts the mix. */
+       the body only reveals the wheel, the format readout and the volume, and
+       never interrupts the station. */
     function setOpen(open) {
         if (!bodyEl || !moreBtn) return;
         bodyEl.hidden = !open;
@@ -1154,7 +1043,7 @@
     if (playBtn) playBtn.addEventListener('click', togglePlay);
     if (nextBtn) nextBtn.addEventListener('click', next);
     if (prevBtn) prevBtn.addEventListener('click', previous);
-    if (menuBtn) menuBtn.addEventListener('click', shuffleDeck);
+    if (menuBtn) menuBtn.addEventListener('click', shuffleStation);
 
     if (muteBtn) {
         muteBtn.addEventListener('click', () => {
@@ -1210,7 +1099,8 @@
     }
 
     /* The wheel. The four bands are ordinary buttons; a drag across the ring
-       seeks the mix instead — an hour-long set needs a scrub, not a next. */
+       steps up and down the dial on release. A live stream has no position to
+       scrub, so the gesture that used to seek tunes instead. */
     if (wheel) {
         let drag = null;
 
@@ -1219,47 +1109,35 @@
             /* No capture yet on purpose: capturing on press retargets the click
                to the wheel and swallows the band the finger pressed. Capture is
                taken on the first real move, once this is definitely a drag. */
-            drag = { id: e.pointerId, x: e.clientX, moved: false, base: state.time, target: state.time };
+            drag = { id: e.pointerId, x: e.clientX, moved: false };
         });
 
         wheel.addEventListener('pointermove', (e) => {
             if (!drag || e.pointerId !== drag.id) return;
             const dx = e.clientX - drag.x;
-            if (!drag.moved && Math.abs(dx) > 6) {
+            if (!drag.moved && Math.abs(dx) > 10) {
                 drag.moved = true;
                 try { wheel.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+                pod.classList.add('is-tuning');
             }
-            if (!drag.moved) return;
-            const d = state.duration || 0;
-            state.seeking = true;
-            drag.target = clamp(drag.base + (-dx) * SEEK_PER_PX, 0, d || drag.base);
-            pod.classList.add('is-seeking');
-            paintRail(d > 0 ? clamp((drag.target / d) * 100, 0, 100) : 0);
-            if (clockEl) clockEl.textContent = hms(drag.target);
         });
 
-        const endDrag = (e) => {
+        const endDrag = (e, cancelled) => {
             if (!drag || (e && e.pointerId !== drag.id)) return;
+            const dx = e.clientX - drag.x;
             const wasDrag = drag.moved;
-            const target = drag.target;
             drag = null;
-            state.seeking = false;
-            pod.classList.remove('is-seeking');
+            pod.classList.remove('is-tuning');
             if (!wasDrag) return;
 
             swipeClick(wheel);
-            if (state.player && state.ready) {
-                try { state.player.seekTo(target, true); } catch (err) { /* ignore */ }
-            }
-            state.time = target;
-            anchor(target);
-            paintRail(state.duration > 0 ? clamp((target / state.duration) * 100, 0, 100) : 0);
-            if (clockEl) clockEl.textContent = hms(target);
-            if (!state.playing) paintOnce();
+            if (cancelled || Math.abs(dx) < 10) return;
+            if (dx < 0) next();
+            else previous();
         };
 
         wheel.addEventListener('pointerup', endDrag);
-        wheel.addEventListener('pointercancel', endDrag);
+        wheel.addEventListener('pointercancel', (e) => endDrag(e, true));
 
         /* Keyboard, because the wheel's bands are already focusable. */
         wheel.addEventListener('keydown', (e) => {
@@ -1286,36 +1164,33 @@
     window.__pod = {
         get ready() { return state.ready; },
         get lost() { return state.lost; },
-        get track() { return state.track; },
+        get station() { return state.station ? state.station.id : ''; },
+        get song() { return state.now; },
         get playing() { return state.playing; },
         get blocked() { return state.blocked; },
         get muted() { return state.muted; },
         get volume() { return state.volume; },
-        get deck() { return state.deck.length; },
+        get dial() { return STATIONS.map((s) => s.id); },
         get dead() { return Array.from(state.dead); },
-        get time() { return state.time; },
-        get duration() { return state.duration; },
-        get playerState() {
-            try { return state.player ? state.player.getPlayerState() : -99; } catch (err) { return -98; }
-        },
-        get videoId() { return state.track ? state.track.id : ''; },
+        get time() { return readTime(); },
+        get stream() { return state.audio ? (state.audio.currentSrc || '') : ''; },
         get signal() { return { running: scope.running, frames: scope.raf, w: scope.w, h: scope.h }; },
     };
 
     /* -----------------------------------------------------------------------
        13. Boot
 
-       Nothing to press and nothing to opt into: the pod deals the playlist,
-       settles on a mix and starts. The sound arrives on the first gesture, by
-       itself; until then the mix runs muted with the signal drawing it.
+       Nothing to press and nothing to opt into: the pod tunes the dial and
+       starts. The sound arrives on the first gesture, by itself; until then the
+       station runs muted with the signal drawing it.
        --------------------------------------------------------------------- */
-    buildDeck();
-    paintTrack(firstMix());
+    paintStation(STATIONS[0]);
     sizeScope();
 
-    const boot = () => {
-        whenIdle(() => { loadApi(); });
-    };
+    function boot() {
+        if (state.audio || state.lost) return;
+        whenIdle(() => { createTransport(); });
+    }
 
     ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => {
         window.addEventListener(ev, () => { state.gestured = true; }, { capture: true, passive: true, once: true });
@@ -1329,10 +1204,12 @@
         try { new ResizeObserver(() => paintOnce()).observe(stage); } catch (err) { /* fine */ }
     }
 
-    /* A hidden tab draws nothing; a returning tab picks the signal back up. */
+    /* A hidden tab draws nothing; a returning tab picks the signal back up and
+       asks the feed what came on while nobody was looking. */
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) stopSignal();
         else if (state.playing) startSignal();
+        if (!document.hidden && state.station) pollNow(0);
     });
 
     /* If the governor drops the page to lite mid-visit (or a tier override

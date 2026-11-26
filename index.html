@@ -160,6 +160,10 @@
 
     <link rel="dns-prefetch" href="https://res.cloudinary.com">
     <link rel="dns-prefetch" href="https://jnstohrqcfwfbybnjfhh.supabase.co">
+    <!-- The pod's stream and its now-playing feed: the handshake is worth
+         paying for while the fonts and hero art settle. -->
+    <link rel="preconnect" href="https://ice1.somafm.com">
+    <link rel="dns-prefetch" href="https://somafm.com">
 
     <!-- The hero art is the LCP element on every device, so it is the one thing
          preloaded. Two sizes: a phone-sized crop costs a fraction of the full
@@ -336,11 +340,11 @@
                 </div>
 
                 <!-- The pod. Collapsed it is one capsule: the signal, the
-                     mix's name and a tap-to-play glass. The full instrument —
-                     screen, wheel, volume — is one press away. Static markup on
-                     purpose: with no script it is still a legible readout.
-                     music.js feeds it from a hidden YouTube frame playing the
-                     owner's *after dark* playlist. -->
+                     station's name and a tap-to-play glass. The full instrument
+                     — screen, wheel, volume — is one press away. Static markup
+                     on purpose: with no script it is still a legible readout.
+                     music.js feeds it from an <audio> element tuned to one of
+                     SomaFM's ad-free, listener-supported channels. -->
                 <div class="ios-widget widget-right hud pod is-blocked is-compact" id="pod">
                     <div class="pod-pill">
                         <!-- The glass is the player: a real button, because a
@@ -351,7 +355,7 @@
                                 <i class="fas fa-play"></i>
                             </span>
                             <span class="pod-glass-meta">
-                                <span class="pod-glass-title" id="pod-pill-title">after dark</span>
+                                <span class="pod-glass-title" id="pod-pill-title">groove salad</span>
                                 <span class="pod-glass-state" id="pod-pill-state">
                                     <span lang="en">tuning</span><span lang="vi">đang dò sóng</span>
                                 </span>
@@ -374,10 +378,10 @@
                                     <span lang="en">tuning</span>
                                     <span lang="vi">đang dò sóng</span>
                                 </span>
-                                <!-- The mix's real place in the playlist, and
-                                     the way out to YouTube for the full video. -->
-                                <a class="pod-open" id="pod-open" href="https://www.youtube.com/playlist?list=PLJESZmrEx7TM"
-                                    target="_blank" rel="noopener" aria-label="Open this mix on YouTube">
+                                <!-- The station's real place on the dial, and
+                                     the way out to SomaFM for the channel. -->
+                                <a class="pod-open" id="pod-open" href="https://somafm.com/groovesalad/"
+                                    target="_blank" rel="noopener" aria-label="Open groove salad on SomaFM">
                                     <span class="pod-seq" id="pod-seq">—</span>
                                     <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
                                 </a>
@@ -388,29 +392,31 @@
                                 <div class="pod-artist" id="pod-artist">—</div>
                             </div>
 
-                            <div class="pod-rail" id="pod-rail" role="progressbar" aria-label="mix position"
-                                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                            <!-- Not a playhead: a live stream has no position.
+                                 The hairline is a live ticker, animated while
+                                 the station is on air and still when it is not. -->
+                            <div class="pod-rail" id="pod-rail" aria-hidden="true">
                                 <span class="pod-rail-fill" id="pod-rail-fill"></span>
                             </div>
 
                             <div class="pod-screen-foot">
-                                <span class="pod-clock" id="pod-clock">0:00</span>
-                                <span class="pod-clock" id="pod-duration">1:00:12</span>
+                                <span class="pod-clock" id="pod-format">mp3 · 128k</span>
+                                <span class="pod-clock" id="pod-src">somafm</span>
                             </div>
                         </div>
 
                         <!-- The wheel. Bands are the four gestures an iPod has:
                              prev / next on the sides, shuffle and play in the
-                             middle. A drag across the ring seeks the mix. -->
+                             middle. A drag across the ring tunes the dial. -->
                         <div class="pod-wheel" id="pod-wheel">
                             <div class="pod-ring" aria-hidden="true"></div>
-                            <button class="pod-band pod-band-prev" type="button" id="pod-prev" aria-label="Previous mix">
+                            <button class="pod-band pod-band-prev" type="button" id="pod-prev" aria-label="Previous station">
                                 <i class="fas fa-backward-step" aria-hidden="true"></i>
                             </button>
-                            <button class="pod-band pod-band-next" type="button" id="pod-next" aria-label="Next mix">
+                            <button class="pod-band pod-band-next" type="button" id="pod-next" aria-label="Next station">
                                 <i class="fas fa-forward-step" aria-hidden="true"></i>
                             </button>
-                            <button class="pod-band pod-band-menu" type="button" id="pod-menu" aria-label="Shuffle the deck">
+                            <button class="pod-band pod-band-menu" type="button" id="pod-menu" aria-label="Tune to another station">
                                 <span class="pod-band-label" lang="en">shuffle</span>
                                 <span class="pod-band-label" lang="vi">xáo</span>
                             </button>

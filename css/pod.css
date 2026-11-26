@@ -1,12 +1,12 @@
 /* =============================================================================
    THE POD — hero instrument skin
 
-   The right-hand HUD instrument is a pocket music player. At rest it is a
-   single capsule — a glass carrying the signal, the mix's title and a state
-   word — and one key opens it into the full device: a readout, a click wheel
-   and a volume dial. It is not a video player and it must never look like one:
-   there is no frame, no thumbnail and no chrome, because js/music.js runs the
-   YouTube embed entirely off-screen.
+   The right-hand HUD instrument is a pocket radio. At rest it is a single
+   capsule — a glass carrying the signal, the station's name and a state word —
+   and one key opens it into the full device: a readout, a click wheel and a
+   volume dial. It is not a video player and it must never look like one:
+   there is no frame, no thumbnail and no chrome, because js/music.js streams
+   the station into an <audio> element that is never drawn.
 
    js/music.js owns every value inside, including the drawing on the canvas.
    This file owns the shape and the material only, so the whole instrument stays
@@ -236,10 +236,10 @@
     display: none;
 }
 
-/* While the wheel is being dragged, the rail turns to the sweep's gold so the
-   scrub reads as a different gesture from playback. */
-.pod.is-seeking .pod-rail-fill {
-    background: linear-gradient(90deg, var(--holo-3), var(--holo-2));
+/* While the wheel is being dragged, the ring picks up the sweep's gold so a
+   tune reads as a different gesture from a press. */
+.pod.is-tuning .pod-ring {
+    box-shadow: inset 0 0 0 1px rgba(var(--holo-3-rgb), 0.45);
 }
 
 /* -----------------------------------------------------------------------------
@@ -358,8 +358,10 @@
     text-overflow: ellipsis;
 }
 
-/* The rail is the playhead. Filled with transform, never width: a scaleX is a
-   compositor job, a width is a layout job several times a second. */
+/* Not a playhead: a live stream has no position to show. The hairline carries
+   one short light that sweeps while the station is on air and parks when it is
+   not, so the screen still reads as a running instrument without pretending to
+   know how far into anything we are. */
 .pod-rail {
     position: relative;
     height: 2px;
@@ -370,9 +372,39 @@
 .pod-rail-fill {
     position: absolute;
     inset: 0;
-    transform-origin: left center;
-    transform: scaleX(0);
-    background: linear-gradient(90deg, var(--holo-1), var(--holo-2));
+    opacity: 0;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            var(--holo-1) 42%,
+            var(--holo-2) 58%,
+            transparent 100%);
+    transform: translateX(-120%);
+}
+
+.pod.is-playing .pod-rail-fill {
+    opacity: 0.85;
+    animation: pod-live 5.6s linear infinite;
+}
+
+@keyframes pod-live {
+    from { transform: translateX(-120%); }
+    to { transform: translateX(120%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pod.is-playing .pod-rail-fill {
+        animation: none;
+        opacity: 0.6;
+        transform: none;
+    }
+}
+
+/* LITE keeps the reading but drops the sweep. Balanced keeps it: the sweep is
+   one compositor transform, far cheaper than the canvas it sits under. */
+html.perf-low .pod.is-playing .pod-rail-fill {
+    animation: none;
+    opacity: 0.6;
+    transform: none;
 }
 
 .pod-screen-foot {
@@ -396,8 +428,8 @@
 
    Four bands and a hub, the same gesture map an iPod has: prev and next on the
    sides, shuffle on top, play on the bottom, and mute in the middle. The ring
-   between the hub and the rim is the scrub surface — dragging it seeks the
-   mix, which is the one thing an hour-long set needs and a track list does not.
+   between the hub and the rim is the tuning surface — dragging it steps the
+   dial, which is what a live stream can offer where a scrub cannot.
 
    The bands are real buttons laid over the ring; the wheel's own pointer
    handlers see the drag first and suppress the click a drag would otherwise
