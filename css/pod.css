@@ -1,0 +1,695 @@
+/* =============================================================================
+   THE POD — hero instrument skin
+
+   The right-hand HUD instrument is a pocket music player. At rest it is a
+   single capsule — a glass carrying the signal, the mix's title and a state
+   word — and one key opens it into the full device: a readout, a click wheel
+   and a volume dial. It is not a video player and it must never look like one:
+   there is no frame, no thumbnail and no chrome, because js/music.js runs the
+   YouTube embed entirely off-screen.
+
+   js/music.js owns every value inside, including the drawing on the canvas.
+   This file owns the shape and the material only, so the whole instrument stays
+   legible if the script never arrives: the static markup already reads as an
+   idle player.
+
+   Sizing note: collapsed, the pod is a ~58px capsule in the hero's corner. Open,
+   it is kept under ~300px tall beside the ~125px terminal panel, and every band
+   shrinks together rather than one being squeezed.
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   1. The shell
+   -------------------------------------------------------------------------- */
+.pod {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 9px 10px;
+}
+
+/* Collapsed, the whole instrument is one capsule: no screen, no wheel, no
+   volume — just the signal, the mix's name and the two keys. It stays a live
+   player, and `.pod-body[hidden]` is what actually removes the rest from the
+   layout, so the expanded pod is not merely clipped. */
+.pod.is-compact {
+    padding: 7px;
+    gap: 0;
+}
+
+/* Above the hero's mobile breakpoint the pod is a corner instrument and needs a
+   narrower column than the generic `.widget-right` clamp allows. Scoped to
+   min-width so the full-width mobile bar the base sheet gives `.ios-widget` is
+   never overridden. */
+@media (min-width: 901px) {
+    .widget-right.pod {
+        width: clamp(246px, 19vw, 288px);
+    }
+}
+
+/* -----------------------------------------------------------------------------
+   2. The capsule
+
+   Collapsed, the instrument is a pill: a bevelled glass carrying the signal,
+   the playing title and a state word, with one key that opens the rest. It is
+   the default state, because the pod's job on this card is ambience — the
+   wheel is machinery a visitor may want, not machinery they must step past.
+
+   The glass is a button. That is deliberate: a thing you tap to start a mix is
+   a control, and making it a div would leave the primary action of the
+   instrument unreachable from the keyboard.
+   -------------------------------------------------------------------------- */
+.pod-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pod-glass {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    padding: 0 4px 0 10px;
+    overflow: hidden;
+    text-align: left;
+    /* The glass: a sunk lens with a lit hairline, so the drawing inside reads
+       as an instrument face rather than as a card with a picture on it. */
+    background:
+        radial-gradient(ellipse 90% 150% at 50% 50%,
+            rgba(var(--holo-1-rgb), 0.08) 0%,
+            rgba(var(--holo-1-rgb), 0.02) 58%,
+            transparent 80%),
+        var(--surface-sunk);
+    box-shadow: inset 0 0 0 1px var(--edge-soft);
+    /* A capsule, and the only pill on the card. The wheel is round, the chips
+       are square: this shape belongs to the one thing that is a lens. */
+    border-radius: 22px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: box-shadow 0.25s ease;
+}
+
+.pod-glass:hover,
+.pod-glass:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--edge-lit);
+}
+
+#pod-scope {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    pointer-events: none;
+}
+
+/* The fade that lets the trace run to the edge without meeting it. Painted,
+   not masked: a mask would also eat the glass's own hairline. */
+.pod-glass::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(90deg,
+            transparent 0,
+            transparent 34%,
+            rgba(8, 11, 22, 0.55) 52%,
+            rgba(8, 11, 22, 0.88) 72%,
+            var(--surface-sunk) 88%);
+}
+
+.pod-glass-glyph {
+    position: relative;
+    z-index: 1;
+    order: 2;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 0.52rem;
+    color: var(--holo-1);
+    background: rgba(var(--holo-1-rgb), 0.1);
+    box-shadow: inset 0 0 0 1px rgba(var(--holo-1-rgb), 0.32);
+    transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.pod.is-blocked .pod-glass-glyph {
+    color: var(--holo-3);
+    background: rgba(var(--holo-3-rgb), 0.1);
+    box-shadow: inset 0 0 0 1px rgba(var(--holo-3-rgb), 0.34);
+}
+
+.pod-glass-meta {
+    position: relative;
+    z-index: 1;
+    order: 1;
+    min-width: 0;
+    max-width: calc(100% - 58px);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    /* Sits in the capsule's dark right-hand zone, where the fade guarantees
+       the trace cannot reach it. */
+    align-items: flex-end;
+    text-align: right;
+}
+
+.pod-glass-title {
+    max-width: 100%;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 0.74rem;
+    line-height: 1.2;
+    color: var(--text-bright);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pod-glass-state {
+    max-width: 100%;
+    font-family: var(--mono);
+    font-size: 0.48rem;
+    line-height: 1.25;
+    letter-spacing: 0.12em;
+    text-transform: lowercase;
+    color: var(--faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.3s ease;
+}
+
+.pod.is-playing .pod-glass-state {
+    color: var(--holo-1);
+}
+
+.pod.is-blocked .pod-glass-state {
+    color: var(--holo-3);
+}
+
+/* The one key the capsule needs: open the instrument, or put it away. */
+.pod-more {
+    flex: none;
+    width: 30px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    font-size: 0.58rem;
+    color: var(--faint);
+    transition: color 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pod-more:hover,
+.pod-more:focus-visible {
+    color: var(--holo-1);
+}
+
+.pod-more i {
+    pointer-events: none;
+}
+
+/* -----------------------------------------------------------------------------
+   2b. The opened instrument
+
+   The body is the rest of the device: readout, wheel, volume. It is hidden by
+   the `hidden` attribute rather than clipped, so a collapsed pod costs no
+   layout and its controls are correctly absent from the tab order.
+   -------------------------------------------------------------------------- */
+.pod-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pod-body[hidden] {
+    display: none;
+}
+
+/* While the wheel is being dragged, the rail turns to the sweep's gold so the
+   scrub reads as a different gesture from playback. */
+.pod.is-seeking .pod-rail-fill {
+    background: linear-gradient(90deg, var(--holo-3), var(--holo-2));
+}
+
+/* -----------------------------------------------------------------------------
+   3. The screen
+   -------------------------------------------------------------------------- */
+.pod-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 7px 9px 6px;
+    background: var(--surface-sunk);
+    border: 1px solid var(--edge-soft);
+    /* Same chamfer as the model gates and copy keys: a cut corner, so the
+       screen reads as part of the same instrument family. */
+    clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+
+.pod-screen-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 0.52rem;
+    letter-spacing: 0.13em;
+    text-transform: lowercase;
+    color: var(--faint);
+}
+
+.pod-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.3s ease;
+}
+
+.pod-mode i {
+    font-size: 0.52rem;
+    opacity: 0.8;
+}
+
+.pod.is-playing .pod-mode {
+    color: var(--holo-1);
+}
+
+/* When the browser holds the sound until a gesture, the mode line says so in
+   place — no overlay, no dialog, and it clears itself the moment the audio
+   comes up. */
+.pod.is-blocked .pod-mode {
+    color: var(--holo-3);
+}
+
+.pod-seq {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    transition: color 0.2s ease;
+}
+
+/* The way out of the instrument: every mix is on YouTube, and a visitor who
+   likes one should be able to open it there in a tap. It reads as the counter
+   at rest and as a link on hover/focus. */
+.pod-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    color: var(--faint);
+    /* The link lives in a 14px-tall bar, but a thumb still has to hit it: the
+       padding grows the target without moving the type off its baseline. */
+    padding: 5px 2px;
+    margin: -5px -2px;
+}
+
+.pod-open:hover,
+.pod-open:focus-visible {
+    color: var(--holo-1);
+}
+
+.pod-open i {
+    font-size: 0.5rem;
+    opacity: 0.75;
+}
+
+.pod-meta {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+/* The screen's own type: display face for the title so it reads at a glance
+   from across the hero, mono for everything that is a number. */
+.pod-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 0.82rem;
+    line-height: 1.2;
+    color: var(--text-bright);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pod-artist {
+    font-size: 0.66rem;
+    line-height: 1.3;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The rail is the playhead. Filled with transform, never width: a scaleX is a
+   compositor job, a width is a layout job several times a second. */
+.pod-rail {
+    position: relative;
+    height: 2px;
+    background: var(--edge);
+    overflow: hidden;
+}
+
+.pod-rail-fill {
+    position: absolute;
+    inset: 0;
+    transform-origin: left center;
+    transform: scaleX(0);
+    background: linear-gradient(90deg, var(--holo-1), var(--holo-2));
+}
+
+.pod-screen-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pod-clock {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 0.54rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    color: var(--faint);
+}
+
+/* -----------------------------------------------------------------------------
+   4. The wheel
+
+   Four bands and a hub, the same gesture map an iPod has: prev and next on the
+   sides, shuffle on top, play on the bottom, and mute in the middle. The ring
+   between the hub and the rim is the scrub surface — dragging it seeks the
+   mix, which is the one thing an hour-long set needs and a track list does not.
+
+   The bands are real buttons laid over the ring; the wheel's own pointer
+   handlers see the drag first and suppress the click a drag would otherwise
+   leave behind.
+   -------------------------------------------------------------------------- */
+.pod-wheel {
+    position: relative;
+    align-self: center;
+    width: 86px;
+    height: 86px;
+    flex: none;
+    border-radius: 50%;
+    touch-action: none;
+    cursor: grab;
+    /* The body of the device: a quiet raised face, not a lit control. */
+    background:
+        radial-gradient(circle at 50% 24%,
+            rgba(255, 255, 255, 0.045) 0%,
+            transparent 58%),
+        var(--surface-raised);
+    box-shadow:
+        inset 0 0 0 1px var(--edge),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.pod-wheel:active {
+    cursor: grabbing;
+}
+
+/* A turned-metal rim. The conic highlight gives the ring a place the eye reads
+   as "this rotates", even while the finger is still. */
+.pod-ring {
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    pointer-events: none;
+    background: conic-gradient(from 210deg,
+            transparent 0deg,
+            rgba(var(--holo-1-rgb), 0.16) 40deg,
+            transparent 96deg,
+            transparent 200deg,
+            rgba(var(--holo-2-rgb), 0.12) 240deg,
+            transparent 300deg);
+    opacity: 0.9;
+}
+
+/* Bands: the four gestures, each pinned to the middle of the ring at its own
+   compass point. Placement is polar — centre of the wheel, then one translate
+   out to the ring — so the bands stay centred on the metal at any wheel size
+   instead of drifting toward the rim as the box shrinks. */
+.pod-band {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 26px;
+    margin: -13px 0 0 -15px;
+    font-size: 0.58rem;
+    color: var(--muted);
+    transition: color 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pod-band i {
+    font-size: 0.58rem;
+    pointer-events: none;
+}
+
+.pod-band:hover {
+    color: var(--holo-1);
+}
+
+.pod-band:active {
+    color: var(--text-bright);
+}
+
+.pod-band-label {
+    font-family: var(--mono);
+    font-size: 0.46rem;
+    letter-spacing: 0.14em;
+    text-transform: lowercase;
+    pointer-events: none;
+}
+
+/* Ring radius: (86 - 32) / 2 = 27, the midpoint between hub and rim. */
+.pod-band-prev {
+    transform: translateX(-27px);
+}
+
+.pod-band-next {
+    transform: translateX(27px);
+}
+
+.pod-band-menu {
+    transform: translateY(-25px);
+}
+
+.pod-band-play {
+    transform: translateY(25px);
+}
+
+.pod.is-playing .pod-band-play {
+    color: var(--holo-1);
+}
+
+/* The hub. Mute lives here; it shows the state it owns. While the browser
+   holds the sound it is the one key that lets it out, and it says so. */
+.pod-wheel-hub {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 32px;
+    height: 32px;
+    margin: -16px 0 0 -16px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-size: 0.62rem;
+    color: var(--faint);
+    background: var(--surface);
+    box-shadow:
+        inset 0 0 0 1px var(--edge),
+        0 0 0 1px rgba(0, 0, 0, 0.35);
+    transition: color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.pod-wheel-hub:hover {
+    color: var(--holo-1);
+    box-shadow:
+        inset 0 0 0 1px var(--edge-lit),
+        0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.pod.is-blocked .pod-wheel-hub {
+    color: var(--holo-3);
+    box-shadow:
+        inset 0 0 0 1px rgba(var(--holo-3-rgb), 0.5),
+        0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.pod-wheel-hub[aria-pressed="true"] {
+    color: var(--holo-2);
+    box-shadow:
+        inset 0 0 0 1px rgba(var(--holo-2-rgb), 0.55),
+        0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+/* Muted glyph gets the same struck-through treatment the icon carries
+   everywhere else on the card, so the state is legible without a label. */
+.pod-wheel-hub i {
+    position: relative;
+}
+
+.pod-wheel-hub[aria-pressed="true"] i::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 140%;
+    height: 1px;
+    background: currentColor;
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* -----------------------------------------------------------------------------
+   5. Volume
+   -------------------------------------------------------------------------- */
+.pod-volume {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 2px;
+}
+
+.pod-volume > i {
+    flex: none;
+    font-size: 0.5rem;
+    color: var(--faint);
+}
+
+.pod-volume input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 3px;
+    margin: 0;
+    background: linear-gradient(90deg, var(--holo-1), var(--holo-2));
+    outline: none;
+    cursor: pointer;
+}
+
+.pod-volume input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 0;
+    background: var(--text-bright);
+    border: 1px solid var(--edge-lit);
+    transform: rotate(45deg);
+    cursor: grab;
+}
+
+.pod-volume input[type="range"]::-moz-range-thumb {
+    width: 9px;
+    height: 9px;
+    border-radius: 0;
+    background: var(--text-bright);
+    border: 1px solid var(--edge-lit);
+    transform: rotate(45deg);
+    cursor: grab;
+}
+
+.pod-volume input[type="range"]::-moz-range-track {
+    height: 3px;
+    background: var(--edge);
+}
+
+/* -----------------------------------------------------------------------------
+   6. Narrow phones
+
+   Below 460px the hero instruments already collapse to full-width bars. The pod
+   keeps its signal window, its screen and its wheel — the window and the wheel
+   just tighten, because they are the two surfaces a thumb has to hit.
+   -------------------------------------------------------------------------- */
+@media (max-width: 460px) {
+    .pod {
+        padding: 8px 8px 9px;
+        gap: 7px;
+    }
+
+    .pod-glass {
+        height: 40px;
+    }
+
+    .pod-more {
+        height: 40px;
+    }
+
+    .pod-wheel {
+        width: 80px;
+        height: 80px;
+    }
+
+    .pod-wheel-hub {
+        width: 30px;
+        height: 30px;
+        margin: -15px 0 0 -15px;
+    }
+
+    .pod-band-prev {
+        transform: translateX(-25px);
+    }
+
+    .pod-band-next {
+        transform: translateX(25px);
+    }
+
+    .pod-band-menu {
+        transform: translateY(-23px);
+    }
+
+    .pod-band-play {
+        transform: translateY(23px);
+    }
+
+    .pod-title {
+        font-size: 0.78rem;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+   7. Reduced motion and the tier governor
+
+   The drawing is a still frame on both: same graticule, same trace, no sweep
+   travel. js/music.js stops the loop itself; these rules only take the CSS
+   motion out so the frozen frame is not half-animated.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .pod-mode,
+    .pod-seq,
+    .pod-wheel-hub,
+    .pod-band {
+        transition: none;
+    }
+}
+
+html.perf-lowish .pod-mode,
+html.perf-lowish .pod-seq,
+html.perf-lowish .pod-wheel-hub,
+html.perf-lowish .pod-band {
+    transition: none;
+}

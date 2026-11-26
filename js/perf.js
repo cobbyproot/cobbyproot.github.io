@@ -2,9 +2,10 @@
    COBBY — performance governor
    -----------------------------------------------------------------------------
    The card is a holographic set piece: two 3D characters, a projector backdrop,
-   a spinning vinyl, an emitter pool. That is the point of it, and on a good
-   machine it is cheap. On an old phone it is not — three .glb files weigh
-   16 MB and parsing them blocks the main thread for over a second.
+   a signal window drawing on a canvas, an emitter pool. That is the point of
+   it, and on a good machine it is cheap. On an old phone it is not — three
+   .glb files weigh 16 MB and parsing them blocks the main thread for over a
+   second.
 
    So the page measures the device it landed on and picks one of four tiers.
    Nothing about the design is removed at any tier; how *much* of it runs is.

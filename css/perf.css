@@ -48,13 +48,12 @@
      4.  Balanced: halos and shadows
      5.  Balanced: the full-viewport fixed layers
      5b. Balanced: long transitions
-     6.  Balanced: the 3D panels
-     7.  Lite: static, calm, still this card
-     8.  Lite: the background stack
-     9.  Lite: hero, emitter and instruments
-    10.  Lite: content surfaces
-    11.  Reduced motion, on top of the tier
-    12.  Feature support guards
+     6.  Lite: static, calm, still this card
+     7.  Lite: the background stack
+     8.  Lite: hero, emitter and instruments
+     9.  Lite: content surfaces
+     10.  Reduced motion, on top of the tier
+     11.  Feature support guards
    ========================================================================== */
 
 /* -----------------------------------------------------------------------------
@@ -98,30 +97,24 @@
 
    What is deliberately NOT killed here:
      panel-in        a tab change, and it runs once
-     proj-lock/scan  the boot loader, which is gone within a second
+     boot fill       the boot screen's clip is written by JS from real progress;
+                     only its decorative gradient travel is stopped below
      model-swap-flare  feedback for a press the visitor just made
      marker-glow     only on the "upcoming" roadmap markers
      hover states    the underline travel, the card glow — those are responses
    Anything that answers something the visitor did is kept; anything that only
    moves because it is alive is stopped. */
 html.perf-lowish .scan-sweep,
-html.perf-lowish .equalizer-bars.playing span,
-html.perf-lowish .vinyl-disc.spinning,
 html.perf-lowish .term-blinking-cursor,
 html.perf-lowish .status-indicator .dot,
 html.perf-lowish .scroll-hint i,
 html.perf-lowish .variant-bubble,
 html.perf-lowish .refsheet-model-panel::before,
-html.perf-lowish .proj-reticle,
-html.perf-lowish .loader-charge i,
+html.perf-lowish .boot-art-lit,
+html.perf-lowish .boot-caret,
+html.perf-lowish .boot-enter-arrow,
 html.perf-lowish body:not(.booting) .giant-cobby-text {
     animation: none;
-}
-
-/* The vinyl still needs to read as a record, not as a static circle: with the
-   spin gone the label keeps the state the rotation was carrying. */
-html.perf-lowish .vinyl-disc.spinning {
-    box-shadow: 0 0 0 1px rgba(var(--holo-1-rgb), 0.22);
 }
 
 /* `aberration-settle` is the entrance, not a loop — it resolves the three
@@ -165,6 +158,24 @@ html.perf-lowish .refsheet-name .char-name::after {
 html.perf-lowish .social-link:hover::before,
 html.perf-lowish .social-link:focus-visible::before {
     opacity: 1;
+}
+
+/* The orbit nodes drift on a loop, and a loop is exactly what this tier does
+   not pay for: translation animations running forever in the first viewport.
+   They land in place and stay there. Scoped to the orbit breakpoint because
+   below it the links are cells of the bar and have no animation. */
+@media (min-width: 901px) {
+    html.perf-lowish .social-link,
+    html.perf-lowish .social-link > i,
+    html.perf-lowish .social-link > svg,
+    html.perf-lowish .social-link > img,
+    html.perf-lowish .hero-giant-bg,
+    html.perf-lowish .hero-character-stage,
+    html.perf-lowish .widget-left,
+    html.perf-lowish .widget-right,
+    html.perf-lowish .scroll-hint {
+        animation: none;
+    }
 }
 
 /* The last two places that were still animating `background-position`. Both are
@@ -215,7 +226,7 @@ html.perf-lowish .refsheet-model-panel::before {
             transparent 78%);
 }
 
-html.perf-lowish .refsheet-model-panel.is-loaded .refsheet-model-viewer {
+html.perf-lowish .refsheet-model-viewer {
     filter: drop-shadow(0 0 14px rgba(var(--holo-1-rgb), 0.4));
 }
 
@@ -264,10 +275,10 @@ html.perf-lowish .projection-field {
         repeating-linear-gradient(90deg, rgba(var(--holo-1-rgb), 0.045) 0 1px, transparent 1px 72px);
 }
 
-/* The slideshow's `filter` is a saturate/contrast pair over a full-viewport
-   image. The scrim above it already darkens and tints the whole stack, so the
-   filter is doing very little that the scrim is not. */
-html.perf-lowish .bg-slide {
+/* The strip wall's `filter` is a saturate/contrast pair on every thumbnail.
+   The scrim above it already darkens and tints the whole stack, so the filter
+   is doing very little that the scrim is not. */
+html.perf-lowish .bg-row img {
     filter: saturate(0.55);
 }
 
@@ -291,18 +302,9 @@ html.perf-lowish .bg-overlay {
    because most of this card's transitions are already short hover feedback and
    a global cap would be a blunt instrument aimed at the wrong targets.
 
-   The progress bar is the one that actually matters: it animates `width`, which
-   is a layout property, so every step of that 0.9s fade re-lays-out the widget
-   footer. Shortening it does not stop the layout, but it stops it lasting most
-   of a second, and the bar is driven by a poll that already runs slower here. */
-html.perf-lowish .bg-slide {
-    transition-duration: 0.4s;
-}
-
-html.perf-lowish .spotify-progress-fill {
-    transition-duration: 0.2s;
-}
-
+   The pod's rail is a `transform: scaleX()` on a compositor layer, so it has
+   no layout cost to cap; its drawing is a canvas whose loop js/music.js stops
+   outright on this tier. */
 html.perf-lowish .dock,
 html.perf-lowish .refsheet-image,
 html.perf-lowish .lang-btn,
@@ -319,18 +321,7 @@ html.perf-lowish .special-overlay {
 }
 
 /* -----------------------------------------------------------------------------
-   6. Balanced: the 3D panels
-   -------------------------------------------------------------------------- */
-/* The gate button is the only way to the models on this tier, so it stays and
-   stays prominent. What goes is its hover transition length and the backdrop
-   work behind it — the button sits on an opaque background of its own, so the
-   blur is invisible anyway. */
-html.perf-lowish .model3d-gate {
-    transition: color 0.2s ease, box-shadow 0.2s ease;
-}
-
-/* -----------------------------------------------------------------------------
-   7. Lite: static, calm, still this card
+   6. Lite: static, calm, still this card
    -------------------------------------------------------------------------- */
 /* Lite is not "the same page, slower". It is the same page standing still.
 
@@ -345,12 +336,12 @@ html.perf-lowish .model3d-gate {
    stranger arriving on an old phone still needs to reach a handle. Nothing here
    touches their layout, opacity or visibility. */
 
-/* --- 7a. No infinite animation, anywhere ---------------------------------- */
+/* --- 6a. No infinite animation, anywhere ---------------------------------- */
 /* This is a blanket kill rather than a list, because "no infinite animation at
    all" has to be true by construction on this tier — a new loop added later
-   must not silently come back here. One-shot animations (the loader, panel-in,
-   the gate's own press feedback) are allowed to finish: they are bounded work
-   that ends, not work that repeats. */
+   must not silently come back here. One-shot animations (the loader,
+   panel-in) are allowed to finish: they are bounded work that ends, not work
+   that repeats. */
 html[data-perf="lite"] *,
 html[data-perf="lite"] *::before,
 html[data-perf="lite"] *::after {
@@ -360,16 +351,6 @@ html[data-perf="lite"] *::after {
 
 /* ...and the specific loops that have a sensible resting state get one, so the
    single frame they are allowed to play does not land mid-pose. */
-html[data-perf="lite"] .equalizer-bars.playing span {
-    animation: none;
-    transform: scaleY(0.22);
-}
-
-html[data-perf="lite"] .vinyl-disc,
-html[data-perf="lite"] .vinyl-disc.spinning {
-    animation: none;
-}
-
 html[data-perf="lite"] .status-indicator .dot,
 html[data-perf="lite"] .term-blinking-cursor {
     animation: none;
@@ -379,8 +360,9 @@ html[data-perf="lite"] .term-blinking-cursor {
 html[data-perf="lite"] .scroll-hint i,
 html[data-perf="lite"] .variant-bubble,
 html[data-perf="lite"] .refsheet-model-panel::before,
-html[data-perf="lite"] .proj-reticle,
-html[data-perf="lite"] .loader-charge i,
+html[data-perf="lite"] .boot-art-lit,
+html[data-perf="lite"] .boot-caret,
+html[data-perf="lite"] .boot-enter-arrow,
 html[data-perf="lite"] body:not(.booting) .giant-cobby-text {
     animation: none;
 }
@@ -432,7 +414,7 @@ html[data-perf="lite"] .event-tag.tag-next {
 }
 
 /* -----------------------------------------------------------------------------
-   8. Lite: the background stack
+   7. Lite: the background stack
    -------------------------------------------------------------------------- */
 /* The scan sweep is a 190px bar travelling the full height of the viewport for
    thirteen seconds at a time. It is pure atmosphere, it is one of the four
@@ -453,22 +435,28 @@ html[data-perf="lite"] .projection-field {
     mask-image: none;
 }
 
-/* The slideshow's filter goes entirely, and the slide is held at a fixed
-   opacity so the one fade it gets is the one that puts it on screen. main.js
-   also skips the rotation on this tier; this is the belt to that braces. */
-html[data-perf="lite"] .bg-slide {
+/* The per-thumbnail filter goes entirely, and the wall is held still. That is
+   the tier contract: no infinite animation on lite. main.js also builds fewer,
+   larger rows here; this is the belt to that braces. */
+html[data-perf="lite"] .bg-row img {
     filter: none;
 }
 
+html[data-perf="lite"] .bg-row {
+    animation: none;
+    will-change: auto;
+}
+
 html[data-perf="lite"] .bg-slideshow {
-    /* One slide, painted once. Nothing here is going to change its opacity
-       again, so the browser never has to blend the stack under the page. */
+    /* A static wall, painted once. Nothing here is going to move or change its
+       opacity again, so the browser never has to re-blend the stack under the
+       page. */
     contain: strict;
     contain-intrinsic-size: 100vw 100vh;
 }
 
 /* -----------------------------------------------------------------------------
-   9. Lite: hero, emitter and instruments
+   8. Lite: hero, emitter and instruments
    -------------------------------------------------------------------------- */
 /* The character keeps its shape and its place; it loses the blur pass that
    traces its silhouette. The emitter pool and rim below it still ground it, so
@@ -506,16 +494,15 @@ html[data-perf="lite"] .giant-cobby-text {
 }
 
 /* -----------------------------------------------------------------------------
-   10. Lite: content surfaces
+   9. Lite: content surfaces
    -------------------------------------------------------------------------- */
 /* No blur filters survive on this tier. The model panel's aura was the last
-   one standing, and the panel is not even populated until the gate is pressed,
-   so it is simply not drawn until then. */
+   one standing, so it is simply not drawn. */
 html[data-perf="lite"] .refsheet-model-panel::before {
     display: none;
 }
 
-html[data-perf="lite"] .refsheet-model-panel.is-loaded .refsheet-model-viewer {
+html[data-perf="lite"] .refsheet-model-viewer {
     filter: none;
 }
 
@@ -553,7 +540,7 @@ html[data-perf="lite"] .enter-btn:hover {
 }
 
 /* -----------------------------------------------------------------------------
-   11. Reduced motion, on top of the tier
+   10. Reduced motion, on top of the tier
    -------------------------------------------------------------------------- */
 /* `prefers-reduced-motion` is not a tier — a desktop with the setting on still
    gets the `full` composition — so these rules are keyed on the attribute, not
@@ -571,6 +558,23 @@ html[data-perf-rm="1"] .card-shine {
     display: none;
 }
 
+/* Reduced motion is not a tier: the orbit nodes keep their scatter, but the
+   endless drifts are the one thing the setting exists to stop. They hold
+   still. Scoped to the orbit breakpoint, where the animation exists at all. */
+@media (min-width: 901px) {
+    html[data-perf-rm="1"] .social-link,
+    html[data-perf-rm="1"] .social-link > i,
+    html[data-perf-rm="1"] .social-link > svg,
+    html[data-perf-rm="1"] .social-link > img,
+    html[data-perf-rm="1"] .hero-giant-bg,
+    html[data-perf-rm="1"] .hero-character-stage,
+    html[data-perf-rm="1"] .widget-left,
+    html[data-perf-rm="1"] .widget-right,
+    html[data-perf-rm="1"] .scroll-hint {
+        animation: none;
+    }
+}
+
 /* The band is gone, so the dock's active underline is the painted gradient. */
 html[data-perf-rm="1"] .dock-btn.active::before {
     opacity: 1;
@@ -582,7 +586,7 @@ html[data-perf-rm="1"] .scan-sweep {
 }
 
 /* -----------------------------------------------------------------------------
-   12. Feature support guards
+   11. Feature support guards
    -------------------------------------------------------------------------- */
 /* A browser that has never heard of `content-visibility` would otherwise be
    left with the property silently doing nothing, which is the correct

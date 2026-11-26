@@ -1,25 +1,34 @@
 /* =============================================================================
-   THE CRATE — hero instrument (js/music.js)
+   THE POD — hidden YouTube transport (js/music.js)
 
-   The music lives entirely in the hero's right-hand HUD widget now. There is
-   no music tab: the tiny box IS the player.
+   The music lives entirely in the hero's right-hand HUD instrument. There is
+   no music tab, no Spotify and no video: the pod plays the owner's *after
+   dark* mix playlist (sole space., YouTube PLJESZmrEx7TM) from a player that
+   is never shown. No embed chrome, no thumbnails — just the mix, quietly.
 
-   The loop, in order:
-     gesture (first tap/click anywhere) → the mini case spins (a real CS2-style
-     strip that decelerates onto a winner) → the winner plays at low volume →
-     when it ends, the case spins again for another song.
+   The window above the readout is a night-signal visualiser. YouTube hands the
+   page no audio stream to analyse, so the drawing is generated rather than
+   measured: a trace and a signal fan seeded from the mix's own id and advanced
+   by the player's own clock. It freezes when the mix is paused, re-seeds when
+   the next mix lands, and is labelled "night signal" — never "spectrum" —
+   because nothing in it comes from the audio. What *is* real is everything the
+   visitor can check: the titles, the lengths, the mix counter, the position,
+   the state of the transport.
 
-   The song list comes from your own Spotify playlists: live from
-   server/spotify-proxy.mjs (/api/spotify/tracks) when it runs locally, or
-   from data/playlist.json, which a daily GitHub Action rebuilds for the live
-   site. Each title is resolved to a real 30-second Deezer preview at the
-   moment it plays. With neither source the crate falls back to the Deezer
-   seed catalogue, so it is never empty.
+   The playlist is a snapshot, not a live feed. There is no API key and no
+   build step; to change the list, edit MIXES below by hand. Every entry was
+   checked for embedding: one playlist video (xnFhFEq9y8) is owned with
+   embedding disabled and is deliberately absent.
 
-   Two hard rules from the measurement pass, both load-bearing:
-     1. Deezer is reached through JSONP only. A plain fetch() is CORS-blocked.
-     2. Preview URLs are signed and expire, so the catalogue stores ids/titles;
-        the URL is resolved fresh at the moment of playback.
+   Playback policy, handled rather than fought: a page may not start audible
+   sound before the visitor touches it. The pod therefore starts the mix anyway
+   — muted, with the visualiser running and the clock counting — and brings the
+   sound up, faded in, on the first gesture of any kind. Nothing is asked of the
+   visitor and nothing is lost if they never touch the page.
+
+   The deck is a shuffled permutation of the playlist, not a random draw: a mix
+   cannot come back until every other mix has played, and the counter on the
+   screen is the mix's real index in the playlist, not its place in the deck.
    ========================================================================== */
 (() => {
     'use strict';
@@ -30,11 +39,16 @@
     const perf = window.CobbyPerf;
     const reducedMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-    const trims = () => {
+    const level = () => {
         try {
-            if (perf && typeof perf.trimsMotion === 'function') return perf.trimsMotion();
-        } catch (err) { /* a broken governor is not a broken crate */ }
-        return reducedMQ.matches;
+            if (perf && typeof perf.level === 'number') return perf.level;
+        } catch (err) { /* a broken governor is not a broken player */ }
+        return 2;
+    };
+    /* Lite, and every visitor who asked for less motion, gets still frames
+       instead of a running signal. The drawing is identical; only time stops. */
+    const still = () => {
+        try { return reducedMQ.matches || level() <= 0; } catch (err) { return true; }
     };
     const stretchPoll = (base) => {
         try {
@@ -54,1078 +68,1247 @@
        --------------------------------------------------------------------- */
     const $ = (id) => document.getElementById(id);
 
-    const widget = $('crate-widget');
-    const slot = $('crate-slot');
-    const slotArt = $('crate-slot-art');
-    const eqCanvas = $('crate-eq');
-    const statusEl = $('crate-status');
-    const tierEl = $('crate-tier');
-    const titleEl = $('crate-track-title');
-    const artistEl = $('crate-track-artist');
-    const playBtn = $('crate-play');
-    const muteBtn = $('crate-mute');
-    const nextBtn = $('crate-next');
-    const volumeEl = $('crate-volume');
-    const progressFill = $('crate-progress-fill');
-    const clockEl = $('crate-current-time');
-    const caseEl = $('crate-case');
-    const caseReel = $('crate-case-reel');
+    const pod = $('pod');
+    const stage = $('pod-stage');
+    const canvas = $('pod-scope');
+    const modeEl = $('pod-mode');
+    const seqEl = $('pod-seq');
+    const titleEl = $('pod-title');
+    const artistEl = $('pod-artist');
+    const railEl = $('pod-rail');
+    const railFill = $('pod-rail-fill');
+    const clockEl = $('pod-clock');
+    const durEl = $('pod-duration');
+    const openEl = $('pod-open');
+    const bodyEl = $('pod-body');
+    const moreBtn = $('pod-more');
+    const glyphEl = $('pod-glyph');
+    const pillTitle = $('pod-pill-title');
+    const pillState = $('pod-pill-state');
+    const wheel = $('pod-wheel');
+    const playBtn = $('pod-play');
+    const prevBtn = $('pod-prev');
+    const nextBtn = $('pod-next');
+    const menuBtn = $('pod-menu');
+    const muteBtn = $('pod-mute');
+    const volumeEl = $('pod-volume');
 
-    if (!widget || !slot) return;
+    if (!pod || !canvas) return;
 
     /* -----------------------------------------------------------------------
        2. Constants
        --------------------------------------------------------------------- */
-    const DEEZER = 'https://api.deezer.com/';
-    const LANYARD = 'https://api.lanyard.rest/v1/users/1119272682953900034';
-    const SPOTIFY_PROXY = '/api/spotify/tracks';
-    const SPOTIFY_FILE = 'data/playlist.json';
+    const PLAYLIST = {
+        id: 'PLJESZmrEx7TM',
+        title: 'after dark',
+        channel: 'sole space.',
+        playlistUrl: 'https://www.youtube.com/playlist?list=PLJESZmrEx7TM',
+        watchUrl: 'https://www.youtube.com/watch?v=',
+    };
 
-    /* The hero instrument plays at low volume by default — an ambience, not a
-       broadcast. The slider owns the real level; mute silences without moving
-       the slider, so unmuting restores exactly what was dialled in. */
-    const DEFAULT_VOLUME = 0.05;
-
-    const CASE_CELLS = 18;        /* cells in the mini strip */
-    const CASE_WIN = 9;           /* the winner sits mid-strip */
-    const CASE_SPIN_MS = 2600;    /* a miniature of the tab's 4200ms pull */
-    const CASE_FADE_MS = 320;     /* reel fade-in at the start of a pull */
-    const CASE_WIND_MS = 120;
-
-    /* Songs swell in and ebb out instead of starting and cutting dead. */
-    const FADE_IN_MS = 1800;
-    const FADE_PAUSE_MS = 450;    /* pause from the transport */
-    const FADE_SKIP_MS = 900;     /* the outgoing song under a NEXT spin */
-    /* The hand-off: this many seconds before a preview ends, the case starts
-       spinning for the next song while the current one fades out beneath it,
-       so the new song lands right as the old one goes quiet. */
-    const HANDOFF_S = 3.4;
-
-    /* 20 seeds — the fallback catalogue when the Spotify mirror is down. */
-    const SEEDS = [
-        { q: 'Hoang Dung', covert: true },
-        { q: 'Wren Evans', covert: true },
-        { q: 'RPT MCK', covert: true },
-        { q: 'Vu Cat Tien' },
-        { q: 'HIEUTHUHAI' },
-        { q: 'Quang Hung MasterD' },
-        { q: 'Tang Duy Tan' },
-        { q: 'GREY D' },
-        { q: 'ERIK' },
-        { q: 'Phuong Ly' },
-        { q: 'Orange' },
-        { q: 'PHUC DU' },
-        { q: 'tlinh' },
-        { q: 'Suboi' },
-        { q: 'Vu.' },
-        { q: 'Mono' },
-        { q: 'Andree' },
-        { q: 'B Ray' },
-        { q: 'Low G' },
-        { q: 'HURRYKNG' },
+    /* Snapshotted 2026-11-25, in playlist order. Titles, lengths and ids are
+       the playlist's own; nothing here is invented. */
+    const MIXES = [
+        { id: 'na_2cd4-_lo', title: 'nighttime.', len: '1:00:12' },
+        { id: 'ZA0dZQTSK-0', title: 'funky night.', len: '1:00:12' },
+        { id: 'S5DV8dlJYHI', title: 'midnight.', len: '1:00:12' },
+        { id: 'Oai4Nrz9FE4', title: 'midnight gaze.', len: '1:00:55' },
+        { id: 'lr1vdOcNEV4', title: 'blue star.', len: '1:00:12' },
+        { id: 'YAYstVex08o', title: 'moonshade.', len: '1:00:12' },
+        { id: 'h2cI4CAS5XA', title: 'starry night.', len: '1:00:12' },
+        { id: 'VgYca053G78', title: 'late shift.', len: '1:00:13' },
+        { id: 'm0EXzfzAz3s', title: 'lost signals.', len: '1:00:12' },
+        { id: 'd28t7N0XV1Y', title: 'rainy days.', len: '1:00:12' },
+        { id: 'JHzWQIEa3a4', title: 'rainy day.', len: '1:00:12' },
+        { id: 'wfrsQrh2dnY', title: 'welcome home.', len: '1:00:12' },
+        { id: 'Ba9lPcu-1Tg', title: 'rainy mood.', len: '2:00:06' },
+        { id: 'TWEgPtXqfGg', title: 'cloudy day.', len: '1:00:12' },
+        { id: 'pOW_u5tfekM', title: 'skyfall.', len: '1:00:12' },
+        { id: 'ZSbOUKuTAwM', title: 'lunar track.', len: '2:00:03' },
+        { id: 'CNjsEmH73oc', title: 'moon cat.', len: '1:00:12' },
+        { id: '-ZXtXfGKntU', title: 'purrverse.', len: '2:00:06' },
+        { id: 'bcoUf7YINUI', title: 'space time.', len: '1:00:12' },
+        { id: '9LWWdAAEu5M', title: 'homebound.', len: '1:00:12' },
+        { id: 'sdjaUUrqWBs', title: 'starry night.', len: '1:00:12' },
+        { id: 'P50wTi0Pog0', title: 'Interstellar.', len: '1:00:12' },
+        { id: '6O15C3IXNkM', title: 'cloudy night.', len: '1:00:12' },
+        { id: 'iuDDgh1yMTw', title: 'cyber cat.', len: '1:00:12' },
+        { id: 'fVS48Ueh_f0', title: 'nightcall.', len: '1:00:12' },
+        { id: '7CakT-rs5Mg', title: 'overthinker.', len: '1:00:13' },
+        { id: 'PcqNyCm5h0Q', title: 'outer space.', len: '2:00:06' },
+        { id: 'goOFIrR1j6Y', title: 'spooky files.', len: '2:00:06' },
+        { id: 'bR38g6E4xfQ', title: 'ghost club.', len: '2:00:06' },
+        { id: 'uEi0EqnZ0Tw', title: 'pumpkin head.', len: '2:00:06' },
+        { id: 'NHD0CTqOfZg', title: 'silly scarf.', len: '2:00:06' },
+        { id: 'GNRwiNe13hE', title: 'camptime.', len: '2:00:06' },
+        { id: 'touqOAt4Ago', title: 'wizardly time.', len: '2:00:06' },
     ];
 
-    /* A real, verified preview so the crate can always play something even
-       while the Spotify mirror and the Deezer seeds are still loading. */
-    const FALLBACK_TRACK = {
-        id: '1498454112',
-        title: 'Nàng Thơ',
-        artist: 'Hoàng Dũng',
-        album: 'Yên - EP',
-        cover: '',
-        coverBig: '',
-        preview: 'https://cdnt-preview.dzcdn.net/api/1/1/b/9/b/0/b9b6e34d1e87652cb998a52f277cc21c.mp3',
-        duration: 30,
-        covert: false,
-        source: 'deezer',
-    };
+    /* The mix plays as ambience, not as a broadcast. The slider owns the real
+       level; mute silences without moving the slider. */
+    const DEFAULT_VOLUME = 0.10;
+    const SEEK_PER_PX = 1.9;          /* a drag across the wheel ≈ 3 minutes */
+    const TAU = Math.PI * 2;
 
     /* -----------------------------------------------------------------------
        3. State
        --------------------------------------------------------------------- */
     const state = {
-        catalogue: [],
-        loading: false,
-        loadedOnce: false,
-        failed: false,
-        live: null,
-        current: null,          /* the last pull: {track, rarity} */
+        deck: [],               /* the shuffled permutation, never mutated in place */
+        cursor: 0,
+        track: null,
+        player: null,
+        ready: false,
+        apiTries: 0,
+        apiPending: false,
+        lost: false,
+        switching: false,
+        buffering: false,
+        seeking: false,         /* a wheel drag owns the readout until release */
+        pending: 0,             /* presses that arrived while a mix was loading */
         playing: false,
-        resolved: null,
-        retried: false,
-        auto: false,            /* the hero box auto-spins through the set */
-        autoChain: 0,
-        spinning: false,        /* the mini case is mid-spin */
+        blocked: true,          /* the browser holds the sound until a gesture */
         muted: false,
         volume: DEFAULT_VOLUME,
-        spotifyTracks: [],
-        eqRaf: 0,
+        applied: -1,            /* the level last written to the player */
+        gestured: false,        /* the visitor has touched the page at all */
+        time: 0,
+        duration: 0,
+        dead: new Set(),        /* ids the embedder refused this session */
+        switchTimer: 0,
+        pollTimer: 0,
     };
 
     /* -----------------------------------------------------------------------
        4. Small utilities
        --------------------------------------------------------------------- */
-    const esc = (s) => String(s == null ? '' : s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
     const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const mod = (n, m) => ((n % m) + m) % m;
 
-    const mmss = (sec) => {
+    function hms(sec) {
         if (!isFinite(sec) || sec < 0) sec = 0;
-        const m = Math.floor(sec / 60);
         const s = Math.floor(sec % 60);
-        return m + ':' + (s < 10 ? '0' : '') + s;
-    };
+        const m = Math.floor(sec / 60) % 60;
+        const h = Math.floor(sec / 3600);
+        const pad = (n) => (n < 10 ? '0' : '') + n;
+        return h ? h + ':' + pad(m) + ':' + pad(s) : m + ':' + pad(s);
+    }
 
-    /* Both languages, always, in that order. */
-    const pair = (en, vi) => `<span lang="en">${esc(en)}</span><span lang="vi">${esc(vi)}</span>`;
+    function secondsOf(len) {
+        return String(len || '').split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0);
+    }
 
-    function setStatus(en, vi) {
-        if (!statusEl) return;
-        const e = statusEl.querySelector('[lang="en"]');
-        const v = statusEl.querySelector('[lang="vi"]');
+    /* Fisher-Yates, in place on a copy, so every order is equally likely. */
+    function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const t = a[i];
+            a[i] = a[j];
+            a[j] = t;
+        }
+        return a;
+    }
+
+    function setMode(en, vi, icon) {
+        if (!modeEl) return;
+        const e = modeEl.querySelector('[lang="en"]');
+        const v = modeEl.querySelector('[lang="vi"]');
+        const i = modeEl.querySelector('i');
         if (e) e.textContent = en;
         if (v) v.textContent = vi;
+        if (i && icon) i.className = icon;
+    }
+
+    const rgba = (tok, a) => 'rgba(' + tok + ', ' + a.toFixed(3) + ')';
+
+    /* -----------------------------------------------------------------------
+       5. The deck
+
+       A shuffled permutation of the playlist. Advancing wraps around the deck,
+       so every mix plays before any repeats; the counter on screen is the
+       mix's real index in the playlist, not its place in the deck.
+       --------------------------------------------------------------------- */
+    function buildDeck() {
+        state.deck = shuffle(MIXES);
+        state.cursor = state.deck.length ? Math.floor(Math.random() * state.deck.length) : 0;
+    }
+
+    function firstMix() {
+        return state.deck[state.cursor] || MIXES[0];
+    }
+
+    function advance(step) {
+        if (!state.deck.length) return;
+        if (!state.ready) { loadApi(); return; }
+        if (state.switching) { state.pending += step > 0 ? 1 : -1; return; }
+
+        const n = state.deck.length;
+        let tries = 0;
+        let mix = null;
+        do {
+            state.cursor = mod(state.cursor + step, n);
+            mix = state.deck[state.cursor];
+            tries++;
+        } while (state.dead.has(mix.id) && tries < n);
+        playMix(mix);
     }
 
     /* -----------------------------------------------------------------------
-       5. The wire — Deezer over JSONP
+       6. The hidden player
+
+       YouTube is the only source of audio, and the iframe is kept off-screen
+       rather than hidden: a `display:none` or `visibility:hidden` frame can be
+       paused by some browsers, and this one has to keep playing all visit.
        --------------------------------------------------------------------- */
-    function deezerJsonp(url) {
-        return new Promise((resolve, reject) => {
-            const cb = '__dz' + Math.random().toString(36).slice(2);
-            const s = document.createElement('script');
-            const cleanup = () => {
-                clearTimeout(t);
-                delete window[cb];
-                if (s.parentNode) s.remove();
-            };
-            const t = setTimeout(() => { cleanup(); reject(new Error('deezer timeout')); }, 9000);
-            window[cb] = (d) => { cleanup(); resolve(d); };
-            s.onerror = () => { cleanup(); reject(new Error('deezer script error')); };
-            s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'output=jsonp&callback=' + cb;
-            s.async = true;
-            document.head.appendChild(s);
-        });
-    }
+    function loadApi() {
+        if (state.lost || state.apiPending || state.player) return;
+        if (window.YT && typeof window.YT.Player === 'function') { createPlayer(); return; }
+        if (state.apiTries >= 2) { setLost(); return; }
 
-    /* -----------------------------------------------------------------------
-       6. The catalogue — Deezer seeds (fallback)
-       --------------------------------------------------------------------- */
-    function normalise(raw, covert) {
-        if (!raw || !raw.id) return null;
-        if (!raw.preview || typeof raw.preview !== 'string') return null;
-        const title = raw.title_short || raw.title || '';
-        const artist = raw.artist && raw.artist.name ? raw.artist.name : '';
-        if (!title || !artist) return null;
-        const album = raw.album || {};
-        return {
-            id: String(raw.id),
-            title: title,
-            artist: artist,
-            album: album.title || '',
-            cover: album.cover_medium || album.cover_big || '',
-            coverBig: album.cover_big || album.cover_medium || '',
-            preview: raw.preview,
-            duration: typeof raw.duration === 'number' ? raw.duration : 30,
-            covert: !!covert,
-            source: 'deezer',
-        };
-    }
+        state.apiTries++;
+        state.apiPending = true;
+        window.onYouTubeIframeAPIReady = () => { state.apiPending = false; createPlayer(); };
 
-    async function loadCatalogue() {
-        if (state.loading || state.loadedOnce) return;
-        state.loading = true;
-        state.failed = false;
+        const s = document.createElement('script');
+        s.src = 'https://www.youtube.com/iframe_api';
+        s.async = true;
+        s.onerror = () => { state.apiPending = false; loadApi(); };
+        document.head.appendChild(s);
 
-        const seen = new Set();
-        const out = [];
-
-        for (let i = 0; i < SEEDS.length; i += 3) {
-            const wave = SEEDS.slice(i, i + 3);
-            const results = await Promise.all(wave.map((seed) =>
-                deezerJsonp(DEEZER + 'search?q=' + encodeURIComponent(seed.q) + '&limit=5')
-                    .then((d) => ({ seed, data: (d && Array.isArray(d.data)) ? d.data : [] }))
-                    .catch(() => ({ seed, data: [] }))
-            ));
-            results.forEach(({ seed, data }) => {
-                data.forEach((raw) => {
-                    const track = normalise(raw, seed.covert);
-                    if (!track) return;
-                    if (seen.has(track.id)) return;
-                    seen.add(track.id);
-                    out.push(track);
-                });
-            });
-            if (out.length >= 12 && !state.catalogue.length) {
-                state.catalogue = out.slice();
-                afterCatalogue();
+        /* The API announces itself by calling the global above. If the script
+           loaded but the callback never arrives (an extension swallowed it,
+           say), try once more rather than waiting out the visit. */
+        setTimeout(() => {
+            if (!state.ready && !state.lost) {
+                state.apiPending = false;
+                loadApi();
             }
-        }
-
-        state.catalogue = out;
-        state.loading = false;
-        state.loadedOnce = true;
-        state.failed = out.length === 0;
-        afterCatalogue();
-        expose();
+        }, 9000);
     }
 
-    function afterCatalogue() {
-        if (!state.catalogue.length) {
-            setStatus('wire down — retrying', 'mất sóng — thử lại');
-            return;
-        }
-        setStatus('crate loaded', 'thùng đã nạp');
-        if (playBtn) playBtn.disabled = false;
-    }
+    function createPlayer() {
+        if (state.player || state.lost) return;
+        if (!window.YT || typeof window.YT.Player !== 'function') { setLost(); return; }
 
-    /* -----------------------------------------------------------------------
-       6b. The playlist — Spotify, mirrored
-       --------------------------------------------------------------------- */
-    function spotifyTrackToCrate(t, i) {
-        return {
-            id: 'spotify:' + (t.id || 'i' + i),
-            title: String(t.title || '').trim(),
-            artist: String(t.artist || '').trim(),
-            album: t.album || '',
-            cover: t.cover || '',
-            coverBig: t.cover || '',
-            preview: '',
-            duration: 30,
-            covert: false,
-            source: 'spotify',
-        };
-    }
+        const mount = document.createElement('div');
+        mount.id = 'pod-yt';
+        mount.setAttribute('aria-hidden', 'true');
+        mount.style.cssText = 'position:fixed;left:-10000px;top:0;width:320px;height:180px;' +
+            'pointer-events:none;z-index:-1;';
+        const host = document.createElement('div');
+        host.id = 'pod-yt-host';
+        mount.appendChild(host);
+        document.body.appendChild(mount);
 
-    async function readTrackList(url) {
-        const res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) throw new Error(url + ' ' + res.status);
-        const body = await res.json();
-        const raw = Array.isArray(body.tracks) ? body.tracks : [];
-        const tracks = raw.map(spotifyTrackToCrate).filter((t) => t.title && t.artist);
-        if (!tracks.length) throw new Error('empty playlist');
-        return tracks;
-    }
-
-    /* The live proxy when it is running (local dev), else the file the daily
-       GitHub Action builds (the live site on GitHub Pages), else Deezer. */
-    async function hydrateSpotify() {
-        let tracks = null;
-        for (const url of [SPOTIFY_PROXY, SPOTIFY_FILE]) {
-            try { tracks = await readTrackList(url); break; } catch (err) { /* next source */ }
-        }
-        if (!tracks) { loadCatalogue(); return; }
-        state.spotifyTracks = tracks;
-        state.catalogue = tracks.slice();
-        state.loading = false;
-        state.loadedOnce = true;
-        state.failed = false;
-        afterCatalogue();
-        expose();
-    }
-
-    /* -----------------------------------------------------------------------
-       7. The live channel — Lanyard (legendary tier only)
-       --------------------------------------------------------------------- */
-    async function pollLive() {
+        const mix = state.track || firstMix();
         try {
-            const res = await fetch(LANYARD, { cache: 'no-store' });
-            if (!res.ok) throw new Error('lanyard ' + res.status);
-            const body = await res.json();
-            const d = body && body.data;
-            if (body && body.success && d && d.listening_to_spotify && d.spotify) {
-                state.live = {
-                    title: d.spotify.song || '',
-                    artist: d.spotify.artist || '',
-                    cover: d.spotify.album_art_url || '',
-                };
-            } else {
-                state.live = null;
-            }
-        } catch (err) {
-            state.live = null;
-        }
-        applyLive();
-        scheduleLive();
-    }
-
-    let liveTimer = 0;
-    function scheduleLive() {
-        clearTimeout(liveTimer);
-        liveTimer = setTimeout(() => {
-            if (document.hidden) { scheduleLive(); return; }
-            pollLive();
-        }, stretchPoll(20000));
-    }
-
-    function applyLive() {
-        const live = state.live;
-        if (widget) widget.classList.toggle('is-live', !!live);
-    }
-
-    /* -----------------------------------------------------------------------
-       8. The pick
-
-       The rarity is a colour, not a promise. One random roll for the tier
-       badge; with no live track the legendary slice collapses into covert.
-       --------------------------------------------------------------------- */
-    function pickDrop() {
-        const live = state.live;
-        const roll = Math.random() * 100;
-        let rarity;
-        if (live && roll < 8) {
-            rarity = 'legendary';
-        } else if (roll < 35) {
-            rarity = 'covert';
-        } else {
-            rarity = 'classified';
-        }
-
-        if (rarity === 'legendary' && live) {
-            return {
-                rarity: 'legendary',
-                track: {
-                    id: null,
-                    title: live.title,
-                    artist: live.artist,
-                    album: '',
-                    cover: live.cover,
-                    coverBig: live.cover,
-                    preview: '',
-                    isLive: true,
+            state.player = new window.YT.Player(host, {
+                width: 320,
+                height: 180,
+                host: 'https://www.youtube-nocookie.com',
+                videoId: mix.id,
+                playerVars: {
+                    autoplay: 1,
+                    /* Not pre-muted: modern browsers allow muted autoplay and
+                       many allow audible autoplay on a site the visitor has
+                       already engaged with. Ask for sound, and fall back to
+                       muted only if the frame reports back silent. */
+                    mute: 0,
+                    controls: 0,
+                    disablekb: 1,
+                    fs: 0,
+                    playsinline: 1,
+                    modestbranding: 1,
+                    rel: 0,
+                    iv_load_policy: 3,
+                    enablejsapi: 1,
                 },
-            };
-        }
-        const pool = state.catalogue.filter((t) => rarity === 'covert' ? t.covert : !t.covert);
-        const fallback = pool.length ? pool : state.catalogue;
-        const track = fallback.length ? pick(fallback) : pick(state.catalogue);
-        if (!track) {
-            /* The catalogue is still on its way (or every wire is down). Play
-               a known, real preview so the button always does something. */
-            return { rarity: 'classified', track: FALLBACK_TRACK };
-        }
-        return { rarity, track };
-    }
-
-    /* -----------------------------------------------------------------------
-       9. The mini case
-
-       The CS2 strip in miniature. A row of covers decelerates onto the winner
-       under a fixed reticle, then the winner plays. Driven by CSS transition
-       so reduced-motion can flatten it in one rule.
-       --------------------------------------------------------------------- */
-    function caseCellW() {
-        const first = caseReel && caseReel.firstElementChild;
-        if (first && first.getBoundingClientRect().width > 4) {
-            return first.getBoundingClientRect().width;
-        }
-        const declared = parseFloat(getComputedStyle(caseEl || widget).getPropertyValue('--case-cell-w'));
-        return declared > 0 ? declared : 44;
-    }
-
-    function buildCaseReel(drop) {
-        if (!caseReel) return;
-        const winner = drop.track;
-        const pool = state.catalogue.slice();
-        const frag = document.createDocumentFragment();
-
-        for (let i = 0; i < CASE_CELLS; i++) {
-            const cell = document.createElement('div');
-            const isWin = i === CASE_WIN;
-            cell.className = 'crate-case-cell' + (isWin ? ' rarity-' + drop.rarity : '');
-            const track = (isWin || !pool.length) ? winner : pool[i % pool.length];
-            const cover = track.cover || track.coverBig || '';
-            if (cover) {
-                cell.innerHTML = '<img alt="" decoding="async" src="' + esc(cover) + '">';
-            }
-            frag.appendChild(cell);
-        }
-        caseReel.innerHTML = '';
-        caseReel.appendChild(frag);
-    }
-
-    /* Places the strip so cell `index` sits under the reticle. */
-    function caseReelX(index) {
-        const w = caseEl ? caseEl.clientWidth : 0;
-        const cw = caseCellW();
-        const gap = parseFloat(getComputedStyle(caseReel).columnGap || getComputedStyle(caseReel).gap) || 6;
-        return (w || 240) / 2 - (index * (cw + gap) + cw / 2);
-    }
-
-    function caseSpinTo(index) {
-        return new Promise((resolve) => {
-            if (!caseReel) { resolve(); return; }
-
-            /* The pull always plays, even on gear the governor trims: it is
-               the instrument's whole show, and one transform is cheap. */
-            const w = caseEl.clientWidth || 240;
-            const cw = caseCellW();
-            const start = w / 2 - cw / 2;
-            caseReel.style.transition = 'none';
-            caseReel.style.opacity = '0';
-            caseReel.style.transform = 'translate3d(' + start.toFixed(2) + 'px, -50%, 0)';
-            void caseReel.offsetWidth; /* flush, so the run reads as motion */
-
-            /* Softer launch than before, long glide into the winner; the reel
-               fades in over the first few hundred ms instead of popping. */
-            caseReel.style.transition =
-                'transform ' + CASE_SPIN_MS + 'ms cubic-bezier(0.22, 0.61, 0.18, 1), ' +
-                'opacity ' + CASE_FADE_MS + 'ms ease-out';
-            caseReel.style.opacity = '1';
-            caseReel.style.transform = 'translate3d(' + caseReelX(index).toFixed(2) + 'px, -50%, 0)';
-
-            /* The ratchet: one tick each time a cell crosses the reticle,
-               read off the reel's live position so the clicks slow down
-               exactly as the strip does. */
-            const pitch = cw + (parseFloat(getComputedStyle(caseReel).columnGap) || 6);
-            let lastCell = null;
-            let tickRaf = 0;
-            const watch = () => {
-                const m = getComputedStyle(caseReel).transform;
-                const x = m && m !== 'none' ? new DOMMatrixReadOnly(m).m41 : start;
-                const cell = Math.floor((w / 2 - x) / pitch);
-                if (lastCell !== null && cell !== lastCell) playTick();
-                lastCell = cell;
-                tickRaf = requestAnimationFrame(watch);
-            };
-            tickRaf = requestAnimationFrame(watch);
-
-            let settled = false;
-            const done = (e) => {
-                /* the opacity fade ends first; only the transform means "landed" */
-                if (e && e.propertyName && e.propertyName !== 'transform') return;
-                if (settled) return;
-                settled = true;
-                cancelAnimationFrame(tickRaf);
-                caseReel.removeEventListener('transitionend', done);
-                playLand();
-                resolve();
-            };
-            caseReel.addEventListener('transitionend', done);
-            setTimeout(done, CASE_SPIN_MS + 120);
-        });
-    }
-
-    function setCaseSpinning(on) {
-        if (caseEl) caseEl.classList.toggle('is-spinning', !!on);
-        if (slot) slot.classList.toggle('is-spinning', !!on);
-    }
-
-    /* Spin sounds, synthesized rather than fetched: a dry plastic tick per
-       cell and a two-note chime on the land. They ride the music's volume
-       dial (and mute), a little louder so they read over a quiet song. They
-       need a running AudioContext, so before the visitor's first gesture the
-       spin is simply silent. */
-    function sfxGain() {
-        if (state.muted) return 0;
-        return clamp(state.volume * 2.2, 0, 0.35);
-    }
-
-    function playTick() {
-        const g = sfxGain();
-        if (!g || !ctx || ctx.state !== 'running') return;
-        const t = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const amp = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(2300 + Math.random() * 250, t);
-        osc.frequency.exponentialRampToValueAtTime(900, t + 0.03);
-        amp.gain.setValueAtTime(0.0001, t);
-        amp.gain.exponentialRampToValueAtTime(g, t + 0.002);
-        amp.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
-        osc.connect(amp).connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.05);
-    }
-
-    function playLand() {
-        const g = sfxGain();
-        if (!g || !ctx || ctx.state !== 'running') return;
-        const t = ctx.currentTime;
-        [[880, 0], [1320, 0.07]].forEach(([f, at]) => {
-            const osc = ctx.createOscillator();
-            const amp = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(f, t + at);
-            amp.gain.setValueAtTime(0.0001, t + at);
-            amp.gain.exponentialRampToValueAtTime(g * 0.8, t + at + 0.01);
-            amp.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.5);
-            osc.connect(amp).connect(ctx.destination);
-            osc.start(t + at);
-            osc.stop(t + at + 0.55);
-        });
-    }
-
-    /* -----------------------------------------------------------------------
-       10. The instrument — hero readout
-       --------------------------------------------------------------------- */
-    function paintHero(drop) {
-        const t = drop.track;
-        slot.classList.remove('is-empty', 'is-loaded', 'is-playing',
-            'rarity-legendary', 'rarity-covert', 'rarity-classified');
-        slot.classList.add('is-loaded', 'rarity-' + drop.rarity);
-
-        if (slotArt && (t.cover || t.coverBig)) {
-            slotArt.src = t.cover || t.coverBig;
-            slotArt.alt = t.title + ' — ' + t.artist;
-        }
-        if (titleEl) titleEl.textContent = t.title;
-        if (artistEl) artistEl.textContent = t.artist;
-        if (tierEl) tierEl.innerHTML = pair(drop.rarity, drop.rarity);
-        widget.classList.toggle('is-live', !!state.live && drop.rarity === 'legendary');
-        if (playBtn) playBtn.disabled = false;
-
-        if (state.playing) {
-            slot.classList.add('is-playing');
-            setStatus('now spinning', 'đang phát');
-        } else {
-            setStatus('case loaded', 'thùng đã nạp');
-        }
-    }
-
-    function paintPlaying(on) {
-        state.playing = !!on;
-        if (widget) widget.classList.toggle('is-playing', !!on);
-        if (slot) slot.classList.toggle('is-playing', !!on && !!state.current);
-        if (playBtn) {
-            const icon = playBtn.querySelector('i');
-            if (icon) icon.className = on ? 'fas fa-pause' : 'fas fa-play';
-            playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
-        }
-        if (on) {
-            setStatus('now spinning', 'đang phát');
-        } else if (state.current) {
-            setStatus('case loaded', 'thùng đã nạp');
-        }
-        if (on) startEq(); else stopEq();
-    }
-
-    /* -----------------------------------------------------------------------
-       11. Sound
-       --------------------------------------------------------------------- */
-    const audio = document.createElement('audio');
-    audio.crossOrigin = 'anonymous';
-    audio.preload = 'none';
-    audio.setAttribute('playsinline', '');
-    audio.style.display = 'none';
-    audio.volume = DEFAULT_VOLUME;
-    document.body.appendChild(audio);
-
-    let ctx = null;
-    let analyser = null;
-    let sourceNode = null;
-    let graphOn = false;
-    let eqColors = null;
-
-    function ensureAudioCtx() {
-        if (ctx) {
-            if (ctx.state !== 'running' && typeof ctx.resume === 'function') {
-                try { ctx.resume().catch(() => {}); } catch (err) { /* headless */ }
-            }
-            return ctx;
-        }
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return null;
-        try { ctx = new AC(); } catch (err) { ctx = null; return null; }
-        if (ctx.state !== 'running' && typeof ctx.resume === 'function') {
-            try { ctx.resume().catch(() => {}); } catch (err) { /* expected without a gesture */ }
-        }
-        if (typeof ctx.addEventListener === 'function') {
-            ctx.addEventListener('statechange', () => { if (ctx.state === 'running') connectGraph(); });
-        }
-        connectGraph();
-        return ctx;
-    }
-
-    function connectGraph() {
-        if (graphOn || !ctx || ctx.state !== 'running') return false;
-        try {
-            analyser = ctx.createAnalyser();
-            analyser.fftSize = 64;
-            analyser.smoothingTimeConstant = 0.78;
-            sourceNode = ctx.createMediaElementSource(audio);
-            sourceNode.connect(analyser);
-            analyser.connect(ctx.destination);
-            graphOn = true;
-            return true;
+                events: {
+                    onReady: onPlayerReady,
+                    onStateChange: onPlayerState,
+                    onError: onPlayerError,
+                },
+            });
         } catch (err) {
-            graphOn = false;
-            return false;
+            setLost();
         }
     }
 
-    /* -----------------------------------------------------------------------
-       12. Resolving a playable URL
+    function onPlayerReady() {
+        state.ready = true;
+        state.lost = false;
+        const p = state.player;
+        try { p.setVolume(Math.round(state.volume * 100)); } catch (err) { /* not ready */ }
+        state.applied = Math.round(state.volume * 100);
+        try { p.unMute(); } catch (err) { /* stays muted */ }
+        state.blocked = false;
+        pod.classList.remove('is-blocked');
+        paintMode();
+        try { p.playVideo(); } catch (err) { /* autoplay already asked */ }
+        startPolling();
 
-       A mirrored Spotify track has no preview of its own; find the same song
-       on Deezer and cache the hit on the track.
-       --------------------------------------------------------------------- */
-    async function freshPreview(id) {
-        if (!id) return '';
-        try {
-            const d = await deezerJsonp(DEEZER + 'track/' + encodeURIComponent(id));
-            if (d && typeof d.preview === 'string' && d.preview) {
-                state.resolved = { id: String(id), url: d.preview, at: Date.now() };
-                return d.preview;
-            }
-        } catch (err) { /* fall through */ }
-        return '';
-    }
+        /* The probe. Asking for sound is not the same as getting it: Chrome and
+           Firefox will refuse audible playback to a page the visitor has not
+           touched, and YouTube's own embed quietly falls back to autoplay-
+           muted when that happens. So the honest signal is not "is it playing"
+           — a muted frame plays happily — but "is it muted".
 
-    async function resolvePreview(track) {
-        if (track.isLive) {
-            try {
-                const d = await deezerJsonp(DEEZER + 'search?q='
-                    + encodeURIComponent(track.title + ' ' + track.artist) + '&limit=3');
-                const hit = (d && Array.isArray(d.data)) ? d.data.find((x) => x && x.preview) : null;
-                if (hit) {
-                    track.preview = hit.preview;
-                    state.resolved = { id: track.id, url: hit.preview, at: Date.now() };
-                    return hit.preview;
-                }
-            } catch (err) { /* no preview */ }
-            return '';
-        }
-        if (track.source === 'spotify') {
-            if (track.preview) {
-                state.resolved = { id: track.id, url: track.preview, at: Date.now() };
-                return track.preview;
-            }
-            /* Spotify titles carry soundtrack tags and long featured-artist
-               lists that Deezer's search chokes on, so try the full name
-               first, then the bare title with the lead artist, then the
-               bare title alone. */
-            const bare = track.title
-                .replace(/\s*[\(\[].*?[\)\]]/g, '')
-                .replace(/\s+-\s+.*$/, '')
-                .replace(/^['"]|['"]$/g, '')
-                .trim() || track.title;
-            const lead = track.artist.split(',')[0].trim();
-            const queries = [
-                (track.title + ' ' + track.artist).trim(),
-                (bare + ' ' + lead).trim(),
-                bare,
-            ].filter((q, i, all) => q && all.indexOf(q) === i);
-            for (const q of queries) {
-                try {
-                    const d = await deezerJsonp(DEEZER + 'search?q=' + encodeURIComponent(q) + '&limit=8');
-                    const hits = ((d && Array.isArray(d.data)) ? d.data : []).filter((x) => x && x.preview);
-                    if (!hits.length) continue;
-                    /* On the loosest query, insist on the right title so an
-                       unrelated song with a common name never plays instead. */
-                    const want = bare.toLowerCase();
-                    const hit = q === bare
-                        ? hits.find((x) => String(x.title || '').toLowerCase().indexOf(want) === 0)
-                        : (hits.find((x) => String(x.title || '').toLowerCase().indexOf(want) === 0) || hits[0]);
-                    if (!hit) continue;
-                    track.preview = hit.preview;
-                    state.resolved = { id: track.id, url: hit.preview, at: Date.now() };
-                    return hit.preview;
-                } catch (err) { /* next query */ }
-            }
-            return '';
-        }
-        const fresh = await freshPreview(track.id);
-        return fresh || track.preview || '';
-    }
+           Read that at 1.8s, once the frame has had time to settle, and if the
+           answer is muted, say so on the capsule and arm the first-gesture
+           unmute. If the visitor already touched the page, the unmute asked for
+           at ready has already taken effect and this finds `false`.
 
-    /* -----------------------------------------------------------------------
-       13. Playback
-
-       Every level change goes through the fader. `fade.level` is a 0..1
-       envelope multiplied onto the slider's volume, so dragging the dial
-       mid-fade never jumps.
-       --------------------------------------------------------------------- */
-    let playToken = 0;
-    const fade = { level: 0, raf: 0, tailing: false };
-
-    function applyVolume() {
-        audio.volume = clamp(state.volume * fade.level, 0, 1);
-    }
-
-    /* Ramp the envelope to `target`; resolves when it gets there or when a
-       newer fade takes over. Timer-driven rather than rAF so a background tab
-       still lands its fade-out instead of hanging at half volume. */
-    function fadeTo(target, ms) {
-        clearInterval(fade.raf);
-        return new Promise((resolve) => {
-            const from = fade.level;
-            if (ms <= 0 || from === target) {
-                fade.level = target;
-                applyVolume();
-                resolve();
+           `isMuted()` is what gets read, never `state.playing`: a browser that
+           refused sound still reports PLAYING while silent, and trusting that
+           is exactly how a pod ends up drawing a lively signal in total
+           silence. */
+        clearTimeout(silentProbe);
+        silentProbe = setTimeout(() => {
+            if (!state.player || state.lost) return;
+            let muted = true;
+            try { muted = state.player.isMuted(); } catch (err) { muted = true; }
+            if (!muted) {
+                state.blocked = false;
+                pod.classList.remove('is-blocked');
+                paintMode();
                 return;
             }
-            const t0 = performance.now();
-            fade.raf = setInterval(() => {
-                const p = clamp((performance.now() - t0) / ms, 0, 1);
-                /* ease-in-out: the ear hears a linear ramp as abrupt at the ends */
-                const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-                fade.level = from + (target - from) * e;
-                applyVolume();
-                if (p >= 1) { clearInterval(fade.raf); resolve(); }
-            }, 30);
-        });
+            state.blocked = true;
+            pod.classList.add('is-blocked');
+            paintMode();
+            armUnmute();
+        }, 1800);
     }
 
-    /* Autoplay policy: a page may not start sound before the visitor has
-       touched it. If the browser refuses, the song stays loaded and starts —
-       faded in — on the first tap, click, key or scroll anywhere. */
-    let waitingForGesture = false;
+    function onPlayerState(e) {
+        const S = window.YT && window.YT.PlayerState;
+        if (!S) return;
 
-    function playWithFade() {
-        fade.tailing = false;
-        fade.level = 0;
-        applyVolume();
-        let p;
-        try { p = audio.play(); } catch (err) { p = Promise.reject(err); }
-        return Promise.resolve(p).then(() => {
-            fadeTo(1, FADE_IN_MS);
-            return true;
-        }, () => {
-            armGesture();
-            return false;
-        });
+        if (e.data === S.PLAYING) {
+            state.playing = true;
+            state.buffering = false;
+            state.switching = false;
+            clearTimeout(state.switchTimer);
+            pod.classList.add('is-playing');
+            anchor(readTime());
+            paintMode();
+            startSignal();
+            handlePending();
+        } else if (e.data === S.PAUSED) {
+            state.playing = false;
+            state.buffering = false;
+            pod.classList.remove('is-playing');
+            anchor(readTime());
+            paintMode();
+            stopSignal();
+        } else if (e.data === S.BUFFERING) {
+            state.buffering = true;
+            paintMode();
+        } else if (e.data === S.ENDED) {
+            state.playing = false;
+            pod.classList.remove('is-playing');
+            stopSignal();
+            anchor(0);
+            if (!state.blocked) advance(1);
+        } else if (e.data === S.CUED) {
+            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
+        }
     }
 
-    function armGesture() {
-        if (waitingForGesture) return;
-        waitingForGesture = true;
-        setStatus('tap anywhere for sound', 'chạm để bật nhạc');
+    function onPlayerError(code) {
+        const mix = state.track;
+        if (mix) state.dead.add(mix.id);
+        if (state.dead.size >= state.deck.length) { setLost(); return; }
+        /* 101 and 150 mean the owner disallows embedding; the rest are dead
+           ends too. Drop the id for this visit and try the next mix. */
+        state.switching = false;
+        clearTimeout(state.switchTimer);
+        setTimeout(() => { if (!state.lost) advance(1); }, 500);
+    }
+
+    function setLost() {
+        state.lost = true;
+        state.playing = false;
+        state.buffering = false;
+        state.switching = false;
+        pod.classList.remove('is-playing');
+        stopSignal();
+        paintMode();
+    }
+
+    function playMix(mix) {
+        if (!mix) return;
+        state.switching = true;
+        state.buffering = false;
+        paintTrack(mix);
+        paintMode();
+
+        if (state.player && state.ready) {
+            try {
+                state.player.loadVideoById(mix.id);
+            } catch (err) {
+                onPlayerError(5);
+            }
+        }
+
+        clearTimeout(state.switchTimer);
+        /* A mix that never reports PLAYING (a stalled embed) must not lock the
+           transport; the timer releases it and the next press is honoured. */
+        state.switchTimer = setTimeout(() => {
+            state.switching = false;
+            paintMode();
+            handlePending();
+        }, 1600);
+    }
+
+    function handlePending() {
+        if (!state.pending) return;
+        const again = state.pending;
+        state.pending = 0;
+        advance(again > 0 ? 1 : -1);
+    }
+
+    /* -----------------------------------------------------------------------
+       7. Transport
+       --------------------------------------------------------------------- */
+    function readTime() {
+        try {
+            const t = state.player.getCurrentTime();
+            return isFinite(t) && t > 0 ? t : 0;
+        } catch (err) {
+            return 0;
+        }
+    }
+
+    function startPolling() {
+        clearInterval(state.pollTimer);
+        state.pollTimer = setInterval(tick, stretchPoll(500));
+        tick();
+    }
+
+    function tick() {
+        if (!state.player || !state.ready) return;
+        try {
+            const d = state.player.getDuration();
+            if (isFinite(d) && d > 0 && Math.abs(d - state.duration) > 0.5) {
+                state.duration = d;
+                if (durEl) durEl.textContent = hms(d);
+            }
+            const t = state.player.getCurrentTime();
+            /* A drag owns the readout: the poll must not walk the clock out from
+               under the thumb that is scrubbing. */
+            if (isFinite(t) && t >= 0 && !state.seeking) paintTime(t);
+        } catch (err) { /* a torn-down frame reports nothing */ }
+    }
+
+    /* A lost pod is not a dead pod: a tap on the transport tears the failed
+       frame down and tries the API once more, because the usual cause is a
+       transient block (an extension, a flaky network), not a bad playlist. */
+    function retry() {
+        state.lost = false;
+        state.apiTries = 0;
+        state.apiPending = false;
+        state.dead = new Set();
+        try { if (state.player && state.player.destroy) state.player.destroy(); } catch (err) { /* torn down */ }
+        state.player = null;
+        state.ready = false;
+        const stale = document.getElementById('pod-yt');
+        if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+        paintMode();
+        loadApi();
+    }
+
+    function togglePlay() {
+        if (state.lost) { retry(); return; }
+        if (!state.ready) { loadApi(); return; }
+
+        if (state.blocked) {
+            /* A press on the pod is a gesture: bring the sound up. */
+            unblock();
+            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
+            paintMode();
+            return;
+        }
+
+        if (state.playing) {
+            try { state.player.pauseVideo(); } catch (err) { /* next state will tell */ }
+        } else {
+            anchor(readTime());
+            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
+            paintMode();
+            startSignal();
+        }
+    }
+
+    function previous() {
+        if (state.lost) { retry(); return; }
+        if (!state.ready) { loadApi(); return; }
+        advance(-1);
+    }
+
+    function next() {
+        if (state.lost) { retry(); return; }
+        if (!state.ready) { loadApi(); return; }
+        advance(1);
+    }
+
+    /* Shuffle is a spin, not a toggle: a fresh deck with the current mix at its
+       head, then a jump, so the gesture reads as "deal me something else". */
+    function shuffleDeck() {
+        if (state.lost) { retry(); return; }
+        if (!state.ready || !state.deck.length) return;
+        const current = state.track;
+        const rest = state.deck.filter((m) => m !== current);
+        state.deck = current ? [current].concat(shuffle(rest)) : shuffle(rest);
+        state.cursor = 0;
+        state.pending = 0;
+        advance(1);
+    }
+
+    /* -----------------------------------------------------------------------
+       8. Volume, mute and the autoplay hand-off
+
+       Every audible change goes through fadeVolume. `state.applied` is the
+       level last written, so dragging the dial mid-fade never jumps.
+       --------------------------------------------------------------------- */
+    const volumePct = () => Math.round(clamp(state.volume, 0, 1) * 100);
+
+    let volTimer = 0;
+
+    function writeVolume(pct) {
+        state.applied = pct;
+        try { state.player.setVolume(pct); } catch (err) { /* not ready yet */ }
+    }
+
+    function audioMuted(v) {
+        try {
+            if (!state.player) return;
+            if (v) state.player.mute();
+            else state.player.unMute();
+        } catch (err) { /* the frame is gone */ }
+    }
+
+    function fadeVolume(to, ms) {
+        clearInterval(volTimer);
+        const target = clamp(Math.round(to), 0, 100);
+        const from = state.applied >= 0 ? state.applied : volumePct();
+        if (!state.ready) { state.applied = target; return; }
+        if (ms <= 0 || from === target) { writeVolume(target); return; }
+
+        const t0 = performance.now();
+        volTimer = setInterval(() => {
+            const p = clamp((performance.now() - t0) / ms, 0, 1);
+            const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+            writeVolume(Math.round(from + (target - from) * e));
+            if (p >= 1) clearInterval(volTimer);
+        }, 40);
+    }
+
+    /* The browser may refuse audible playback before a gesture. Start muted
+       instead: the mix, the clock and the signal all run, and the first touch
+       of any kind brings the sound up in a fade. No prompt is shown, because
+       the pod is already playing. */
+    let unmuteArmed = false;
+    let silentProbe = 0;
+
+    function unblock() {
+        if (!state.blocked) return;
+        state.blocked = false;
+        pod.classList.remove('is-blocked');
+        if (state.muted) {
+            audioMuted(true);
+        } else {
+            audioMuted(false);
+            fadeVolume(volumePct(), 700);
+        }
+        /* The gesture that opened the gate is also the one that may re-start a
+           player the browser paused at the unmute. */
+        if (!state.playing) {
+            try { state.player.playVideo(); } catch (err) { /* next state will tell */ }
+        }
+        paintMode();
+    }
+
+    function armUnmute() {
+        if (unmuteArmed) return;
+        unmuteArmed = true;
         const events = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
         const go = () => {
             events.forEach((ev) => window.removeEventListener(ev, go, true));
-            waitingForGesture = false;
-            ensureAudioCtx();
-            if (!state.auto) return;
-            if (audio.src && audio.src.indexOf('data:') !== 0 && audio.paused) playWithFade();
-            else if (!audio.src) autoNext();
+            unmuteArmed = false;
+            if (!state.blocked) return;
+            unblock();
         };
         events.forEach((ev) => window.addEventListener(ev, go, { capture: true, passive: true }));
     }
 
-    async function startPlayback(drop, previewPromise) {
-        const token = ++playToken;
-        const url = await previewPromise;
-        if (token !== playToken) return null;
-
-        if (!url) { return false; }   /* the chain skips it: no preview, no stall */
-
-        audio.src = url;
-        audio.currentTime = 0;
-        audio.muted = state.muted;
-        playWithFade();
-        return true;
+    /* -----------------------------------------------------------------------
+       9. The readout
+       --------------------------------------------------------------------- */
+    function paintTrack(mix) {
+        state.track = mix;
+        const i = MIXES.indexOf(mix);
+        if (titleEl) titleEl.textContent = mix.title;
+        if (artistEl) artistEl.textContent = PLAYLIST.channel;
+        if (clockEl) clockEl.textContent = '0:00';
+        if (durEl) durEl.textContent = mix.len || hms(0);
+        if (seqEl) seqEl.textContent = (i >= 0 ? String(i + 1).padStart(2, '0') : '—') + ' / ' + MIXES.length;
+        if (pillTitle) pillTitle.textContent = mix.title;
+        if (openEl) {
+            openEl.href = PLAYLIST.watchUrl + mix.id;
+            openEl.setAttribute('title', mix.title + ' — on youtube');
+        }
+        state.time = 0;
+        state.duration = secondsOf(mix.len);
+        paintRail(0);
+        anchor(0);
+        seedSignal(mix.id);
+        paintMode();
     }
 
-    audio.addEventListener('playing', () => {
-        if (audio.src.indexOf('data:') === 0) return;
-        paintPlaying(true);
-        state.retried = false;
-    });
+    function paintTime(t) {
+        state.time = t;
+        const d = state.duration;
+        paintRail(d > 0 ? clamp((t / d) * 100, 0, 100) : 0);
+        if (clockEl) clockEl.textContent = hms(t);
+    }
 
-    audio.addEventListener('pause', () => {
-        if (audio.ended || audio.src.indexOf('data:') === 0) return;
-        paintPlaying(false);
-    });
+    function paintRail(pct) {
+        if (railFill) railFill.style.transform = 'scaleX(' + (pct / 100).toFixed(4) + ')';
+        if (railEl) railEl.setAttribute('aria-valuenow', String(Math.round(pct)));
+    }
 
-    audio.addEventListener('ended', () => {
-        paintPlaying(false);
-        if (progressFill) progressFill.style.width = '100%';
-        if (clockEl) clockEl.textContent = mmss(audio.duration || 30);
-        /* Normally the hand-off already started the next spin; this only
-           catches a song that ended without one (seeked past it, say). */
-        if (state.auto && !state.spinning) autoNext();
-    });
-
-    audio.addEventListener('timeupdate', () => {
-        const d = audio.duration;
-        if (!isFinite(d) || d <= 0) return;
-        const left = d - audio.currentTime;
-        if (!fade.tailing && !audio.paused && left <= HANDOFF_S) {
-            fade.tailing = true;
-            /* The old song is gone by the time the next one lands. */
-            fadeTo(0, Math.max(300, Math.min(left, HANDOFF_S - 0.5) * 1000));
-            if (state.auto && !state.spinning) pullOnce();
+    function paintMode() {
+        if (state.lost) {
+            setMode('signal lost', 'mất sóng', 'fas fa-triangle-exclamation');
+        } else if (!state.ready) {
+            setMode('tuning', 'đang dò sóng', 'fas fa-satellite-dish');
+        } else if (state.blocked) {
+            setMode('sound on touch', 'chạm để nghe', 'fas fa-volume-xmark');
+        } else if (state.switching || state.buffering) {
+            setMode('tuning', 'đang dò sóng', 'fas fa-satellite-dish');
+        } else if (state.playing) {
+            setMode('night signal', 'tín hiệu đêm', 'fas fa-wave-square');
+        } else if (state.track) {
+            setMode('paused', 'tạm dừng', 'fas fa-circle-pause');
+        } else {
+            setMode('ready', 'sẵn sàng', 'fas fa-circle-play');
         }
-        const pct = clamp((audio.currentTime / d) * 100, 0, 100);
-        if (progressFill) progressFill.style.width = pct.toFixed(2) + '%';
-        if (clockEl) clockEl.textContent = mmss(audio.currentTime);
-        const bar = progressFill && progressFill.parentElement;
-        if (bar) bar.setAttribute('aria-valuenow', Math.round(pct));
-    });
 
-    audio.addEventListener('error', async () => {
-        if (!state.current || state.retried) return;
-        const track = state.current.track;
-        if (!track || !track.id) return;
-        state.retried = true;
-        const fresh = await freshPreview(track.id);
-        if (!fresh || fresh === audio.src) return;
-        audio.src = fresh;
-        const p = audio.play();
-        if (p && typeof p.catch === 'function') p.catch(() => paintPlaying(false));
-    });
+        if (playBtn) {
+            const icon = playBtn.querySelector('i');
+            if (icon) icon.className = state.playing ? 'fas fa-pause' : 'fas fa-play';
+            playBtn.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
+        }
+        if (muteBtn) {
+            /* While the browser holds the sound the hub is the key that lets it
+               out, so it must not call itself "Mute". */
+            muteBtn.setAttribute('aria-label',
+                state.blocked ? 'Turn the sound on'
+                    : state.muted ? 'Unmute' : 'Mute');
+        }
+        pod.classList.toggle('is-playing', !!state.playing);
+
+        /* The capsule mirrors the screen: one glyph, one word, no second state
+           machine to keep in step. */
+        if (glyphEl) {
+            const icon = glyphEl.querySelector('i');
+            if (icon) {
+                icon.className = state.blocked ? 'fas fa-volume-xmark'
+                    : state.playing ? 'fas fa-wave-square' : 'fas fa-play';
+            }
+        }
+        if (pillState) {
+            const en = pillState.querySelector('[lang="en"]');
+            const vi = pillState.querySelector('[lang="vi"]');
+            const pair = state.lost ? ['signal lost', 'mất sóng']
+                : !state.ready ? ['tuning', 'đang dò sóng']
+                    : state.blocked ? ['tap for sound', 'chạm để nghe']
+                        : state.switching || state.buffering ? ['tuning', 'đang dò sóng']
+                            : state.playing ? ['night signal', 'tín hiệu đêm']
+                                : ['paused', 'tạm dừng'];
+            if (en) en.textContent = pair[0];
+            if (vi) vi.textContent = pair[1];
+        }
+        if (stage) {
+            stage.setAttribute('aria-label',
+                state.blocked ? 'Turn the sound on' : state.playing ? 'Pause the mix' : 'Play the mix');
+        }
+    }
 
     /* -----------------------------------------------------------------------
-       14. The spectrum
+       10. The night signal
+
+       A generated instrument reading, not an analyser: four seeded sine
+       components ride the mix's own clock, a pulse derived from the mix's seed
+       drives the bars, and the pointer bends the trace toward itself. The
+       player's clock is the only measured input, so pausing freezes the frame
+       exactly where the music stopped.
        --------------------------------------------------------------------- */
-    function readEqColors() {
-        if (eqColors) return eqColors;
-        try {
-            const cs = getComputedStyle(document.documentElement);
-            const a = (cs.getPropertyValue('--holo-1-rgb') || '0, 240, 212').trim();
-            const b = (cs.getPropertyValue('--holo-2-rgb') || '255, 45, 149').trim();
-            eqColors = { a: a, b: b };
-        } catch (err) {
-            eqColors = { a: '0, 240, 212', b: '255, 45, 149' };
+    const scope = {
+        cv: canvas,
+        ctx: canvas.getContext('2d'),
+        w: 0,
+        h: 0,
+        dpr: 1,
+        tokens: null,
+        comps: [],
+        dust: [],
+        rate: 96,
+        base: 0,
+        baseAt: 0,
+        mx: 0.5,
+        my: 0.5,
+        magnet: 0,
+        magnetOn: false,
+        flash: 0,
+        raf: 0,
+        running: false,
+        last: 0,
+        skip: 0,
+        glow: true,
+    };
+
+    function hash32(str) {
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < str.length; i++) {
+            h ^= str.charCodeAt(i);
+            h = Math.imul(h, 16777619);
         }
-        return eqColors;
+        return h >>> 0;
     }
 
-    let freq = null;
-
-    function startEq() {
-        if (!eqCanvas) return;
-        stopEq();
-        const g = eqCanvas.getContext('2d');
-        if (!g) return;
-        const colors = readEqColors();
-        const W = eqCanvas.width;
-        const H = eqCanvas.height;
-        const bars = 11;
-        const gap = 3;
-        const barW = (W - gap * (bars - 1)) / bars;
-        const t0 = performance.now();
-        let last = 0;
-        if (graphOn && analyser) freq = new Uint8Array(analyser.frequencyBinCount);
-
-        const draw = (now) => {
-            if (now - last < 33) {
-                state.eqRaf = requestAnimationFrame(draw);
-                return;
-            }
-            last = now;
-            const t = (now - t0) / 1000;
-            g.clearRect(0, 0, W, H);
-
-            let values;
-            if (graphOn && analyser) {
-                analyser.getByteFrequencyData(freq);
-                values = [];
-                for (let i = 0; i < bars; i++) {
-                    const idx = Math.floor((i / bars) * (freq.length * 0.72)) + 1;
-                    values.push((freq[idx] || 0) / 255);
-                }
-            } else {
-                values = [];
-                for (let i = 0; i < bars; i++) {
-                    const s = Math.sin(t * 2.1 + i * 0.9) * Math.sin(t * 0.73 + i * 1.7);
-                    values.push(0.24 + Math.abs(s) * 0.62);
-                }
-            }
-
-            for (let i = 0; i < bars; i++) {
-                const v = clamp(values[i], 0, 1);
-                const h = Math.max(2, v * (H - 14));
-                const x = i * (barW + gap);
-                const y = H - h - 4;
-                const mix = i / (bars - 1);
-                g.fillStyle = 'rgba(' + colors.a + ',' + (0.95 - mix * 0.25).toFixed(2) + ')';
-                g.fillRect(x, y, barW, h);
-                g.fillStyle = 'rgba(' + colors.b + ',' + (0.5 + mix * 0.4).toFixed(2) + ')';
-                g.fillRect(x, y, barW, 2);
-            }
-
-            g.fillStyle = 'rgba(' + colors.a + ',0.18)';
-            g.fillRect(0, H - 3, W, 1);
-
-            state.eqRaf = requestAnimationFrame(draw);
+    /* mulberry32 — small, fast, and the same seed always draws the same mix. */
+    function rand(seed) {
+        let a = seed >>> 0;
+        return () => {
+            a = (a + 0x6D2B79F5) >>> 0;
+            let t = a;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
         };
-        state.eqRaf = requestAnimationFrame(draw);
     }
 
-    function stopEq() {
-        cancelAnimationFrame(state.eqRaf);
-        state.eqRaf = 0;
-        if (!eqCanvas) return;
-        const g = eqCanvas.getContext('2d');
-        if (g) g.clearRect(0, 0, eqCanvas.width, eqCanvas.height);
+    function tokensFromCSS() {
+        const cs = getComputedStyle(document.documentElement);
+        const rgb = (name, fallback) => {
+            const v = (cs.getPropertyValue(name) || '').trim();
+            return v || fallback;
+        };
+        return {
+            one: rgb('--holo-1-rgb', '0, 240, 212'),
+            two: rgb('--holo-2-rgb', '255, 45, 149'),
+            three: rgb('--holo-3-rgb', '255, 201, 64'),
+        };
     }
 
-    /* -----------------------------------------------------------------------
-       15. The pull — spin the mini case, land, play
+    function seedSignal(id) {
+        const r = rand(hash32(String(id || 'after-dark')));
+        const bases = [0.9, 1.7, 2.6, 3.9];
+        scope.comps = bases.map((base, i) => ({
+            k: base + r() * 0.9,
+            w: 0.05 + r() * 0.16,
+            p: r() * TAU,
+            a: 1 / Math.pow(1.45, i),
+        }));
+        const sum = scope.comps.reduce((s, c) => s + c.a, 0) || 1;
+        scope.comps.forEach((c) => { c.a /= sum; });
 
-       One function, the same shape the old tab's openCase had: choose the
-       drop, resolve its URL while the strip moves, spin, land, reveal, play.
-       --------------------------------------------------------------------- */
-    async function pullOnce() {
-        if (state.spinning) return;
-        state.spinning = true;
-        state.retried = false;
-
-        /* Before the catalogue lands, pull the known preview so the first
-           spin never waits on the network. */
-        const drop = state.catalogue.length
-            ? pickDrop()
-            : { rarity: 'classified', track: FALLBACK_TRACK };
-        state.current = drop;
-
-        const previewPromise = resolvePreview(drop.track);
-        buildCaseReel(drop);
-        setCaseSpinning(true);
-
-        await caseSpinTo(CASE_WIN);
-
-        const winCell = caseReel && caseReel.children[CASE_WIN];
-        if (winCell) winCell.classList.add('is-win');
-
-        await sleep(420);
-        setCaseSpinning(false);
-        paintHero(drop);
-        state.spinning = false;
-        const played = await startPlayback(drop, previewPromise);
-        /* A song with no playable preview never fires `ended`, so skip ahead
-           instead of stalling on silence. */
-        if (played === false && state.auto) setTimeout(autoNext, 900);
-        return drop;
+        scope.rate = 76 + Math.floor(r() * 44);
+        scope.dust = [];
+        for (let i = 0; i < 26; i++) {
+            scope.dust.push({
+                x: r(),
+                y: r(),
+                s: 0.15 + r() * 0.85,
+                r: 0.6 + r() * 1.1,
+                p: r() * TAU,
+                a: 0.25 + r() * 0.6,
+                gold: r() < 0.22,
+            });
+        }
+        scope.base = 0;
+        scope.baseAt = performance.now();
+        scope.flash = 1;
+        paintOnce();
     }
 
-    /* -----------------------------------------------------------------------
-       16. The auto chain
-
-       The crate starts itself once the loader lifts and spins to a new song
-       after every ending, forever, until the visitor pauses.
-       --------------------------------------------------------------------- */
-    function autoNext() {
-        if (!state.auto || state.spinning) return;
-        const chain = ++state.autoChain;
-        whenIdle(() => {
-            if (chain !== state.autoChain || !state.auto) return;
-            pullOnce();
-        });
+    function wave(u, t) {
+        let v = 0;
+        for (let i = 0; i < scope.comps.length; i++) {
+            const c = scope.comps[i];
+            v += c.a * Math.sin(c.k * TAU * u + c.w * TAU * t + c.p);
+        }
+        return v;
     }
 
-    function setAuto(on) {
-        state.auto = !!on;
-        if (widget) widget.classList.toggle('is-auto', !!on);
+    function pulse(t) {
+        const per = 60 / scope.rate;
+        const f = mod(t, per) / per;
+        return Math.pow(1 - f, 3);
     }
 
-    /* -----------------------------------------------------------------------
-       17. Wiring — the transport
-       --------------------------------------------------------------------- */
-    if (playBtn) {
-        playBtn.disabled = false;
-        playBtn.addEventListener('click', () => {
-            ensureAudioCtx();
-            setAuto(true);
-            if (!state.current || !audio.src || audio.src.indexOf('data:') === 0) {
-                pullOnce();
-                return;
+    function anchor(seconds) {
+        scope.base = isFinite(seconds) && seconds > 0 ? seconds : 0;
+        scope.baseAt = performance.now();
+    }
+
+    function sizeScope() {
+        if (!scope.ctx) return;
+        /* Measure the element the canvas actually lives in — the glass is a
+           different box when the instrument is collapsed. */
+        const host = canvas.parentNode;
+        const rect = host ? host.getBoundingClientRect() : null;
+        const w = Math.max(120, Math.round(rect ? rect.width : 288));
+        const h = Math.max(28, Math.round(rect ? rect.height : 44));
+        const dpr = clamp(window.devicePixelRatio || 1, 1, level() <= 1 ? 1.5 : 2);
+        if (w === scope.w && h === scope.h && dpr === scope.dpr) return;
+
+        scope.w = w;
+        scope.h = h;
+        scope.dpr = dpr;
+        scope.tokens = tokensFromCSS();
+        scope.glow = level() >= 2;
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        scope.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        paintOnce();
+    }
+
+    function paintOnce() {
+        sizeScope();
+        paint(performance.now());
+    }
+
+    function paint(now) {
+        const ctx = scope.ctx;
+        if (!ctx || !scope.w || !scope.tokens) return;
+
+        const w = scope.w;
+        const h = scope.h;
+        const T = scope.tokens;
+        const live = state.playing && !!state.player;
+        const t = (scope.running && state.playing)
+            ? scope.base + (now - scope.baseAt) / 1000
+            : scope.base;
+
+        const dt = clamp((now - scope.last) / 1000, 0, 0.06);
+        scope.last = now;
+        scope.flash = Math.max(0, scope.flash - dt * 2.2);
+        scope.magnet += ((scope.magnetOn && !still() ? 1 : 0) - scope.magnet) * Math.min(1, dt * 9);
+
+        const horizon = h * 0.9;
+        const cy = h * 0.34;
+        const beat = pulse(t);
+
+        ctx.clearRect(0, 0, w, h);
+
+        /* The graticule: four rules and their edge ticks. It is an instrument
+           face, not a page background — it exists so the trace has a scale. */
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = rgba(T.one, 0.05);
+        ctx.beginPath();
+        for (let i = 1; i <= 3; i++) {
+            const y = Math.round((horizon * i) / 4) + 0.5;
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = rgba(T.one, 0.12);
+        ctx.beginPath();
+        for (let i = 1; i <= 3; i++) {
+            const y = Math.round((horizon * i) / 4) + 0.5;
+            ctx.moveTo(0, y);
+            ctx.lineTo(3.5, y);
+            ctx.moveTo(w - 3.5, y);
+            ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+
+        /* Dust. It drifts only while the mix is playing, so a paused pod looks
+           paused rather than merely quiet. */
+        if (live) {
+            for (let i = 0; i < scope.dust.length; i++) {
+                const m = scope.dust[i];
+                m.y -= m.s * dt * 0.014;
+                if (m.y < -0.04) { m.y = 1.04; m.x = Math.random(); }
             }
-            if (audio.paused) {
-                playWithFade();
-            } else {
-                const token = playToken;
-                fadeTo(0, FADE_PAUSE_MS).then(() => { if (token === playToken) audio.pause(); });
+        }
+        for (let i = 0; i < scope.dust.length; i++) {
+            const m = scope.dust[i];
+            const tw = 0.55 + 0.45 * Math.sin(t * (0.4 + m.s * 0.7) + m.p);
+            const a = m.a * tw * (live ? 0.9 : 0.3);
+            ctx.fillStyle = rgba(m.gold ? T.three : T.one, a * 0.5);
+            ctx.fillRect(m.x * w, m.y * h, m.r, m.r);
+        }
+
+        /* The signal fan. Each bar reads the same wave at its own x, so the fan
+           and the trace always tell one story. */
+        const n = clamp(Math.round(w / 11), 12, 30);
+        const slot = w / n;
+        const bw = Math.max(1.5, slot * 0.3);
+        const grad = ctx.createLinearGradient(0, horizon, 0, h * 0.42);
+        grad.addColorStop(0, rgba(T.one, 0.55));
+        grad.addColorStop(0.58, rgba(T.one, 0.95));
+        grad.addColorStop(1, rgba(T.two, 0.9));
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = bw;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < n; i++) {
+            const u = (i + 0.5) / n;
+            const x = u * w;
+            const fall = 0.34 + Math.pow(1 - u * 0.62, 0.8) * 0.66;
+            const near = scope.magnet * Math.exp(-Math.pow((u - scope.mx) / 0.09, 2));
+            const amp = clamp(
+                (0.08 + Math.abs(wave(u, t)) * fall * 1.05) * (0.84 + beat * 0.5) + near * 0.35,
+                0.02,
+                1
+            );
+            ctx.globalAlpha = 0.3 + amp * 0.6;
+            ctx.beginPath();
+            ctx.moveTo(x, horizon);
+            ctx.lineTo(x, horizon - amp * h * 0.38);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        /* The mix's own light spilling under the fan. */
+        const spill = ctx.createLinearGradient(0, horizon, 0, h);
+        spill.addColorStop(0, rgba(T.one, 0.07 + beat * 0.09));
+        spill.addColorStop(1, rgba(T.one, 0));
+        ctx.fillStyle = spill;
+        ctx.fillRect(0, horizon, w, h - horizon);
+
+        /* The trace: computed once, drawn as a magenta ghost, a cyan body and a
+           bright core — the same chromatic split the giant word carries. */
+        const pts = [];
+        const ampBase = h * 0.185;
+        for (let x = 0; x <= w; x += 2) {
+            const u = x / w;
+            const bump = scope.magnet * Math.exp(-Math.pow((u - scope.mx) / 0.075, 2));
+            const y = cy
+                + wave(u, t) * ampBase * (0.85 + beat * 0.35)
+                + (scope.my - 0.5) * h * 0.34 * bump;
+            pts.push([x, y]);
+        }
+
+        const path = (dx, dy) => {
+            ctx.beginPath();
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                if (i === 0) ctx.moveTo(p[0] + dx, p[1] + dy);
+                else ctx.lineTo(p[0] + dx, p[1] + dy);
             }
+        };
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        path(2.1, 0);
+        ctx.strokeStyle = rgba(T.two, 0.34 + beat * 0.14);
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+
+        path(-1.1, 0.7);
+        ctx.strokeStyle = rgba(T.one, 0.22);
+        ctx.lineWidth = 2.8;
+        ctx.stroke();
+        ctx.restore();
+
+        path(0, 0);
+        if (scope.glow) {
+            ctx.shadowColor = rgba(T.one, 0.5);
+            ctx.shadowBlur = 9;
+        }
+        ctx.strokeStyle = rgba(T.one, 0.95);
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        path(0, 0);
+        ctx.strokeStyle = 'rgba(242, 251, 255, 0.38)';
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+
+        /* The sweep: one gold hairline crosses the window every 26 seconds and
+           lights the point of the trace it is reading. */
+        const phase = mod(t, 26) / 26;
+        const sx = phase * w;
+        ctx.strokeStyle = rgba(T.three, 0.08 + (1 - phase) * 0.18);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(sx + 0.5, h * 0.14);
+        ctx.lineTo(sx + 0.5, horizon);
+        ctx.stroke();
+        const at = pts[Math.min(pts.length - 1, Math.round(sx / 2))];
+        if (at) {
+            ctx.fillStyle = rgba(T.three, 0.8);
+            ctx.fillRect(at[0] - 1, at[1] - 1, 2.4, 2.4);
+        }
+
+        /* A landing mix washes the screen once, then decays. */
+        if (scope.flash > 0) {
+            ctx.fillStyle = rgba(T.one, scope.flash * 0.1);
+            ctx.fillRect(0, 0, w, h);
+        }
+    }
+
+    function loop(now) {
+        if (!scope.running) return;
+        scope.raf = requestAnimationFrame(loop);
+        /* Balanced smears the signal to ~30fps; full and ultra get every frame. */
+        if (level() === 1) {
+            scope.skip = 1 - scope.skip;
+            if (scope.skip) return;
+        }
+        paint(now);
+    }
+
+    function startSignal() {
+        if (still()) { paintOnce(); return; }
+        if (scope.running) return;
+        scope.running = true;
+        scope.last = performance.now();
+        anchor(readTime());
+        scope.raf = requestAnimationFrame(loop);
+    }
+
+    function stopSignal() {
+        scope.running = false;
+        cancelAnimationFrame(scope.raf);
+        scope.raf = 0;
+        paintOnce();
+    }
+
+    /* -----------------------------------------------------------------------
+       11. Wiring
+       --------------------------------------------------------------------- */
+    /* Collapse and expand. The collapsed capsule stays a live player; opening
+       the body only reveals the wheel, the clock and the volume, and never
+       interrupts the mix. */
+    function setOpen(open) {
+        if (!bodyEl || !moreBtn) return;
+        bodyEl.hidden = !open;
+        pod.classList.toggle('is-compact', !open);
+        moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        moreBtn.setAttribute('aria-label', open ? 'Hide the full player' : 'Show the full player');
+        const icon = moreBtn.querySelector('i');
+        if (icon) icon.className = open ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+        if (open) {
+            /* The canvas is measured against a box that did not exist while the
+               body was hidden, so it has to be re-sized on the way back. */
+            sizeScope();
+            paintOnce();
+        }
+    }
+
+    if (moreBtn) {
+        moreBtn.addEventListener('click', () => {
+            setOpen(!!bodyEl.hidden);
         });
     }
 
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            if (state.spinning) return;
-            ensureAudioCtx();
-            setAuto(true);
-            /* Same shape as the natural hand-off, just sooner: the current
-               song sinks under the spin instead of stopping dead. */
-            fade.tailing = true;
-            if (!audio.paused) fadeTo(0, FADE_SKIP_MS);
-            pullOnce();
-        });
-    }
+    if (playBtn) playBtn.addEventListener('click', togglePlay);
+    if (nextBtn) nextBtn.addEventListener('click', next);
+    if (prevBtn) prevBtn.addEventListener('click', previous);
+    if (menuBtn) menuBtn.addEventListener('click', shuffleDeck);
 
     if (muteBtn) {
         muteBtn.addEventListener('click', () => {
+            if (state.blocked) {
+                /* While the browser holds the sound, the hub is the "let me
+                   hear it" key, not a mute key. */
+                unblock();
+                return;
+            }
             state.muted = !state.muted;
-            audio.muted = state.muted;
+            audioMuted(state.muted);
+            if (!state.muted) fadeVolume(volumePct(), 400);
             muteBtn.setAttribute('aria-pressed', state.muted ? 'true' : 'false');
             const icon = muteBtn.querySelector('i');
             if (icon) icon.className = state.muted ? 'fas fa-volume-xmark' : 'fas fa-volume-up';
-            if (state.muted) setStatus('muted', 'đã tắt tiếng');
-            else if (state.playing) setStatus('now spinning', 'đang phát');
-            else if (state.current) setStatus('case loaded', 'thùng đã nạp');
+            paintMode();
         });
     }
 
     if (volumeEl) {
         volumeEl.addEventListener('input', () => {
             state.volume = clamp(Number(volumeEl.value) / 100, 0, 1);
-            applyVolume();
-            /* Dragging volume unmutes: the dial is the source of truth. */
+            if (state.blocked) unblock();
             if (state.muted) {
                 state.muted = false;
-                audio.muted = false;
-                if (muteBtn) muteBtn.setAttribute('aria-pressed', 'false');
-                const icon = muteBtn && muteBtn.querySelector('i');
-                if (icon) icon.className = 'fas fa-volume-up';
+                audioMuted(false);
+                if (muteBtn) {
+                    muteBtn.setAttribute('aria-pressed', 'false');
+                    const icon = muteBtn.querySelector('i');
+                    if (icon) icon.className = 'fas fa-volume-up';
+                }
             }
+            writeVolume(volumePct());
+            paintMode();
         });
     }
 
-    /* -----------------------------------------------------------------------
-       18. Diagnostics
-       --------------------------------------------------------------------- */
-    function expose() {
-        window.__crate = {
-            get catalogue() { return state.catalogue.length; },
-            get ready() { return state.catalogue.length > 0; },
-            get lastPull() { return state.current; },
-            get previewUrl() { return (state.resolved && state.resolved.url) || ''; },
-            get playing() { return state.playing; },
-            get live() { return state.live; },
-            get auto() { return state.auto; },
-            get muted() { return state.muted; },
-            get volume() { return state.volume; },
-            get spotifyTracks() { return state.spotifyTracks.length; },
-            get audioSrc() { return audio.src || ''; },
-            get graph() { return graphOn; },
-        };
+    /* The signal window is a play/pause surface with a magnet in it: moving
+       over the glass bends the trace toward the pointer. */
+    if (stage) {
+        stage.addEventListener('click', togglePlay);
+
+        stage.addEventListener('pointermove', (e) => {
+            const r = stage.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            scope.mx = clamp((e.clientX - r.left) / r.width, 0, 1);
+            scope.my = clamp((e.clientY - r.top) / r.height, 0, 1);
+            scope.magnetOn = true;
+        }, { passive: true });
+
+        stage.addEventListener('pointerleave', () => { scope.magnetOn = false; });
+        stage.addEventListener('pointercancel', () => { scope.magnetOn = false; });
     }
-    expose();
+
+    /* The wheel. The four bands are ordinary buttons; a drag across the ring
+       seeks the mix instead — an hour-long set needs a scrub, not a next. */
+    if (wheel) {
+        let drag = null;
+
+        wheel.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.pod-wheel-hub')) return; /* mute is its own key */
+            /* No capture yet on purpose: capturing on press retargets the click
+               to the wheel and swallows the band the finger pressed. Capture is
+               taken on the first real move, once this is definitely a drag. */
+            drag = { id: e.pointerId, x: e.clientX, moved: false, base: state.time, target: state.time };
+        });
+
+        wheel.addEventListener('pointermove', (e) => {
+            if (!drag || e.pointerId !== drag.id) return;
+            const dx = e.clientX - drag.x;
+            if (!drag.moved && Math.abs(dx) > 6) {
+                drag.moved = true;
+                try { wheel.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+            }
+            if (!drag.moved) return;
+            const d = state.duration || 0;
+            state.seeking = true;
+            drag.target = clamp(drag.base + (-dx) * SEEK_PER_PX, 0, d || drag.base);
+            pod.classList.add('is-seeking');
+            paintRail(d > 0 ? clamp((drag.target / d) * 100, 0, 100) : 0);
+            if (clockEl) clockEl.textContent = hms(drag.target);
+        });
+
+        const endDrag = (e) => {
+            if (!drag || (e && e.pointerId !== drag.id)) return;
+            const wasDrag = drag.moved;
+            const target = drag.target;
+            drag = null;
+            state.seeking = false;
+            pod.classList.remove('is-seeking');
+            if (!wasDrag) return;
+
+            swipeClick(wheel);
+            if (state.player && state.ready) {
+                try { state.player.seekTo(target, true); } catch (err) { /* ignore */ }
+            }
+            state.time = target;
+            anchor(target);
+            paintRail(state.duration > 0 ? clamp((target / state.duration) * 100, 0, 100) : 0);
+            if (clockEl) clockEl.textContent = hms(target);
+            if (!state.playing) paintOnce();
+        };
+
+        wheel.addEventListener('pointerup', endDrag);
+        wheel.addEventListener('pointercancel', endDrag);
+
+        /* Keyboard, because the wheel's bands are already focusable. */
+        wheel.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); previous(); }
+            else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); togglePlay(); }
+        });
+    }
+
+    /* Swallow the click a drag leaves on whichever band it ended over. */
+    function swipeClick(host) {
+        const kill = (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+            host.removeEventListener('click', kill, true);
+        };
+        host.addEventListener('click', kill, true);
+        setTimeout(() => host.removeEventListener('click', kill, true), 420);
+    }
 
     /* -----------------------------------------------------------------------
-       19. Boot
+       12. Diagnostics
        --------------------------------------------------------------------- */
-    setStatus('crate idle', 'thùng đang trống');
-    if (playBtn) playBtn.disabled = false;
-
-    /* No play button: the crate spins up by itself the moment the loader
-       lifts. If the browser blocks sound until a gesture, the spin and the
-       readout still run and the song fades in on the first touch. */
-    let autoStarted = false;
-    const autoStart = () => {
-        if (autoStarted) return;
-        autoStarted = true;
-        setAuto(true);
-        ensureAudioCtx();
-        pullOnce();
+    window.__pod = {
+        get ready() { return state.ready; },
+        get lost() { return state.lost; },
+        get track() { return state.track; },
+        get playing() { return state.playing; },
+        get blocked() { return state.blocked; },
+        get muted() { return state.muted; },
+        get volume() { return state.volume; },
+        get deck() { return state.deck.length; },
+        get dead() { return Array.from(state.dead); },
+        get time() { return state.time; },
+        get duration() { return state.duration; },
+        get playerState() {
+            try { return state.player ? state.player.getPlayerState() : -99; } catch (err) { return -98; }
+        },
+        get videoId() { return state.track ? state.track.id : ''; },
+        get signal() { return { running: scope.running, frames: scope.raf, w: scope.w, h: scope.h }; },
     };
+
+    /* -----------------------------------------------------------------------
+       13. Boot
+
+       Nothing to press and nothing to opt into: the pod deals the playlist,
+       settles on a mix and starts. The sound arrives on the first gesture, by
+       itself; until then the mix runs muted with the signal drawing it.
+       --------------------------------------------------------------------- */
+    buildDeck();
+    paintTrack(firstMix());
+    sizeScope();
 
     const boot = () => {
-        whenIdle(() => { hydrateSpotify(); });
-        scheduleLive();
-        if (!document.body.classList.contains('booting')) autoStart();
+        whenIdle(() => { loadApi(); });
     };
 
-    document.addEventListener('boot:lifted', autoStart, { once: true });
+    ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => {
+        window.addEventListener(ev, () => { state.gestured = true; }, { capture: true, passive: true, once: true });
+    });
+
     if (document.readyState === 'complete') boot();
     else window.addEventListener('load', boot, { once: true });
+
+    window.addEventListener('resize', paintOnce);
+    if (typeof ResizeObserver === 'function' && stage) {
+        try { new ResizeObserver(() => paintOnce()).observe(stage); } catch (err) { /* fine */ }
+    }
+
+    /* A hidden tab draws nothing; a returning tab picks the signal back up. */
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stopSignal();
+        else if (state.playing) startSignal();
+    });
+
+    /* If the governor drops the page to lite mid-visit (or a tier override
+       arrives), the loop stops and the frame freezes; if it recovers, the
+       signal resumes. */
+    try {
+        if (perf && typeof perf.onChange === 'function') {
+            perf.onChange(() => {
+                scope.glow = level() >= 2;
+                if (still()) { stopSignal(); paintOnce(); }
+                else if (state.playing) startSignal();
+            });
+        }
+    } catch (err) { /* the governor is optional */ }
 })();

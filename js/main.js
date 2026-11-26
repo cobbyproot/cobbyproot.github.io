@@ -17,7 +17,7 @@ window.onbeforeunload = function () {
 // can throw, so a stalled loader or a CDN that never answers still ends with a
 // readable page: the gate is a courtesy, not a lock.
 // ---------------------------------------------------------------------------
-const HERO_PARTS = '.emitter, .hero-character-stage, .name-char, .ios-widget, .social-dock, .scroll-hint';
+const HERO_PARTS = '.emitter, .hero-character-stage, .name-char, .ios-widget, .social-dock, .social-link, .scroll-hint';
 let bootGateLifted = false;
 
 function liftBootGate() {
@@ -27,11 +27,15 @@ function liftBootGate() {
     document.dispatchEvent(new Event('boot:lifted'));
 }
 
-// Longer than the loader's own 12s cap, so this only fires if the loader died.
+// Last resort only: this fires when the boot script never got going, not when
+// the visitor is simply reading. The boot screen raises `__cobbyBootLive` once
+// its controls are wired, and from then on its exit belongs to the arrow.
 setTimeout(() => {
     if (bootGateLifted) return;
+    if (window.__cobbyBootLive) return;
+    const loader = document.getElementById('global-loader');
     liftBootGate();
-    document.getElementById('global-loader')?.classList.add('hidden', 'retired');
+    loader?.classList.add('hidden', 'retired');
     // Nothing played them in, so write the end state by hand. GSAP's inline
     // opacity would otherwise outlive the class and keep the hero dark.
     if (window.gsap) gsap.set(HERO_PARTS, { autoAlpha: 1, clearProps: 'transform,filter' });
@@ -304,11 +308,33 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
+    // -----------------------------------------------------------------------
+    // Background strip wall
+    //
+    // The backdrop is the owner's background-tagged artwork cut into rows that
+    // drift against each other, under the whole wall turned 30° across the
+    // viewport. The rotation is why the wall is sized from the *rotated*
+    // viewport cover instead of the viewport: at 30° the viewport's corners
+    // land outside a 100vw × 100vh box, and one fixed vmax size would run short
+    // on one aspect ratio and waste pixels on another.
+    // -----------------------------------------------------------------------
+    const BG_ANGLE = 30;
+    // px per second, one per row. Deliberately uneven, and the list is cycled.
+    const BG_ROW_SPEEDS = [26, 40, 20, 34, 24, 46, 18, 38, 30, 22];
+
+    const makeBgTile = (url) => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.draggable = false;
+        return img;
+    };
+
     const initBgSlideshow = async () => {
         const bgContainer = document.getElementById('bg-slideshow');
         if (!bgContainer) return;
-
-        bgContainer.innerHTML = '';
 
         let bgUrls = [];
         try {
@@ -321,7 +347,33 @@ document.addEventListener("DOMContentLoaded", () => {
                     .order('created_at', { ascending: false });
 
                 if (!error && data && data.length > 0) {
-                    bgUrls = data.map(row => row.thumbnail_url || row.image_url);
+                    bgUrls = data
+                        .map(row => row.thumbnail_url || row.image_url)
+                        .filter(Boolean);
+                }
+
+                // A wall needs a wall's worth of pictures. When few artworks
+                // carry the `background` tag, the rest of the gallery fills it
+                // out — safe art only, through the same `is_nsfw` flag the
+                // gallery's own default view uses.
+                if (bgUrls.length < 10) {
+                    const { data: recent, error: recentError } = await client
+                        .from('artworks')
+                        .select('image_url, thumbnail_url')
+                        .eq('is_nsfw', false)
+                        .order('created_at', { ascending: false })
+                        .limit(60);
+
+                    if (!recentError && recent) {
+                        const seen = new Set(bgUrls);
+                        recent.forEach((row) => {
+                            const url = row.thumbnail_url || row.image_url;
+                            if (url && !seen.has(url)) {
+                                seen.add(url);
+                                bgUrls.push(url);
+                            }
+                        });
+                    }
                 }
             }
         } catch (err) {
@@ -330,29 +382,98 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (bgUrls.length === 0) return;
 
-        let currentIndex = 0;
+        const perf = window.CobbyPerf;
+        const level = perf && typeof perf.level === 'number' ? perf.level : 3;
+        // Fewer, larger rows on weaker gear. Lite never animates the wall, and
+        // bigger thumbnails mean fewer of them, so there is far less to paint.
+        const rowCount = level <= 0 ? 5 : level <= 1 ? 8 : 10;
 
-        bgUrls.forEach((url, index) => {
-            const img = document.createElement('img');
-            img.className = 'bg-slide';
-            if (index > 0) img.loading = 'lazy';
-            if (index === 0) img.classList.add('active', 'loaded');
+        let lastVw = 0;
+        let lastVh = 0;
+        let resizeTimer = 0;
 
-            img.onload = () => img.classList.add('loaded');
-            img.src = url;
-            img.alt = "Background Slide";
-            bgContainer.appendChild(img);
-        });
+        const build = () => {
+            bgContainer.innerHTML = '';
 
-        const slides = Array.from(bgContainer.children);
+            const vw = window.innerWidth || 1;
+            const vh = window.innerHeight || 1;
+            const rad = (BG_ANGLE * Math.PI) / 180;
+            // The area the wall has to cover once turned, plus 12% overscan so
+            // the end of a strip never becomes the edge of the screen.
+            const planeW = Math.ceil((vw * Math.cos(rad) + vh * Math.sin(rad)) * 1.12);
+            const planeH = Math.ceil((vw * Math.sin(rad) + vh * Math.cos(rad)) * 1.12);
+            const gap = 8;
 
-        if (slides.length > 1) {
-            setInterval(() => {
-                if (slides[currentIndex]) slides[currentIndex].classList.remove('active');
-                currentIndex = (currentIndex + 1) % slides.length;
-                if (slides[currentIndex]) slides[currentIndex].classList.add('active');
-            }, 8000);
-        }
+            const plane = document.createElement('div');
+            plane.className = 'bg-rows';
+            plane.style.width = `${planeW}px`;
+            plane.style.height = `${planeH}px`;
+            plane.style.setProperty('--bg-row-h', `${Math.max(56, Math.floor(planeH / rowCount) - gap)}px`);
+            plane.style.setProperty('--bg-gap', `${gap}px`);
+            bgContainer.appendChild(plane);
+
+            for (let r = 0; r < rowCount; r++) {
+                const row = document.createElement('div');
+                row.className = 'bg-row' + (r % 2 ? ' is-rev' : '');
+                plane.appendChild(row);
+
+                // Measure one tile before building the strip: every tile is the
+                // same fixed size, so the layout is known before any image has
+                // decoded and the strip can be sized without waiting on it.
+                row.appendChild(makeBgTile(bgUrls[0]));
+                const tileW = row.firstElementChild.offsetWidth;
+                row.innerHTML = '';
+                const advance = Math.max(1, tileW + gap);
+
+                // Each row takes a different window of the pool, so the wall
+                // reads as many pictures instead of the same few repeated. A
+                // small pool is repeated to fill its row; a large one is cut
+                // into overlapping windows.
+                const needed = Math.max(1, Math.ceil(planeW / advance));
+                const tableSize = Math.min(bgUrls.length, Math.max(needed, 6));
+                const start = Math.floor((r * bgUrls.length) / rowCount);
+                const reps = Math.max(1, Math.ceil(planeW / (advance * tableSize)));
+
+                for (let rep = 0; rep < reps; rep++) {
+                    for (let i = 0; i < tableSize; i++) {
+                        row.appendChild(makeBgTile(bgUrls[(start + i) % bgUrls.length]));
+                    }
+                }
+
+                // The strip is held twice end to end, so a -50% translation
+                // lands on an identical frame and the loop has no seam.
+                Array.from(row.children).forEach((tile) => row.appendChild(tile.cloneNode(true)));
+
+                const halfW = row.offsetWidth / 2;
+                const speed = BG_ROW_SPEEDS[r % BG_ROW_SPEEDS.length];
+                row.style.setProperty('--bg-dur', `${Math.max(30, Math.round(halfW / speed))}s`);
+            }
+
+            lastVw = vw;
+            lastVh = vh;
+        };
+
+        build();
+
+        // A drag or an orientation change changes the planar cover. Rebuild on
+        // settle rather than on every frame of the drag.
+        const scheduleBuild = () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                // A phone's URL bar showing/hiding fires resize with only a
+                // small height change. Rebuilding for that would restart every
+                // row mid-scroll, and the overscan already covers the few pixels
+                // it costs.
+                if (Math.abs(window.innerWidth - lastVw) < 2 &&
+                    Math.abs(window.innerHeight - lastVh) < 140) return;
+                build();
+            }, 250);
+        };
+        window.addEventListener('resize', scheduleBuild);
+        window.addEventListener('orientationchange', scheduleBuild);
+
+        // A tier drop changes the row count; rebuild once so the wall matches.
+        if (perf && typeof perf.onChange === 'function') perf.onChange(build);
     };
 
     // The one authored motion moment: the projector warms up. Nothing below the
@@ -404,7 +525,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 ? { autoAlpha: 0, y: 26, scale: 0.97 }
                 : { autoAlpha: 0, y: 26, scale: 0.97, filter: `blur(14px) brightness(2.1) ${dropShadow}` },
             Object.assign(
-                { autoAlpha: 1, y: 0, scale: 1, clearProps: 'filter' },
+                {
+                    autoAlpha: 1, y: 0, scale: 1, clearProps: 'filter',
+                    onStart: () => gsap.set('.hero-character-png', { clearProps: 'rotate' }),
+                },
                 isMobile ? { duration: 1.0 } : { duration: 1.15, filter: `blur(0px) brightness(1) ${dropShadow}` }
             ),
             '-=0.55'
@@ -413,18 +537,59 @@ document.addEventListener("DOMContentLoaded", () => {
         // 4. The two instrument panels boot into place.
         tl.fromTo('.ios-widget',
             { autoAlpha: 0, y: 24, scale: 0.96 },
-            { autoAlpha: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.1 },
+            {
+                autoAlpha: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.1,
+                /* GSAP writes transform/translate/rotate beside the tween it
+                   manages; clear them so the stylesheet's hand-placed rotation,
+                   idle bob, and pointer transform all survive. */
+                onStart: () => gsap.set('.ios-widget', { clearProps: 'rotate' }),
+            },
             '-=0.62'
         );
 
-        // 5. The social dock: the one thing a stranger has to reach without
-        //    scrolling, so it arrives as a single panel, not a scatter. Opacity
-        //    only — `.social-dock` carries its own centring transform.
-        tl.fromTo('.social-dock', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6 }, '-=0.4');
+        // 5. The social links: the one thing a stranger has to reach without
+        //    scrolling. On a phone they arrive as a single bar; on a pointer
+        //    device each handle is its own node and they land one after another,
+        //    so the orbit assembles instead of appearing as one slab.
+        //    Opacity only — the layer and the nodes carry their own transforms.
+        if (window.matchMedia('(min-width: 901px)').matches) {
+            // The orbit layer is only a positioning frame for the nodes, so it
+            // comes up instantly and the stagger does the work.
+            gsap.set('.social-dock', { autoAlpha: 1 });
+            tl.fromTo('.social-link',
+                { autoAlpha: 0, scale: 0.9 },
+                {
+                    autoAlpha: 1, scale: 1, duration: 0.45, stagger: 0.05, ease: 'back.out(1.6)',
+                    onStart: () => gsap.set('.social-link', { clearProps: 'rotate' }),
+                },
+                '-=0.5'
+            );
+        } else {
+            // In the bar the links are cells of one panel, so the panel is the
+            // thing that arrives. Clear the per-node hidden state written above.
+            gsap.set('.social-link', { clearProps: 'opacity,visibility' });
+            tl.fromTo('.social-dock', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6 }, '-=0.4');
+        }
 
         // 6. And last, the invitation to keep going. The parent fades in; the
         //    chevron's endless drift is CSS on the child, so the two never fight.
         tl.fromTo('.scroll-hint', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, '-=0.15');
+
+        // The entrance writes transform / translate / rotate inline while it
+        // animates a target. Clear them once the whole timeline has finished so
+        // the stylesheet's hand-placed rotation and the idle-float / pointer
+        // transforms take over; clearing mid-tween would fight the tween itself.
+        tl.eventCallback('onComplete', () => {
+            /* Removed with the DOM API rather than gsap.set(clearProps): GSAP
+               re-reads the computed transform while clearing and bakes the CSS
+               rotation / idle translate back in, which would pin both. */
+            document.querySelectorAll('.ios-widget, .social-link, .hero-character-png').forEach((el) => {
+                el.style.removeProperty('transform');
+                el.style.removeProperty('translate');
+                el.style.removeProperty('rotate');
+                el.style.removeProperty('scale');
+            });
+        });
 
         // The hero is a full-screen set, and letting it fall away as the visitor
         // scrolls is the only scroll-linked motion on the card.
@@ -768,9 +933,9 @@ document.addEventListener("DOMContentLoaded", () => {
             // Skip model-viewer's own easing so the camera follows exactly.
             viewer.jumpCameraToGoal?.();
         };
-        // With reveal="manual" the .glb only starts loading once the poster
-        // is dismissed. The loader normally does that during boot (see
-        // the boot loader at the bottom of this file), so by the time the section scrolls in this is a no-op.
+        // The poster dismisses itself once the .glb has rendered. The boot
+        // loader also sets every viewer to eager, so the models are already
+        // downloading by the time the section scrolls in and this is a no-op.
         const reveal = () => { if (hasModel) viewer.dismissPoster?.(); };
 
         const tune = new URLSearchParams(location.search).get('tune3d');
@@ -977,10 +1142,9 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 await gsap.to(swap, { show: 0, spin: 160, duration: 0.45, ease: 'power2.in' });
                 const loaded = waitForLoad();
-                // With reveal="manual" + loading="lazy", model-viewer only loads a
-                // new src after another dismissPoster() on an unloaded model, so
-                // it would sit blank until the section re-entered the screen.
-                // Eager loading makes the src change load straight away.
+                // A new src has to be loaded eagerly: `loading="lazy"` holds it
+                // until the section scrolls back into view, so the swap would
+                // sit blank for as long as the visitor stays where they are.
                 viewer.loading = 'eager';
                 viewer.setAttribute('src', url);
                 useView(url);
@@ -1120,7 +1284,8 @@ document.addEventListener("DOMContentLoaded", () => {
     handleSpecialGreet();
     initBgSlideshow();
     REF_SCENES.forEach(initRefScene);
-    // initAnimations() is called by the loader once the projector has warmed up.
+    // initAnimations() is called by the boot screen when the visitor takes the
+    // arrow, so the entrance plays in front of them rather than behind it.
     if (!isMobile) initPongGame();
 
     // The gallery is a same-origin sub-app, so its height can be read directly.
@@ -1148,7 +1313,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     /* ==========================================================================
-       HUD toast — the card's one feedback channel. Spotify binding and a refused
+       HUD toast — the card's one feedback channel. A copied handle and a refused
        clipboard write both speak through it. Built up front and marked as a live
        region, because one created at the moment of the first message is never
        announced.
@@ -1169,17 +1334,26 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /* ==========================================================================
-   Boot loader. It holds the page until the things that change its layout or
-   its scroll motion are actually here: fonts, the hero art, and both 3D
-   models. The bar is real progress, not a timer. A short minimum keeps the
-   intro from flashing on a fast connection, and a hard cap means slow wifi
-   still gets let in; a model that lands late plays its own spin-in.
+   Boot screen. The loading screen is Cobby's compact introduction: an ASCII
+   wordmark that fills with the holo gradient as the real assets settle, three
+   lines of who this is, and one arrow into the card.
+
+   Nothing runs on a clock and nothing blocks the download. The bar tracks the
+   two things that decide whether the first screen is presentable — fonts and
+   the hero art — so the arrow lights within a second or two; both 3D models
+   keep streaming behind it and spin into their panels when they land. The 4s
+   cap is only there for a stalled CDN, and even then the arrow works: the
+   visitor is never held on this screen.
    ========================================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
     const loader = document.getElementById('global-loader');
     const msgEl = document.getElementById('loader-message');
-    const chargeEl = loader ? loader.querySelector('.loader-charge i') : null;
+    const pctEl = document.getElementById('loader-percent');
+    const litEl = document.getElementById('boot-art-lit');
+    const enterBtn = document.getElementById('boot-enter');
+    const langBtn = document.getElementById('boot-lang');
+    const veilEl = document.getElementById('boot-unveil');
 
     if (!loader) {
         if (window.initAnimations) window.initAnimations();
@@ -1189,33 +1363,191 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const ua = navigator.userAgent.toLowerCase();
     const isBot = ua.includes('lighthouse') || ua.includes('googlebot') || ua.includes('pagespeed');
-    const returning = !!sessionStorage.getItem('cobby_visited');
-    sessionStorage.setItem('cobby_visited', 'true');
 
-    const MIN_TIME = returning ? 400 : 1200;
-    const MAX_TIME = 12000;
-    const SLOW_AFTER = 5000;
+    const ENTRY_MAX_TIME = 4000;
 
-    let finished = false;
-    const finish = () => {
-        if (finished) return;
-        finished = true;
-        if (chargeEl) chargeEl.style.clipPath = 'inset(0 0% 0 0)';
-        loader.classList.add('hidden');
-        // Retire it from the render tree once the fade has played out. Hidden
-        // but still displayed, its animations would keep running forever
-        // underneath the page.
-        setTimeout(() => loader.classList.add('retired'), 750);
-        if (window.initAnimations) window.initAnimations();
-        else liftBootGate();
+    /* The pixel dissolve. Canvas rather than a few hundred animated DOM cells:
+       one surface, one rAF loop, and every cell's alpha computed continuously,
+       so the wave is smooth instead of a stack of staggered transitions.
+
+       Timeline, from the click:
+         0-120ms    the pixel field fades in over the readout
+         ~180ms     the loader steps aside and the entrance starts underneath
+         200-760ms  the field dissolves on a soft diagonal
+
+       Returns false when it cannot run (no 2d context, reduced motion) and the
+       caller opens the card directly. */
+    const runUnveil = (onCovered) => {
+        if (!veilEl || !veilEl.getContext) return false;
+        const ctx = veilEl.getContext('2d');
+        if (!ctx) return false;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        // Solid, axis-aligned blocks need no extra resolution; a 1x surface
+        // keeps the allocation small enough to happen inside the click.
+        veilEl.width = w;
+        veilEl.height = h;
+
+        const size = w < 700 ? 34 : 48;
+        const cols = Math.ceil(w / size);
+        const rows = Math.ceil(h / size);
+        const span = Math.max(1, cols + rows - 2);
+        const cells = [];
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                // A deterministic jitter breaks the ruler edge without making
+                // the wave random; the fade window below softens it.
+                const jitter = (((x * 37 + y * 61) % 9) / 8 - 0.5) * 0.1;
+                cells.push({
+                    x: x * size,
+                    y: y * size,
+                    w: Math.min(size, w - x * size),
+                    h: Math.min(size, h - y * size),
+                    th: ((x + y) / span) * 0.72 + jitter,
+                });
+            }
+        }
+
+        const COVER_MS = 120;
+        const WAVE_START = 200;
+        const WAVE_MS = 560;
+        // Narrow enough that the wave reads as a moving edge of pixels rather
+        // than a uniform dimming of the whole screen; wide enough that each
+        // block still eases over ~120ms instead of popping.
+        const FADE = 0.22;
+        const start = performance.now();
+
+        let covered = false;
+        const reveal = () => {
+            if (covered) return;
+            covered = true;
+            onCovered();
+        };
+
+        // A background tab pauses rAF, so the loader would never step aside.
+        // The timer is the guarantee; the frame loop is the animation.
+        setTimeout(reveal, COVER_MS + 60);
+
+        const finish = () => {
+            ctx.clearRect(0, 0, w, h);
+            veilEl.style.opacity = '0';
+            // Drop the backing store: ~5MB on a 1440x900 window that would
+            // otherwise sit around for the life of the page.
+            veilEl.width = 0;
+            veilEl.height = 0;
+        };
+
+        const frame = (now) => {
+            const t = now - start;
+            const p = (t - WAVE_START) / WAVE_MS;
+
+            // Checked before anything is painted, so a tab that was asleep at
+            // the start cannot flash an opaque canvas over the finished card.
+            if (p >= 1.04) {
+                finish();
+                return;
+            }
+
+            veilEl.style.opacity = String(Math.min(1, t / COVER_MS));
+            if (t >= COVER_MS + 60) reveal();
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#04050b';
+            ctx.globalAlpha = 1;
+
+            for (let i = 0; i < cells.length; i++) {
+                const c = cells[i];
+                let a = 1;
+                if (p > 0) {
+                    const local = (p - c.th) / FADE;
+                    if (local >= 1) continue;
+                    if (local > 0) a = 1 - local;
+                }
+                if (a === 1) {
+                    ctx.fillRect(c.x, c.y, c.w, c.h);
+                } else {
+                    // Hold the block solid, then ease its alpha out.
+                    ctx.globalAlpha = a * a * (3 - 2 * a);
+                    ctx.fillRect(c.x, c.y, c.w, c.h);
+                    ctx.globalAlpha = 1;
+                }
+            }
+            requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+        return true;
     };
 
+    let entered = false;
+    const enter = () => {
+        if (entered) return;
+        entered = true;
+        document.removeEventListener('keydown', trapFocus);
+        document.removeEventListener('keydown', onBootKey);
+
+        const open = () => {
+            loader.classList.add('hidden');
+            // Retire it from the render tree once the fade has played out.
+            // Hidden but still displayed, its animations would keep running
+            // forever underneath the page.
+            setTimeout(() => loader.classList.add('retired'), 750);
+            if (window.initAnimations) window.initAnimations();
+            else liftBootGate();
+        };
+
+        if (!runUnveil(open)) open();
+    };
+
+    // The boot screen is modal, so Tab must not reach the card behind it. Tab
+    // cycles between the two controls that live on it: the language key and
+    // the way in.
+    const trapFocus = (e) => {
+        if (e.key !== 'Tab') return;
+        const stops = [...loader.querySelectorAll('button')];
+        e.preventDefault();
+        if (!stops.length) return;
+        const at = stops.indexOf(document.activeElement);
+        const step = e.shiftKey ? -1 : 1;
+        stops[(at + step + stops.length) % stops.length].focus({ preventScroll: true });
+    };
+    document.addEventListener('keydown', trapFocus);
+
+    // A terminal's continue key, available even while the bar is still filling.
+    // Enter on the focused button also lands here, and enter() is idempotent,
+    // so the two paths cannot double-fire.
+    function onBootKey(e) {
+        if (entered || (e.key !== 'Enter' && e.key !== 'ArrowDown')) return;
+        e.preventDefault();
+        enter();
+    }
+    document.addEventListener('keydown', onBootKey);
+
+    if (enterBtn) enterBtn.addEventListener('click', enter);
+
+    // The intro exists in both languages; this key flips the whole document so
+    // the card opens in the language the visitor chose on the boot screen.
+    if (langBtn) {
+        langBtn.addEventListener('click', () => {
+            if (window.toggleLang) window.toggleLang();
+            const vi = document.body.classList.contains('lang-vi');
+            langBtn.setAttribute('aria-label', vi ? 'Switch language to English' : 'Switch language to Vietnamese');
+        });
+    }
+
+    // The screen is fully operable from here: arrow, language key, keyboard.
+    // The failsafe near the top of this file defers to this flag, so a healthy
+    // intro is never torn away while someone is still reading it.
+    window.__cobbyBootLive = true;
+
     if (isBot) {
-        finish();
+        enter();
         return;
     }
 
-    // Each task reports its own 0..1 progress; weight is its share of the bar.
+    // Each entry task reports its own 0..1 progress; weight is its share of the
+    // fill. Only layout-critical assets belong here — see the model note below.
     const tasks = [];
     const addTask = (weight, run) => {
         const task = { weight, p: 0 };
@@ -1226,32 +1558,22 @@ document.addEventListener("DOMContentLoaded", () => {
             .then(() => report(1));
         tasks.push(task);
     };
-    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    if (document.fonts && document.fonts.ready) addTask(0.1, () => document.fonts.ready);
+    if (document.fonts && document.fonts.ready) addTask(0.45, () => document.fonts.ready);
 
     const hero = document.querySelector('.hero-character-png');
-    addTask(0.15, () => new Promise((resolve) => {
+    addTask(0.55, () => new Promise((resolve) => {
         if (!hero || hero.complete) return resolve();
         hero.addEventListener('load', resolve, { once: true });
         hero.addEventListener('error', resolve, { once: true });
     }));
 
-    // The models are what break the scroll scenes when they arrive late, so
-    // they carry most of the bar. Eager loading starts the download now; the
-    // poster stays up until the scene reveals it on scroll.
-    const viewers = [...document.querySelectorAll('model-viewer[src]')]
-        .filter((v) => !v.closest('[hidden]'));
-    const viewerReady = Promise.race([customElements.whenDefined('model-viewer'), wait(6000)]);
-    viewers.forEach((viewer) => {
-        addTask(0.75 / viewers.length, (report) => viewerReady.then(() => new Promise((resolve) => {
-            // The model-viewer script never arrived: nothing will ever load.
-            if (!customElements.get('model-viewer') || viewer.loaded) return resolve();
-            viewer.addEventListener('progress', (e) => report(e.detail && e.detail.totalProgress));
-            viewer.addEventListener('load', resolve, { once: true });
-            viewer.addEventListener('error', resolve, { once: true });
-            viewer.loading = 'eager';
-        })));
+    // The models do not hold the intro. Their panels are absolutely sized, so
+    // they cannot move anything ScrollTrigger measures; they are progressive
+    // enhancement that keeps downloading while the visitor reads, and each one
+    // plays its own spin-in when it lands.
+    document.querySelectorAll('model-viewer[src]').forEach((viewer) => {
+        if (!viewer.closest('[hidden]')) viewer.setAttribute('loading', 'eager');
     });
 
     const totalWeight = tasks.reduce((sum, t) => sum + t.weight, 0) || 1;
@@ -1260,71 +1582,48 @@ document.addEventListener("DOMContentLoaded", () => {
     let ready = false;
     Promise.all(tasks.map((t) => t.done)).then(() => { ready = true; });
 
-    // Cobby talking, not a boot log. `at` is a share of the real progress.
-    const lines = [
-        { at: 0, text: returning ? 'oh hi, welcome back~' : 'hi hi! give me a sec…' },
-        { at: 0.12, text: 'brushing my fur real quick…' },
-        { at: 0.35, text: 'carrying my 3d models over…' },
-        { at: 0.8, text: 'almost there, promise…' },
-    ];
-    const SLOW_LINE = 'the 3d models are chonky, hang on…';
-    const DONE_LINE = 'hewwo~ come on in :3';
-    const LATE_LINE = 'slow wifi, huh? come on in anyway :3';
-
-    let currentText = '';
-    const say = (text) => {
-        if (!msgEl || text === currentText) return;
-        currentText = text;
-        const render = () => {
-            msgEl.textContent = text;
-            msgEl.classList.add('is-warm');
-            if (typeof gsap !== 'undefined') gsap.to(msgEl, { opacity: 1, duration: 0.16 });
-            else msgEl.style.opacity = '1';
-        };
-        if (typeof gsap !== 'undefined') {
-            gsap.killTweensOf(msgEl);
-            gsap.to(msgEl, { opacity: 0, duration: 0.16, onComplete: render });
-        } else {
-            render();
-        }
+    // Paint the readout: the lit wordmark is clipped to the same figure as the
+    // percentage, so the wordmark is the progress bar.
+    const paint = (p) => {
+        if (litEl) litEl.style.clipPath = `inset(0 ${((1 - p) * 100).toFixed(1)}% 0 0)`;
+        if (pctEl) pctEl.textContent = `${Math.round(p * 100)}%`;
     };
 
-    say(lines[0].text);
+    let armed = false;
+    const arm = () => {
+        if (armed || entered) return;
+        armed = true;
+        paint(1);
+        if (msgEl) msgEl.textContent = 'ready';
+        loader.classList.add('is-ready');
+    };
 
     let shown = 0;
-    let lateExit = false;
     const start = performance.now();
     // requestAnimationFrame is paused in background tabs, so a page opened
-    // with ctrl+click would never leave the loader. Timers still run there.
+    // with ctrl+click would never arm the arrow. Timers still run there.
     const next = () => {
         if (document.hidden) setTimeout(() => tick(performance.now()), 100);
         else requestAnimationFrame(tick);
     };
     function tick(now) {
-        const elapsed = now - start;
-        if (!ready && elapsed > MAX_TIME) {
-            ready = true;
-            lateExit = true;
-        }
+        if (entered) return;
+        if (!ready && now - start > ENTRY_MAX_TIME) ready = true;
 
-        // Ease toward the real figure so the bar glides instead of jumping
-        // in model-sized steps.
+        // Ease toward the real figure so the fill glides instead of jumping
+        // in asset-sized steps.
         const target = ready ? 1 : progress();
         shown += (target - shown) * (ready ? 0.2 : 0.08);
-        if (chargeEl) chargeEl.style.clipPath = `inset(0 ${(100 - shown * 100).toFixed(1)}% 0 0)`;
 
-        if (ready && shown > 0.995 && elapsed >= MIN_TIME) {
-            say(lateExit ? LATE_LINE : DONE_LINE);
-            setTimeout(finish, 420);
+        if (ready && shown > 0.995) {
+            arm();
             return;
         }
 
-        if (!ready) {
-            const line = [...lines].reverse().find((l) => shown >= l.at);
-            say(elapsed > SLOW_AFTER && shown < 0.8 ? SLOW_LINE : line.text);
-        }
+        paint(shown);
         next();
     }
+    paint(0);
     next();
 });
 

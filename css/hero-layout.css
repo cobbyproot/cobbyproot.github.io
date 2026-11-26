@@ -1,0 +1,46 @@
+/* =============================================================================
+   HERO LAYOUT — hand-placed desktop offsets
+
+   Percentages of the hero stage (positive right / down) and degrees of
+   rotation, layered on the composed positions in css/style.css. Desktop only.
+   ========================================================================== */
+@media (min-width: 901px) {
+  :root {
+    --hx-giant: 0%;
+    --hy-giant: 0%;
+    --rot-giant: 0deg;
+    --hx-character: 0%;
+    --hy-character: 0%;
+    --rot-character: 0deg;
+    --hx-terminal: 2.945%;
+    --hy-terminal: -0.543%;
+    --rot-terminal: 3.845deg;
+    --hx-pod: -7.219%;
+    --hy-pod: -0.95%;
+    --rot-pod: 0.725deg;
+    --hx-facebook: 2.659%;
+    --hy-facebook: -1.762%;
+    --rot-facebook: 6.167deg;
+    --hx-twitter: -0.57%;
+    --hy-twitter: -3.797%;
+    --rot-twitter: -10.915deg;
+    --hx-discord: -2.659%;
+    --hy-discord: 1.898%;
+    --rot-discord: 7.1deg;
+    --hx-telegram: -18.902%;
+    --hy-telegram: 21.692%;
+    --rot-telegram: -6.278deg;
+    --hx-tiktok: 2.47%;
+    --hy-tiktok: 1.898%;
+    --rot-tiktok: -4.413deg;
+    --hx-barq: 14.818%;
+    --hy-barq: -0.949%;
+    --rot-barq: 4.262deg;
+    --hx-bump: -8.738%;
+    --hy-bump: -67.653%;
+    --rot-bump: 4.93deg;
+    --hx-hint: 0%;
+    --hy-hint: 0%;
+    --rot-hint: 0deg;
+  }
+}

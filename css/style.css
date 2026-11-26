@@ -215,23 +215,88 @@ h4 {
     background-color: var(--void);
 }
 
-.bg-slide {
+/* The strip wall.
+   The backdrop is no longer one picture fading into the next: it is a wall of
+   thumbnails cut into rows, and every row drifts on its own speed. The wall
+   underneath is turned 30°, so the rows run diagonally across the viewport
+   instead of reading as a flat filmstrip — and because it is turned, it has to
+   be larger than the viewport or the corners would show through. Its size is
+   measured in js/main.js (rotated viewport cover + a little overscan), not
+   guessed in vmax here, so a wide monitor and a tall phone both stay filled. */
+.bg-rows {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0;
-    filter: saturate(0.55) contrast(1.05);
-    transition: opacity 2.4s ease;
-    /* No `will-change: opacity` here on purpose. There are several of these
-       stacked full-viewport, they are only ever transitioned once every eight
-       seconds, and a permanent will-change buys nothing for a transition that
-       short while costing a full-screen composited layer each, forever. */
+    top: 50%;
+    left: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transform: translate(-50%, -50%) rotate(30deg);
+    pointer-events: none;
 }
 
-.bg-slide.loaded.active {
-    opacity: 0.32;
+/* One row of the wall. It is its own track: the DOM holds the strip twice end
+   to end, so translating it by exactly half its width loops without a seam.
+   --bg-dur is set per row by initBgSlideshow — every row runs at a different
+   speed, which is what keeps the wall from reading as a single sheet sliding. */
+.bg-row {
+    display: flex;
+    flex: 0 0 auto;
+    width: max-content;
+    height: var(--bg-row-h, 20vmax);
+    margin-bottom: var(--bg-gap, 8px);
+    animation: bg-drift var(--bg-dur, 90s) linear infinite;
+    /* One composited layer per row, held for the life of the page. The strip is
+       much wider than the viewport, so re-painting the thumbnails as they travel
+       would be the expensive way to do the same thing. */
+    will-change: transform;
+}
+
+/* Alternating rows travel the other way. The two keyframe sets differ only in
+   direction, so a row switches by class rather than by inline style. */
+.bg-row.is-rev {
+    animation-name: bg-drift-rev;
+}
+
+.bg-row img {
+    display: block;
+    flex: 0 0 auto;
+    width: calc(var(--bg-row-h, 20vmax) * 1.42);
+    height: 100%;
+    margin-right: var(--bg-gap, 8px);
+    object-fit: cover;
+    opacity: 0.34;
+    filter: saturate(0.55) contrast(1.05);
+    pointer-events: none;
+    user-select: none;
+}
+
+@keyframes bg-drift {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+@keyframes bg-drift-rev {
+    from {
+        transform: translate3d(-50%, 0, 0);
+    }
+
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+/* Reduced motion: the wall is held still. It is still a wall of pictures, it
+   just does not travel. */
+@media (prefers-reduced-motion: reduce) {
+    .bg-row {
+        animation: none;
+        will-change: auto;
+    }
 }
 
 .bg-overlay {
@@ -373,13 +438,13 @@ h4 {
 }
 
 /* -----------------------------------------------------------------------------
-   7. Boot loader
+   7. Boot screen
    -------------------------------------------------------------------------- */
-/* The boot loader is the projector itself warming up, not a spinner wearing the
-   site's colours: a chamfered targeting reticle, one diegetic focus scan, a short
-   cold-boot log that breaks character into Cobby's own voice at the end, and an
-   honest determinate charge line. No neon drop-shadow, no looping indeterminate
-   bar — both of those are the defaults the concept's thesis refuses. */
+/* The boot screen is the introduction, not a spinner: a terminal readout with
+   Cobby's ASCII wordmark, three lines of who this is, and one honest progress
+   figure. The wordmark is the progress bar — a lit copy is clipped to the real
+   loaded share while a holo gradient travels through it, so the colour keeps
+   shifting for as long as the assets are still arriving. */
 .global-loader {
     position: fixed;
     inset: 0;
@@ -387,12 +452,33 @@ h4 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: var(--gap-4);
+    /* `safe` keeps the first line reachable if a very short viewport has to
+       scroll this screen; an unsupported browser drops the line and falls back
+       to the default start alignment, which is also fine. */
+    justify-content: safe center;
+    gap: clamp(12px, 2.2vh, 24px);
+    padding: clamp(18px, 4vw, 48px);
+    overflow-y: auto;
     background:
-        radial-gradient(ellipse 60% 46% at 50% 44%, rgba(var(--holo-1-rgb), 0.06), transparent 70%),
+        radial-gradient(rgba(var(--holo-1-rgb), 0.05) 1px, transparent 1.5px) 0 0 / 26px 26px,
+        radial-gradient(ellipse 62% 48% at 50% 42%, rgba(var(--holo-1-rgb), 0.07), transparent 72%),
         var(--void-deep);
     transition: opacity 0.7s ease, visibility 0.7s ease;
+}
+
+/* Scanlines, not a filter: a static 1px rule costs nothing on any tier and is
+   what makes the readout read as a screen instead of a div. It sits above the
+   content so the ASCII plate gets the same texture as the prose; nothing in
+   here takes pointer events. */
+.global-loader::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: repeating-linear-gradient(180deg,
+            rgba(255, 255, 255, 0.03) 0 1px,
+            transparent 1px 3px);
 }
 
 .global-loader.hidden {
@@ -408,159 +494,327 @@ h4 {
     display: none;
 }
 
-.loader-projector {
-    --size: clamp(68px, 20vw, 88px);
-    position: relative;
-    width: var(--size);
-    height: var(--size);
-}
-
-/* Registration brackets at the four corners, snapping inward as the lens locks
-   focus. Each carries two arms only; the open side faces the reticle. */
-.proj-bracket {
-    position: absolute;
-    width: 22%;
-    height: 22%;
-    border: 0 solid rgba(var(--holo-1-rgb), 0.55);
-    opacity: 0;
-    animation: proj-lock 0.5s var(--ease-out) forwards;
-}
-
-.pb-tl {
-    top: 0;
-    left: 0;
-    border-top-width: 2px;
-    border-left-width: 2px;
-}
-
-.pb-tr {
-    top: 0;
-    right: 0;
-    border-top-width: 2px;
-    border-right-width: 2px;
-    animation-delay: 0.08s;
-}
-
-.pb-br {
-    bottom: 0;
-    right: 0;
-    border-bottom-width: 2px;
-    border-right-width: 2px;
-    animation-delay: 0.16s;
-}
-
-.pb-bl {
-    bottom: 0;
-    left: 0;
-    border-bottom-width: 2px;
-    border-left-width: 2px;
-    animation-delay: 0.24s;
-}
-
-@keyframes proj-lock {
-    from {
-        opacity: 0;
-        transform: scale(1.5);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-/* The iris: a chamfered square rotating slowly behind the brackets — the
-   projector's aperture turning over. */
-.proj-reticle {
-    position: absolute;
-    inset: 26%;
-    border: 1px solid rgba(var(--holo-1-rgb), 0.5);
-    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
-    animation: proj-iris 3.2s linear infinite;
-}
-
-@keyframes proj-iris {
-    to {
-        transform: rotate(90deg);
-    }
-}
-
-/* One focus scan sweeps the aperture, then is gone — the projector calibrating,
-   not a loader that loops forever. */
-.proj-scan {
+/* --- Screen furniture ------------------------------------------------------
+   The gap around the readout was dead space. These are drawn, not interactive:
+   corner ticks, one rotated label per edge, and a wandering paw trail that
+   leads the eye down into the arrow. Everything here is behind the content
+   (z-index: -1 inside the loader's stacking context), so nothing has to be
+   layered against the wordmark. */
+.boot-decor {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg,
-            transparent,
-            rgba(var(--holo-1-rgb), 0.5) 46%,
-            rgba(var(--holo-1-rgb), 0.7) 50%,
-            rgba(var(--holo-1-rgb), 0.5) 54%,
-            transparent);
-    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-    animation: proj-scan 0.9s var(--ease-out) 0.15s both;
-}
-
-@keyframes proj-scan {
-    0% {
-        transform: translateY(-100%);
-        opacity: 0;
-    }
-
-    20% {
-        opacity: 1;
-    }
-
-    100% {
-        transform: translateY(100%);
-        opacity: 0;
-    }
-}
-
-.loader-readout {
-    min-height: 1.2em;
-    text-align: center;
-}
-
-.loader-line {
-    font-family: var(--mono);
-    font-size: 0.74rem;
-    letter-spacing: 0.14em;
-    text-transform: lowercase;
-    color: var(--muted);
-    transition: opacity 0.16s ease;
-}
-
-/* The last line is Cobby's own voice, not the instrument's: it drops out of
-   mono into the reading face and picks up the primary hue. Hard chrome, warm
-   words — the whole idea of the page in one swap. */
-.loader-line.is-warm {
-    font-family: var(--ui);
-    font-size: 0.82rem;
-    letter-spacing: 0.02em;
-    color: var(--holo-1);
-}
-
-.loader-charge {
-    width: min(200px, 54vw);
-    height: 2px;
-    background: var(--edge);
+    z-index: -1;
     overflow: hidden;
+    pointer-events: none;
 }
 
-.loader-charge i {
-    display: block;
-    height: 100%;
-    width: 100%;
+.boot-corner {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 1px solid rgba(var(--holo-1-rgb), 0.16);
+}
+
+.bc-tl {
+    top: 18px;
+    left: 18px;
+    border-right: 0;
+    border-bottom: 0;
+}
+
+.bc-tr {
+    top: 18px;
+    right: 18px;
+    border-left: 0;
+    border-bottom: 0;
+}
+
+.bc-bl {
+    bottom: 18px;
+    left: 18px;
+    border-right: 0;
+    border-top: 0;
+}
+
+.bc-br {
+    bottom: 18px;
+    right: 18px;
+    border-left: 0;
+    border-top: 0;
+}
+
+.boot-edge {
+    position: absolute;
+    top: 50%;
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: rgba(var(--holo-1-rgb), 0.18);
+    writing-mode: vertical-rl;
+}
+
+.boot-edge-l {
+    left: 22px;
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.boot-edge-r {
+    right: 22px;
+    transform: translateY(-50%);
+}
+
+/* The edge labels are the first thing to go when the screen is small: the
+   readout needs the room more than the furniture does. */
+@media (max-width: 900px) {
+    .boot-edge {
+        display: none;
+    }
+}
+
+/* The top rail: the dossier plate on the left, the language key on the right.
+   It is a header, so it stretches to the frame width while everything under it
+   stays centred on its own measure. */
+.boot-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: min(720px, 100%);
+}
+
+.boot-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+.boot-kicker-mark {
+    width: 5px;
+    height: 5px;
+    background: var(--holo-1);
+}
+
+.boot-lang {
+    padding: 6px 0 6px 12px;
+    border: 0;
+    background: none;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+}
+
+.boot-lang-code {
+    color: var(--faint);
+    opacity: 0.45;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.boot-lang-sep {
+    color: var(--edge);
+}
+
+body.lang-en .boot-lang-code[data-code="en"],
+body.lang-vi .boot-lang-code[data-code="vi"] {
+    color: var(--holo-1);
+    opacity: 1;
+}
+
+.boot-lang:hover .boot-lang-code,
+.boot-lang:focus-visible .boot-lang-code {
+    color: var(--text-bright);
+}
+
+/* The ASCII plate. Two identical layers: a dim one in flow, and a lit one
+   stacked exactly over it whose clip-path is written by main.js from the real
+   load figure. Box-drawing glyphs are monospaced in every face in the stack, so
+   the six rows stay aligned without any tricks. */
+.boot-art {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+.boot-art-layer {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: clamp(6px, 3.1vw, 20px);
+    line-height: 1.08;
+    letter-spacing: 0;
+    font-variant-ligatures: none;
+    white-space: pre;
+    text-align: left;
+    user-select: none;
+}
+
+.boot-art-dim {
+    color: rgba(var(--holo-1-rgb), 0.16);
+}
+
+/* The lit copy is the charge. Its gradient travels for as long as the screen is
+   up, so the colour is always moving while the fill advances; the fill itself
+   is the real loaded share, never a loop. */
+.boot-art-lit {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: transparent;
     background: var(--holo);
-    background-size: 280% 100%;
-    animation: charge-shimmer 1.4s linear infinite;
+    background-size: 260% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: boot-holo-wave 2.4s linear infinite;
     clip-path: inset(0 100% 0 0);
 }
 
-@keyframes charge-shimmer {
+@keyframes boot-holo-wave {
     to {
-        background-position: 280% 50%;
+        background-position: 260% 50%;
     }
+}
+
+/* The compact introduction. Mono, left-aligned, on a readable measure — the
+   same voice as the full bio, cut to three lines. */
+.boot-intro {
+    max-width: 72ch;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: clamp(0.66rem, 0.42vw + 0.55rem, 0.78rem);
+    line-height: 1.75;
+    color: var(--muted);
+}
+
+.boot-intro p + p {
+    margin-top: 2px;
+}
+
+.boot-prompt {
+    margin-right: 8px;
+    color: var(--holo-1);
+}
+
+/* The status rail. `ready` is the only state change a visitor needs to hear, so
+   the live region carries the word and the percentage stays visual only. */
+.boot-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-variant-numeric: tabular-nums;
+}
+
+.boot-status-text {
+    color: var(--muted);
+    transition: color 0.3s ease;
+}
+
+.global-loader.is-ready .boot-status-text {
+    color: var(--holo-1);
+}
+
+.boot-caret {
+    color: var(--holo-1);
+    animation: boot-caret 1.1s steps(2, end) infinite;
+}
+
+@keyframes boot-caret {
+    50% {
+        opacity: 0;
+    }
+}
+
+.boot-percent {
+    min-width: 4.2ch;
+    text-align: right;
+    color: var(--holo-1);
+}
+
+/* The way in. It works from the first frame — the bar is information, not a
+   lock — but it sits at half strength until the fonts and hero are in, then
+   lifts to full and nudges its arrow. Enter or ArrowDown do the same job. */
+.boot-enter {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    border: 0;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: lowercase;
+    color: #06131a;
+    background: var(--holo-1);
+    opacity: 0.45;
+    clip-path: polygon(var(--c-sm) 0, 100% 0, 100% calc(100% - var(--c-sm)), calc(100% - var(--c-sm)) 100%, 0 100%, 0 var(--c-sm));
+    cursor: pointer;
+    transition: opacity 0.3s ease, filter 0.2s ease;
+}
+
+.global-loader.is-ready .boot-enter {
+    opacity: 1;
+}
+
+/* Brightness only — a hover transform here would move the target under the
+   pointer (and under automation) for a 1px effect that is not worth it. */
+.boot-enter:hover {
+    filter: brightness(1.12);
+}
+
+/* The chamfer clips outlines, so focus is a brightness lift plus an underline
+   drawn inside the plate. */
+.boot-enter:focus-visible {
+    outline: none;
+    filter: brightness(1.25);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.global-loader.is-ready .boot-enter-arrow {
+    animation: boot-nudge 1.6s var(--ease-out) infinite;
+}
+
+@keyframes boot-nudge {
+    0%,
+    70%,
+    100% {
+        transform: translateY(0);
+    }
+
+    80% {
+        transform: translateY(3px);
+    }
+
+    90% {
+        transform: translateY(0);
+    }
+}
+
+/* --- The way out: a pixel dissolve -----------------------------------------
+   A full-screen canvas, sized and drawn only after the arrow is pressed.
+   main.js owns the animation: it fades the pixel field in, then eases each
+   cell's alpha away on a diagonal wave. Canvas rather than a few hundred DOM
+   cells because this has to be frame-rate smooth — one surface and one rAF
+   loop instead of hundreds of staggered transitions and composite layers. */
+.boot-unveil {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -844,213 +1098,6 @@ body:not(.booting) .giant-cobby-text {
     }
 }
 
-/* Spotify / live music */
-.spotify-bar-main {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px 10px;
-}
-
-.vinyl-container {
-    flex: none;
-}
-
-.vinyl-disc {
-    position: relative;
-    width: 54px;
-    height: 54px;
-    border-radius: 50%;
-    background:
-        repeating-radial-gradient(circle at 50% 50%, #0d1220 0 2px, #161d31 2px 3px);
-    display: grid;
-    place-items: center;
-    clip-path: none;
-    animation: disc-spin 6.5s linear infinite;
-    animation-play-state: paused;
-}
-
-.vinyl-disc.spinning {
-    animation-play-state: running;
-}
-
-/* Artwork is a courtesy, not a guarantee: Lanyard can hand back a URL that has
-   since expired, and the curated fallback pool ships none at all. With nothing
-   to show, the record gets a blank holographic label instead of a broken-image
-   glyph. Both faces share one grid cell so the swap cannot move anything. */
-.vinyl-disc::before {
-    content: "";
-    grid-area: 1 / 1;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    opacity: 0;
-    background: radial-gradient(circle at 50% 50%,
-            rgba(var(--holo-2-rgb), 0.5) 0%,
-            rgba(var(--holo-1-rgb), 0.2) 56%,
-            rgba(var(--holo-1-rgb), 0.06) 78%,
-            transparent 100%),
-        var(--surface-raised);
-    box-shadow: inset 0 0 0 1px rgba(var(--holo-1-rgb), 0.32);
-    transition: opacity 0.3s ease;
-}
-
-.vinyl-disc.no-art::before {
-    opacity: 1;
-}
-
-.vinyl-cover {
-    grid-area: 1 / 1;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 1px solid rgba(var(--holo-1-rgb), 0.35);
-}
-
-.vinyl-disc.no-art .vinyl-cover {
-    visibility: hidden;
-}
-
-.vinyl-center-hole {
-    position: absolute;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--void-deep);
-    z-index: 2;
-}
-
-@keyframes disc-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-.spotify-bar-content {
-    min-width: 0;
-    flex: 1;
-}
-
-.spotify-bar-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 3px;
-}
-
-.spotify-badge {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-family: var(--mono);
-    font-size: 0.58rem;
-    letter-spacing: 0.13em;
-    color: var(--muted);
-    text-transform: uppercase;
-}
-
-.spotify-green-icon {
-    color: #1ed760;
-    font-size: 0.7rem;
-}
-
-.equalizer-bars {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 11px;
-}
-
-.equalizer-bars span {
-    width: 2px;
-    height: 100%;
-    background: var(--holo-1);
-    transform-origin: bottom;
-    transform: scaleY(0.22);
-}
-
-.equalizer-bars.playing span {
-    animation: eq-bounce 1s ease-in-out infinite;
-}
-
-.equalizer-bars.playing span:nth-child(2) {
-    animation-delay: 0.18s;
-    background: var(--holo-2);
-}
-
-.equalizer-bars.playing span:nth-child(3) {
-    animation-delay: 0.36s;
-}
-
-.equalizer-bars.playing span:nth-child(4) {
-    animation-delay: 0.54s;
-    background: var(--holo-3);
-}
-
-@keyframes eq-bounce {
-
-    0%,
-    100% {
-        transform: scaleY(0.2);
-    }
-
-    50% {
-        transform: scaleY(1);
-    }
-}
-
-.spotify-track-info {
-    min-width: 0;
-}
-
-.track-title {
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 0.94rem;
-    line-height: 1.25;
-    color: var(--text-bright);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.track-artist {
-    font-size: 0.76rem;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.spotify-widget-footer {
-    padding: 0 14px 12px;
-}
-
-.spotify-progress-bar {
-    height: 3px;
-    background: var(--edge);
-    overflow: hidden;
-}
-
-.spotify-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--holo-1), var(--holo-2));
-    transition: width 0.9s linear;
-}
-
-.spotify-time {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 5px;
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.06em;
-    color: var(--faint);
-}
-
 /* -----------------------------------------------------------------------------
    10. Social dock — the exit action, in the first viewport
    -------------------------------------------------------------------------- */
@@ -1176,6 +1223,12 @@ body:not(.booting) .giant-cobby-text {
     object-fit: contain;
 }
 
+/* The HUD face only exists in the desktop orbit, where the link becomes its own
+   chamfered panel. In the bar it is not rendered, so it never joins the grid. */
+.social-face {
+    display: none;
+}
+
 .sl-facebook {
     --brand: #4f9bff;
 }
@@ -1231,12 +1284,386 @@ body:not(.booting) .giant-cobby-text {
 }
 
 /* -----------------------------------------------------------------------------
+   10b. Social orbit — on a pointer device the handles leave the bar
+   The bar is the phone's answer: it is the one thing a stranger has to reach
+   before scrolling, and a horizontal strip is easy to hit with a thumb. On a
+   desktop there is room to scatter the same links around the character, so
+   they read as instruments in its orbit rather than a menu under it. Same
+   markup, same links; only the composition changes above the hero breakpoint.
+   -------------------------------------------------------------------------- */
+@media (min-width: 901px) {
+    .social-dock.hud {
+        position: absolute;
+        inset: 0;
+        z-index: 12;
+        display: block;
+        max-width: none;
+        transform: none;
+        background: none;
+        clip-path: none;
+        isolation: auto;
+        pointer-events: none;
+    }
+
+    /* The dock's own HUD face and brackets would paint across the whole stage
+       once it becomes the orbit layer, so they are removed here; each node
+       carries its own panel instead. */
+    .social-dock.hud::before,
+    .social-dock.hud::after {
+        content: none;
+    }
+
+    .social-dock.hud:hover,
+    .social-dock.hud:focus-within {
+        background: none;
+    }
+
+    /* The bar's caption existed to name a menu. Seven instruments around the
+       character do not need to be told they are links — each one names itself
+       on hover — so on desktop the label is not drawn. */
+    .dock-label {
+        display: none;
+    }
+
+    /* Hand-placed offsets. Every hero element reads an optional --hx / --hy
+       pair (stage percentages, positive right/down) from css/hero-layout.css.
+       The composed position stays the fallback, so a partial or missing layout
+       file still lands everything sensibly. */
+    .hero-giant-bg {
+        left: calc(50% + var(--hx-giant, 0%));
+        top: calc(15% + var(--hy-giant, 0%));
+    }
+
+    .hero-character-stage {
+        left: var(--hx-character, 0%);
+        top: var(--hy-character, 0%);
+    }
+
+    .widget-left {
+        left: var(--hx-terminal, 0%);
+        top: calc(33% + var(--hy-terminal, 0%));
+    }
+
+    .widget-right {
+        right: calc(0% - var(--hx-pod, 0%));
+        bottom: calc(17% - var(--hy-pod, 0%));
+    }
+
+    /* Hand-placed rotation, read from the same layout file. `rotate` is its own
+       property, so it composes with the social drift's `translate` and with the
+       positioning above instead of fighting either. */
+    .hero-giant-bg {
+        rotate: var(--rot-giant, 0deg);
+    }
+
+    .hero-character-png {
+        rotate: var(--rot-character, 0deg);
+    }
+
+    .widget-left {
+        rotate: var(--rot-terminal, 0deg);
+    }
+
+    .widget-right {
+        rotate: var(--rot-pod, 0deg);
+    }
+
+    .scroll-hint {
+        rotate: var(--rot-hint, 0deg);
+    }
+
+    .sl-facebook {
+        --rot: var(--rot-facebook, 0deg);
+        rotate: var(--rot);
+    }
+
+    .sl-x {
+        --rot: var(--rot-twitter, 0deg);
+        rotate: var(--rot);
+    }
+
+    .sl-discord {
+        --rot: var(--rot-discord, 0deg);
+        rotate: var(--rot);
+    }
+
+    .sl-telegram {
+        --rot: var(--rot-telegram, 0deg);
+        rotate: var(--rot);
+    }
+
+    .sl-tiktok {
+        --rot: var(--rot-tiktok, 0deg);
+        rotate: var(--rot);
+    }
+
+    .sl-barq {
+        --rot: var(--rot-barq, 0deg);
+        rotate: var(--rot);
+    }
+
+    .sl-bump {
+        --rot: var(--rot-bump, 0deg);
+        rotate: var(--rot);
+    }
+
+    /* A tilted node should not tilt its tooltip; the label stays readable. */
+    .social-link .social-tip {
+        rotate: calc(-1 * var(--rot, 0deg));
+    }
+
+    /* The orbit hugs the figure, not the stage. The art is a constant width at
+       a given viewport height (its height is the clamp below, and the PNG is
+       very nearly square), while the stage keeps widening — anchoring the
+       nodes to the stage edges is what left them marooned on a large monitor.
+       So every offset is measured from the centre, out past the art's own
+       half-width. */
+    .social-links {
+        --node: 56px;
+        --gap: 30px;
+        --art-h: clamp(380px, 66vh, 720px);
+        --art-half: calc(var(--art-h) * 0.508);
+        position: absolute;
+        inset: 0;
+        display: block;
+        overflow: visible;
+    }
+
+    .social-link {
+        --c: 9px;
+        position: absolute;
+        width: 56px;
+        height: 56px;
+        border-right: none;
+        background: none;
+        pointer-events: auto;
+        translate: 0 0;
+        animation: social-drift var(--drift-dur, 6.4s) cubic-bezier(.34, 1.56, .64, 1) var(--drift-delay, 0s) infinite;
+        transition: color 0.25s ease, scale 0.35s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    /* The node is two stacked chamfers: the face carries the 1px edge, its
+       ::before lays the surface inset by 1px. Neither is clipped by the link
+       itself, which is what lets the hover tooltip rise clear of the panel. */
+    .social-face {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: var(--edge);
+        clip-path: polygon(var(--c) 0,
+                100% 0,
+                100% calc(100% - var(--c)),
+                calc(100% - var(--c)) 100%,
+                0 100%,
+                0 var(--c));
+        transition: background-color 0.25s ease;
+    }
+
+    .social-face::before {
+        content: "";
+        position: absolute;
+        inset: 1px;
+        background: var(--surface);
+        clip-path: polygon(var(--c) 0,
+                100% 0,
+                100% calc(100% - var(--c)),
+                calc(100% - var(--c)) 100%,
+                0 100%,
+                0 var(--c));
+        transition: background-color 0.25s ease;
+    }
+
+    .social-link > i,
+    .social-link > svg,
+    .social-link > img {
+        position: relative;
+        z-index: 1;
+        animation: social-glyph-bob 4.4s ease-in-out var(--drift-delay, 0s) infinite;
+        transition: scale 0.3s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    .social-link:hover > i,
+    .social-link:hover > svg,
+    .social-link:hover > img,
+    .social-link:focus-visible > i,
+    .social-link:focus-visible > svg,
+    .social-link:focus-visible > img {
+        scale: 1.12;
+    }
+
+    .social-link:hover,
+    .social-link:focus-visible {
+        color: var(--brand, var(--holo-1));
+        background: none;
+        scale: 1.1;
+        animation-play-state: paused;
+    }
+
+    .social-link:hover .social-face,
+    .social-link:focus-visible .social-face {
+        background: var(--brand, var(--holo-1));
+    }
+
+    .social-link:hover .social-face::before,
+    .social-link:focus-visible .social-face::before {
+        background: var(--surface-raised);
+    }
+
+    /* The global focus ring is clipped away by the chamfer, so focus widens the
+       node's own edge from 1px to 2px and lights it. In this world the edge is
+       the only elevation, so that is the focus affordance too. */
+    .social-link:focus-visible {
+        outline: none;
+    }
+
+    .social-link:focus-visible .social-face {
+        background: var(--holo-1);
+    }
+
+    .social-link:focus-visible .social-face::before {
+        inset: 2px;
+        background: var(--surface-raised);
+    }
+
+    /* The bar's hairline and travelling band have no meaning on a standalone
+       node; hover is carried by the brand edge and the face instead. */
+    .social-link::before,
+    .social-link::after {
+        content: none;
+    }
+
+    /* Scatter around the figure. The side nodes are measured from the centre
+       out past the art's own half-width, so they sit a fixed 30px off the
+       silhouette instead of drifting toward the stage edges on a wide screen.
+       Vertically they thread the gaps the instruments leave: the left column
+       runs below the terminal panel, the right column above the pod. The top
+       pair keeps to the stage corners, because the COBBY letterforms are wider
+       than the art and would run underneath it anywhere else. */
+    /* All seven ride the same offset from the figure, so the ring is one shape
+       around the art instead of two corner markers plus a column.
+
+       Vertically the values come from the stage's own geometry: the word's
+       baseline sits at ~38% and the terminal panel's band runs ~33–52% at the
+       narrow end of this breakpoint, so the left column starts below both. */
+    .sl-facebook {
+        top: calc(58% + var(--hy-facebook, 0%));
+        left: calc(50% - var(--art-half) - var(--gap) - var(--node) + var(--hx-facebook, 0%));
+        --drift-dur: 6.4s;
+        --drift-delay: -1.1s;
+        --dx: 5px;
+        --dy: -9px;
+    }
+
+    .sl-x {
+        top: calc(40% + var(--hy-twitter, 0%));
+        right: calc(50% - var(--art-half) - var(--gap) - var(--node) - var(--hx-twitter, 0%));
+        --drift-dur: 5.9s;
+        --drift-delay: -2.2s;
+        --dx: -5px;
+        --dy: -7px;
+    }
+
+    .sl-discord {
+        top: calc(52% + var(--hy-discord, 0%));
+        right: calc(50% - var(--art-half) - var(--gap) - var(--node) - var(--hx-discord, 0%));
+        --drift-dur: 6.8s;
+        --drift-delay: -0.5s;
+        --dx: -4px;
+        --dy: 8px;
+    }
+
+    .sl-telegram {
+        top: calc(66% + var(--hy-telegram, 0%));
+        right: calc(50% - var(--art-half) - var(--gap) - var(--node) - var(--hx-telegram, 0%));
+        --drift-dur: 6.1s;
+        --drift-delay: -3s;
+        --dx: -6px;
+        --dy: -6px;
+    }
+
+    /* Bump Maps drops below the pod. On the right of the figure, the pod is the
+       one instrument that reaches out to the art's edge, so this node is the
+       one that cannot use the shared row — it sits under the pod's corner. */
+    .sl-bump {
+        top: calc(88% + var(--hy-bump, 0%));
+        right: calc(50% - var(--art-half) - var(--gap) - var(--node) - var(--hx-bump, 0%));
+        --drift-dur: 6s;
+        --drift-delay: -2.4s;
+        --dx: -4px;
+        --dy: 9px;
+    }
+
+    .sl-tiktok {
+        top: calc(74% + var(--hy-tiktok, 0%));
+        left: calc(50% - var(--art-half) - var(--gap) - var(--node) + var(--hx-tiktok, 0%));
+        --drift-dur: 6.6s;
+        --drift-delay: -0.8s;
+        --dx: 6px;
+        --dy: 6px;
+    }
+
+    .sl-barq {
+        top: calc(90% + var(--hy-barq, 0%));
+        left: calc(50% - var(--art-half) - var(--gap) - var(--node) + var(--hx-barq, 0%));
+        --drift-dur: 6.5s;
+        --drift-delay: -1.6s;
+        --dx: 5px;
+        --dy: 7px;
+    }
+}
+
+@keyframes social-drift {
+
+    0%,
+    100% {
+        translate: 0 0;
+    }
+
+    50% {
+        translate: var(--dx, 0px) var(--dy, -8px);
+    }
+}
+
+/* The glyph does its own little cartoon bob inside the node: a tilt one way,
+   a dip, a smaller counter-tilt. The node's drift and this run on different
+   properties, so the two never cancel each other. */
+@keyframes social-glyph-bob {
+
+    0%,
+    100% {
+        translate: 0 0;
+        rotate: 0deg;
+    }
+
+    22% {
+        translate: 0 -3px;
+        rotate: -7deg;
+    }
+
+    43% {
+        translate: 0 1px;
+        rotate: 3deg;
+    }
+
+    62% {
+        translate: 0 -2px;
+        rotate: -3.5deg;
+    }
+
+    81% {
+        translate: 0 0.5px;
+        rotate: 1.5deg;
+    }
+}
+
+/* -----------------------------------------------------------------------------
    11. Scroll hint
    -------------------------------------------------------------------------- */
 .scroll-hint {
     position: absolute;
-    bottom: 18px;
-    left: 50%;
+    bottom: calc(18px - var(--hy-hint, 0%));
+    left: calc(50% + var(--hx-hint, 0%));
     transform: translateX(-50%);
     z-index: 4;
     color: var(--faint);
@@ -1262,6 +1689,102 @@ body:not(.booting) .giant-cobby-text {
     50% {
         transform: translateY(7px);
         opacity: 0.95;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+   11b. Hero float — idle drift and pointer parallax
+
+   Two motion layers that never fight each other: the idle bob animates
+   `translate`, the pointer response is a `transform` fed by --mx / --my set on
+   <html>, and a saved rotation stays on the `rotate` property. Composing three
+   separate properties is what lets a node bob, lean with the cursor, and keep
+   its hand-placed tilt all at once.
+
+   The pointer transform is scoped to html.hero-pointer, a class
+   js/hero-motion.js adds only while the cursor layer is running, so a touch
+   device, a reduced-motion visitor and a low tier never pay for the composited
+   layers. Without the class the base centring transforms below are untouched.
+   -------------------------------------------------------------------------- */
+@media (min-width: 901px) {
+    .hero-giant-bg {
+        --par-x: -5px;
+        --par-y: -4px;
+        --bob-x: 3px;
+        --bob-y: -4px;
+        animation: hero-bob 8s ease-in-out infinite -1s;
+    }
+
+    .hero-character-stage {
+        --par-x: 7px;
+        --par-y: 5px;
+        --bob-x: 2px;
+        --bob-y: -5px;
+        animation: hero-bob 7.2s ease-in-out infinite -2.4s;
+    }
+
+    .widget-left {
+        --par-x: 12px;
+        --par-y: 9px;
+        --bob-x: 2px;
+        --bob-y: -3px;
+        animation: hero-bob 9s ease-in-out infinite -0.6s;
+    }
+
+    .widget-right {
+        --par-x: 10px;
+        --par-y: 8px;
+        --bob-x: -2px;
+        --bob-y: -4px;
+        animation: hero-bob 8.4s ease-in-out infinite -3.2s;
+    }
+
+    /* The nodes already carry the social-drift loop, so the pointer only adds
+       depth on `transform`; their idle motion stays the existing keyframes. */
+    .social-link {
+        --par-x: 9px;
+        --par-y: 7px;
+    }
+
+    .scroll-hint {
+        --par-x: 3px;
+        --par-y: 2px;
+        --bob-x: 0px;
+        --bob-y: -3px;
+        animation: hero-bob 6s ease-in-out infinite -1.5s;
+    }
+
+    html.hero-pointer .hero-giant-bg {
+        transform: translate(-50%, -50%) translate3d(calc(var(--mx, 0) * var(--par-x)), calc(var(--my, 0) * var(--par-y)), 0);
+    }
+
+    html.hero-pointer .hero-character-stage {
+        transform: translate3d(calc(var(--mx, 0) * var(--par-x)), calc(var(--my, 0) * var(--par-y)), 0);
+    }
+
+    html.hero-pointer .widget-left,
+    html.hero-pointer .widget-right {
+        transform: translate3d(calc(var(--mx, 0) * var(--par-x)), calc(var(--my, 0) * var(--par-y)), 0);
+    }
+
+    html.hero-pointer .social-link {
+        transform: translate3d(calc(var(--mx, 0) * var(--par-x)), calc(var(--my, 0) * var(--par-y)), 0);
+    }
+
+    html.hero-pointer .scroll-hint {
+        transform: translateX(-50%) translate3d(calc(var(--mx, 0) * var(--par-x)), calc(var(--my, 0) * var(--par-y)), 0);
+    }
+}
+
+@keyframes hero-bob {
+
+    0%,
+    100% {
+        translate: 0 0;
+    }
+
+    50% {
+        translate: var(--bob-x, 0px) var(--bob-y, -3px);
     }
 }
 
@@ -1919,22 +2442,15 @@ body.lang-vi [lang="en"] {
 /* Rim glow that hugs the silhouette: the canvas is transparent around the
    model, so drop-shadow traces its outline.
 
-   `display: block` is load-bearing and was missing. Until someone taps the gate
-   this is an un-upgraded custom element, and an unknown element is `display:
-   inline` — with `width/height: 100%` doing nothing on an inline box, the panel
-   would collapse to nothing. As a block it keeps the panel's shape whether or
-   not the model-viewer module has ever loaded. */
+   `display: block` is load-bearing and must stay. model-viewer is a custom
+   element, and before its module upgrades it an unknown element is
+   `display: inline` — with `width/height: 100%` doing nothing on an inline
+   box, the panel would collapse to nothing until the module arrives. */
 .refsheet-model-viewer {
     display: block;
     width: 100%;
     height: 100%;
     --poster-color: transparent;
-}
-
-/* The rim glow is a filter over a live WebGL canvas. There is no canvas to
-   trace until the gate has been pressed, so there is nothing for it to cost and
-   nothing for it to do — it only applies once the model exists. */
-.refsheet-model-panel.is-loaded .refsheet-model-viewer {
     filter:
         drop-shadow(0 0 6px rgba(var(--holo-1-rgb), 0.55))
         drop-shadow(0 0 22px rgba(var(--holo-1-rgb), 0.3));
@@ -1953,27 +2469,6 @@ body.lang-vi [lang="en"] {
 
     .refsheet-model-panel {
         max-width: 66%;
-    }
-
-    /* The panel is narrower here and the gate has to keep clear of both the
-       sheet's edge and the A/B bubbles stacked off the outer side, so it drops
-       to a single compact row. The note stays — it is the honest half. */
-    .model3d-gate {
-        gap: 7px;
-        padding: 8px 11px;
-        font-size: 0.62rem;
-        letter-spacing: 0.1em;
-    }
-
-    .model3d-gate-icon {
-        width: 19px;
-        height: 19px;
-        font-size: 0.58rem;
-    }
-
-    .model3d-gate-note {
-        padding-left: 7px;
-        font-size: 0.55rem;
     }
 
     .refsheet-name .char-name {
@@ -2149,28 +2644,6 @@ body.lang-vi [lang="en"] {
     }
 }
 
-/* On the narrowest phones the panel is only a third of the screen wide and the
-   gate would crowd the bubbles. It loses its icon and keeps the two things that
-   matter: what it does and how much it costs. */
-@media (max-width: 460px) {
-    .model3d-gate {
-        bottom: 8%;
-        gap: 0;
-        padding: 8px 10px;
-        font-size: 0.58rem;
-        letter-spacing: 0.06em;
-    }
-
-    .model3d-gate-icon {
-        display: none;
-    }
-
-    .model3d-gate-note {
-        padding-left: 6px;
-        font-size: 0.52rem;
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .variant-bubble,
     .refsheet-model-panel.is-swapping::before {
@@ -2261,112 +2734,6 @@ body.lang-vi [lang="en"] {
     letter-spacing: 0.2em;
     text-transform: lowercase;
     margin: 0;
-}
-
-/* --- The 3D gate -------------------------------------------------------------
-   The two models are 9 MB and 6.5 MB of Blender export. They used to be fetched
-   at boot by everyone, including phones that would never scroll this far, and
-   parsing them was the single longest task on the page. Now nothing loads until
-   someone taps this button.
-
-   It has to read as an instrument control, not a call to action: same chamfer
-   as every panel, a hairline edge, mono type, and the holographic gradient only
-   on hover — the same contract every other interactive element on the card
-   keeps. The sizes are printed because that is the honest thing to do when
-   asking someone to spend 9 MB of their data.
-
-   It sits INSIDE `.refsheet-model-panel`, which is `pointer-events: none` so
-   clicks fall through to the reference sheet beneath, so this needs its own
-   `pointer-events: auto`. */
-.model3d-gate {
-    position: absolute;
-    left: 50%;
-    bottom: 12%;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    /* Only the button is interactive, so the centring transform is free. */
-    transform: translateX(-50%);
-    pointer-events: auto;
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.14em;
-    text-transform: lowercase;
-    white-space: nowrap;
-    color: var(--text);
-    background: rgba(8, 11, 22, 0.92);
-    clip-path: polygon(var(--c-sm) 0, 100% 0, 100% calc(100% - var(--c-sm)), calc(100% - var(--c-sm)) 100%, 0 100%, 0 var(--c-sm));
-    cursor: pointer;
-    /* The 1px edge is the same trick as `.hud`: the element's own background is
-       the edge, and an inset face is laid under it through the same clip. Doing
-       it with a border would not follow the chamfer diagonal. */
-    box-shadow: inset 0 0 0 1px var(--edge-lit);
-    transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
-}
-
-.model3d-gate:hover,
-.model3d-gate:focus-visible {
-    color: var(--text-bright);
-    background: rgba(12, 16, 32, 0.96);
-    box-shadow: inset 0 0 0 1px var(--holo-1);
-}
-
-.model3d-gate:focus-visible {
-    outline: 2px solid var(--holo-1);
-    outline-offset: 3px;
-}
-
-.model3d-gate-icon {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 22px;
-    height: 22px;
-    font-size: 0.66rem;
-    color: var(--holo-1);
-    border: 1px solid rgba(var(--holo-1-rgb), 0.4);
-    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
-}
-
-.model3d-gate-label {
-    color: inherit;
-}
-
-.model3d-gate-note {
-    flex: none;
-    padding-left: 9px;
-    font-size: 0.6rem;
-    letter-spacing: 0.1em;
-    color: var(--faint);
-    border-left: 1px solid var(--edge);
-}
-
-/* Once the model is actually coming, the gate is gone and the poster takes over
-   the "loading" duty — one message at a time, never two. */
-.refsheet-model-panel.is-loaded .model3d-gate,
-.refsheet-model-panel.is-loading .model3d-gate {
-    display: none;
-}
-
-/* While the gate is up, model-viewer's own poster slot must stay empty: it also
-   says "loading 3d model…", and two of those stacked on one panel is a bug. The
-   poster only earns its place once the gate has been pressed. */
-.refsheet-model-panel:not(.is-loaded):not(.is-loading) .model3d-poster {
-    display: none;
-}
-
-/* And while the gate is up the viewer must not eat the tap. It is an empty,
-   un-upgraded custom element at that point, but it is also `width/height: 100%`
-   and sits on top of the button's stacking context, so it would swallow clicks
-   aimed at the gate. */
-.refsheet-model-panel:not(.is-loaded) .refsheet-model-viewer {
-    pointer-events: none;
-}
-
-.refsheet-model-panel.is-loaded .refsheet-model-viewer {
-    pointer-events: auto;
 }
 
 /* -----------------------------------------------------------------------------
@@ -3214,6 +3581,7 @@ body.booting .hero-character-stage,
 body.booting .name-char,
 body.booting .ios-widget,
 body.booting .social-dock,
+body.booting .social-link,
 body.booting .scroll-hint,
 body.booting .emitter {
     opacity: 0;
@@ -3482,10 +3850,6 @@ html:has(body.booting) {
         min-width: 42px;
     }
 
-    .spotify-bar-main {
-        padding: 11px 12px 9px;
-    }
-
     .hero-character-png {
         max-width: 94%;
     }
@@ -3522,13 +3886,6 @@ html:has(body.booting) {
         display: none;
     }
 
-    /* The gate's hover is a colour change, not a movement, but its focus ring
-       is the one thing that must still be obvious when it is the only control
-       in the panel. */
-    .model3d-gate {
-        transition: none;
-    }
-
     .giant-cobby-text {
         --aberr: 0.02em;
     }
@@ -3539,6 +3896,7 @@ html:has(body.booting) {
     body.booting .name-char,
     body.booting .ios-widget,
     body.booting .social-dock,
+    body.booting .social-link,
     body.booting .scroll-hint,
     body.booting .emitter {
         opacity: 1 !important;
