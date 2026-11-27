@@ -1,24 +1,27 @@
 /* =============================================================================
-   THE SHELF — js/gaming.js
+   THE FLOATING SHELF — js/gaming.js
 
-   Five games, five objects.
+   Twenty-seven titles, split in two. The five real accounts are flat badges in
+   a rack (logo, big game name, username, copy key). The other twenty-two are
+   Steam games in a floating field: each is a landscape poster — the game's own
+   art, a dark fade up from the foot, and the game's name on that fade. No
+   rank, no serial, no platform code, no flavour line and no flip: a card is
+   the game and its name, nothing else.
 
-   The old tab was a list of account rows, which is a database view of a
-   person. This is the same information on the back of a card you have to
-   pick up first: the front is the game, the back is the handle. Everything
-   that makes it feel physical — the tilt, the foil catching light, the flip —
-   is motion the visitor causes, not ambience that runs at them.
+   Everything that makes the field feel physical — the drift, the tilt — is
+   slow and quiet, and the drift stops the moment you reach for a card.
 
    The order below is the order the comment in index.html promises:
-     the deck (real data) → the render → the light → the flip → the copy →
-     the reveal → the pong nudge.
+     the slots → the deck (real data) → the render → the light → the copy →
+     the reveal.
    ========================================================================== */
 (() => {
     'use strict';
 
-    const deck = document.getElementById('shelf-deck');
+    const deck = document.getElementById('game-deck');
+    const handleDeck = document.getElementById('handle-deck');
     const panel = document.getElementById('tab-gaming');
-    if (!deck || !panel) return;
+    if (!deck || !handleDeck || !panel) return;
 
     const perf = window.CobbyPerf;
     const reducedMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -48,6 +51,10 @@
        refusal or a Roblox outage degrades to a card that still looks finished
        rather than to a hole in the shelf. */
     const STEAM_CDN = 'https://cdn.cloudflare.steamstatic.com/steam/apps/';
+    /* Every extra card is a real Steam store page, so its capsule (460x215) is
+       a real, stable image and the card can be printed in `banner` mode. No
+       screenshot or wallpaper is invented. */
+    const steamHeader = (appId) => STEAM_CDN + appId + '/header.jpg';
     const DDRAGON = 'https://ddragon.leagueoflegends.com/';
     const LOL_VERSION_FALLBACK = '16.22.1';       /* newest on the CDN today */
     const VALORANT_AGENTS = 'https://valorant-api.com/v1/agents?isPlayableCharacter=true';
@@ -70,6 +77,21 @@
         roblox: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-F836D0ED3EFE30016C09B58BACF1F316-Png'
             + '/420/420/AvatarHeadshot/Png/noFilter',
         steam: STEAM_CDN + '753/header.jpg'                         /* 460x215, 200 OK */
+    };
+
+    /* The badge mark: the game's own wordmark, not a screenshot of it. Each
+       URL was loaded in a browser and measured before it was written here, and
+       each one is the publisher's own logo — VRChat's Steam logo plate, Riot's
+       League wordmark, Riot's pink VALORANT wordmark, Roblox's 2017 wordmark and
+       the Steam mark. They are marks, so they are drawn at their own aspect
+       ratio on the badge rather than cropped to a tile. */
+    const WM = 'https://upload.wikimedia.org/wikipedia/commons/';
+    const LOGO = {
+        vrchat: STEAM_CDN + '438100/logo.png',                      /* 640x360, 200 OK */
+        league: WM + 'd/d8/League_of_Legends_2019_vector.svg',       /* 600x229, gold */
+        valorant: WM + 'f/fc/Valorant_logo_-_pink_color_version.svg',/* 580x396, #ff4655 */
+        roblox: WM + '5/5c/Roblox_logo_2017.svg',                    /* 300x52, #e2231a */
+        steam: WM + '8/83/Steam_icon_logo.svg'                       /* 65x65 */
     };
 
     /* -----------------------------------------------------------------------
@@ -107,7 +129,8 @@
                 en: 'if you see a big fluffy protogen staring at the mirror, that\'s me. wave first — i get shy~',
                 vi: 'nếu bạn thấy một bé protogen lông xù đứng ngắm gương, đó là mình á. vẫy tay trước nha, mình ngại~'
             },
-            art: { src: ART.vrchat, mode: 'banner' }
+            art: { src: ART.vrchat, mode: 'banner' },
+            logo: { src: LOGO.vrchat, wide: false }
         },
         {
             id: 'league',
@@ -126,6 +149,7 @@
             /* The loading-screen card, 308x560 — Riot's own portrait crop of the
                splash, which is exactly the shape of the card this is printed on. */
             art: { src: ART.league, mode: 'cover' },
+            logo: { src: LOGO.league, wide: true },
             sigil: { src: ART.leagueSigil, label: 'Warwick' }
         },
         {
@@ -143,6 +167,7 @@
                 vi: 'mình không giỏi, nhưng mình hét to. hai cái đó khác nhau nha, mình kiểm tra rồi.'
             },
             art: { src: ART.valorant, mode: 'niche', tint: 'magenta' },
+            logo: { src: LOGO.valorant, wide: true },
             role: 'Initiator'
         },
         {
@@ -161,6 +186,7 @@
                 vi: 'mở tài khoản này hồi còn là sói con. tới giờ vẫn đi lạc mấy map đó.'
             },
             art: { src: ART.roblox, mode: 'niche', tint: 'cyan' },
+            logo: { src: LOGO.roblox, wide: true },
             since: 2017
         },
         {
@@ -178,14 +204,394 @@
                 vi: 'cái backlog của mình giống nhà ma á. vô đi, trong này ấm lắm.'
             },
             art: { src: ART.steam, mode: 'banner' },
+            logo: { src: LOGO.steam, wide: false },
             /* This one is a place, not an account: copying the handle alone
                would be useless, so the copy key takes the whole address. */
             copyValue: 'https://steamcommunity.com/id/BasicallyJacob/',
             link: 'https://steamcommunity.com/id/BasicallyJacob/'
+        },
+        {
+            id: 'cs2',
+            name: { en: 'Counter-Strike 2', vi: 'Counter-Strike 2' },
+            platform: 'steam // 730',
+            rank: 'regular',
+            rankLabel: { en: 'regular', vi: 'thường xuyên' },
+            sub: { en: 'tactical shooter · clutch or cry', vi: 'bắn súng chiến thuật · gánh hoặc khóc' },
+            flavour: { en: 'five rounds of silence, then shouting.', vi: 'năm hiệp im lặng, rồi hét.' },
+            voice: {
+                en: 'i am the one who says "one more" after losing nine in a row.',
+                vi: 'mình là đứa nói "thêm ván nữa" sau khi thua chín ván liền.'
+            },
+            note: { en: 'no handle — my crosshair placement is a secret.', vi: 'không có tài khoản — chỗ đặt tâm của mình là bí mật.' },
+            art: { src: steamHeader('730'), mode: 'banner' }
+        },
+        {
+            id: 'l4d2',
+            name: { en: 'Left 4 Dead 2', vi: 'Left 4 Dead 2' },
+            platform: 'steam // 550',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'co-op shooter · the comfort horde', vi: 'bắn súng co-op · bầy zombie quen thuộc' },
+            flavour: { en: 'four survivors, one witch, no plan.', vi: 'bốn người sống sót, một con witch, không kế hoạch.' },
+            voice: {
+                en: 'i still flinch at the witch. i still run at her anyway.',
+                vi: 'mình vẫn giật mình vì con witch. mà vẫn lao vào nó.'
+            },
+            note: { en: 'no handle — the survivors don\'t need my name.', vi: 'không có tài khoản — mấy người sống sót đâu cần tên mình.' },
+            art: { src: steamHeader('550'), mode: 'banner' }
+        },
+        {
+            id: 'repo',
+            name: { en: 'R.E.P.O', vi: 'R.E.P.O' },
+            platform: 'steam // 3241660',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'co-op horror · carry the fragile thing', vi: 'kinh dị co-op · khiêng món đồ mong manh' },
+            flavour: { en: 'do not drop the vase. do not drop the vase.', vi: 'đừng làm rơi cái bình. đừng làm rơi cái bình.' },
+            voice: {
+                en: 'i am the one who drops the vase. i am very sorry.',
+                vi: 'mình là đứa làm rơi cái bình. mình xin lỗi nhiều lắm.'
+            },
+            note: { en: 'no handle — the quota is the only boss here.', vi: 'không có tài khoản — chỉ tiêu là ông chủ duy nhất ở đây.' },
+            art: { src: steamHeader('3241660'), mode: 'banner' }
+        },
+        {
+            id: 'peak',
+            name: { en: 'PEAK', vi: 'PEAK' },
+            platform: 'steam // 3527290',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'co-op climbing · everything is a handhold', vi: 'leo núi co-op · chỗ nào cũng bám được' },
+            flavour: { en: 'climb badly, together.', vi: 'leo dở, nhưng leo cùng nhau.' },
+            voice: {
+                en: 'i fall, i laugh, i fall again. that is the whole loop and i love it.',
+                vi: 'mình té, mình cười, rồi té tiếp. vòng lặp đó mà mình mê.'
+            },
+            note: { en: 'no handle — my climbing partner knows who i am.', vi: 'không có tài khoản — bạn leo cùng mình biết mình là ai rồi.' },
+            /* Newer store assets live on the shared host, not the old CDN. */
+            art: {
+                src: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3527290/31bac6b2eccf09b368f5e95ce510bae2baf3cfcd/header.jpg?t=1792684718',
+                mode: 'banner'
+            }
+        },
+        {
+            id: 'phasmophobia',
+            name: { en: 'Phasmophobia', vi: 'Phasmophobia' },
+            platform: 'steam // 739630',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'co-op horror · ghost tour', vi: 'kinh dị co-op · tour ma' },
+            flavour: { en: 'please respond, ghost.', vi: 'trả lời đi mà, ma ơi.' },
+            voice: {
+                en: 'i scream first and investigate later. sorry to whoever is in voice chat.',
+                vi: 'mình hét trước rồi mới điều tra sau. xin lỗi ai đang ở trong voice chat.'
+            },
+            note: { en: 'no handle — the ghost doesn\'t need my username.', vi: 'không có tài khoản — con ma đâu cần tên của mình.' },
+            art: { src: steamHeader('739630'), mode: 'banner' }
+        },
+        {
+            id: 'lethal',
+            name: { en: 'Lethal Company', vi: 'Lethal Company' },
+            platform: 'steam // 1966720',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'co-op horror · quota day', vi: 'kinh dị co-op · ngày chỉ tiêu' },
+            flavour: { en: 'the company is always watching.', vi: 'công ty luôn dõi theo.' },
+            voice: {
+                en: 'i am the one who runs back for the shiny thing. i am not invited back.',
+                vi: 'mình là đứa chạy lại lấy món đồ bóng loáng. mình không được rủ lại.'
+            },
+            note: { en: 'no handle — the quota knows who i am.', vi: 'không có tài khoản — chỉ tiêu biết mình là ai.' },
+            art: { src: steamHeader('1966720'), mode: 'banner' }
+        },
+        {
+            id: 'division2',
+            name: { en: 'The Division 2', vi: 'The Division 2' },
+            platform: 'steam // 2221490',
+            rank: 'library',
+            rankLabel: { en: 'library', vi: 'thư viện' },
+            sub: { en: 'looter shooter · washington, after', vi: 'bắn súng nhặt đồ · washington, sau đó' },
+            flavour: { en: 'a city in pieces, a backpack full of loot.', vi: 'thành phố vỡ vụn, ba lô đầy đồ nhặt.' },
+            voice: {
+                en: 'i spend more time in the inventory than in the actual apocalypse.',
+                vi: 'mình dành nhiều thời gian trong túi đồ hơn là trong ngày tận thế thật sự.'
+            },
+            note: { en: 'no handle — my agent works alone.', vi: 'không có tài khoản — đặc vụ của mình làm việc một mình.' },
+            art: { src: steamHeader('2221490'), mode: 'banner' }
+        },
+        {
+            id: 'satisfactory',
+            name: { en: 'Satisfactory', vi: 'Satisfactory' },
+            platform: 'steam // 526870',
+            rank: 'regular',
+            rankLabel: { en: 'regular', vi: 'thường xuyên' },
+            sub: { en: 'factory builder · the conveyor must flow', vi: 'xây nhà máy · băng tải phải chạy' },
+            flavour: { en: 'the factory grows. i do not sleep.', vi: 'nhà máy lớn lên. mình thì không ngủ.' },
+            voice: {
+                en: 'i say the factory is finished. the factory is never finished.',
+                vi: 'mình nói nhà máy xong rồi. nhà máy không bao giờ xong.'
+            },
+            note: { en: 'no handle — the factory does not need a username.', vi: 'không có tài khoản — nhà máy đâu cần tên người dùng.' },
+            art: { src: steamHeader('526870'), mode: 'banner' }
+        },
+        {
+            id: 'rhythmdoctor',
+            name: { en: 'Rhythm Doctor', vi: 'Rhythm Doctor' },
+            platform: 'steam // 774181',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'rhythm · press on the seventh beat', vi: 'nhịp điệu · bấm vào nhịp thứ bảy' },
+            flavour: { en: 'one button. seven beats. no mercy.', vi: 'một nút. bảy nhịp. không thương tiếc.' },
+            voice: {
+                en: 'i have heard this song two hundred times and i still miss the seventh beat.',
+                vi: 'mình nghe bài này hai trăm lần rồi mà vẫn trượt nhịp thứ bảy.'
+            },
+            note: { en: 'no handle — the beat does not care who i am.', vi: 'không có tài khoản — nhịp điệu đâu cần biết mình là ai.' },
+            art: { src: steamHeader('774181'), mode: 'banner' }
+        },
+        {
+            id: 'terraria',
+            name: { en: 'Terraria', vi: 'Terraria' },
+            platform: 'steam // 105600',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'sandbox · dig forever', vi: 'sandbox · đào mãi' },
+            flavour: { en: 'a whole world, one pickaxe.', vi: 'cả một thế giới, một cái cuốc.' },
+            voice: {
+                en: 'i build a pretty house and then the corruption eats it. every single time.',
+                vi: 'mình xây một căn nhà xinh rồi bị ăn mòn nuốt mất. lần nào cũng vậy.'
+            },
+            note: { en: 'no public handle — the world is between me and the dirt.', vi: 'không để tài khoản — thế giới này chỉ giữa mình và đất.' },
+            art: { src: steamHeader('105600'), mode: 'banner' }
+        },
+        {
+            id: 'adofai',
+            name: { en: 'A Dance of Fire and Ice', vi: 'A Dance of Fire and Ice' },
+            platform: 'steam // 977950',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'rhythm · two planets, one orbit', vi: 'nhịp điệu · hai hành tinh, một quỹ đạo' },
+            flavour: { en: 'keep the orbit. do not blink.', vi: 'giữ quỹ đạo. đừng chớp mắt.' },
+            voice: {
+                en: 'it looks so calm and then my hands forget how to move.',
+                vi: 'nó nhìn bình yên vậy mà tay mình quên mất cách cử động.'
+            },
+            note: { en: 'no handle — this one is just me and the planets.', vi: 'không có tài khoản — cái này chỉ có mình và mấy hành tinh.' },
+            art: { src: steamHeader('977950'), mode: 'banner' }
+        },
+        {
+            id: 'gunfire',
+            name: { en: 'Gunfire Reborn', vi: 'Gunfire Reborn' },
+            platform: 'steam // 1217060',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'roguelite shooter · one more scroll', vi: 'bắn súng roguelite · thêm một cuộn bí kíp' },
+            flavour: { en: 'a cat with a gun. that is the pitch.', vi: 'một bé mèo cầm súng. vậy là đủ.' },
+            voice: {
+                en: 'i play the bird because he looks confused. same, little guy.',
+                vi: 'mình chơi bé chim vì nó trông ngơ ngác. giống mình ghê, bé ơi.'
+            },
+            note: { en: 'no handle — my cat does not need a username.', vi: 'không có tài khoản — bé mèo của mình đâu cần tên người dùng.' },
+            art: { src: steamHeader('1217060'), mode: 'banner' }
+        },
+        {
+            id: 'drg',
+            name: { en: 'Deep Rock Galactic', vi: 'Deep Rock Galactic' },
+            platform: 'steam // 548430',
+            rank: 'regular',
+            rankLabel: { en: 'regular', vi: 'thường xuyên' },
+            sub: { en: 'co-op mining · rock and stone', vi: 'đào mỏ co-op · đá và đá' },
+            flavour: { en: 'rock and stone, or you ain\'t coming home.', vi: 'rock and stone, không thì đừng về nhà.' },
+            voice: {
+                en: 'i press V every ten seconds. it is a reflex now.',
+                vi: 'mười giây mình bấm V một lần. thành phản xạ rồi.'
+            },
+            note: { en: 'no handle — the dwarves already know my voice.', vi: 'không có tài khoản — mấy chú lùn nhận ra giọng mình rồi.' },
+            art: { src: steamHeader('548430'), mode: 'banner' }
+        },
+        {
+            id: 'meccachameleon',
+            name: { en: 'MECCHA CHAMELEON', vi: 'MECCHA CHAMELEON' },
+            platform: 'steam // 4704690',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'hide and seek · blend into the paint', vi: 'trốn tìm · hòa vào lớp sơn' },
+            flavour: { en: 'become the wall. be the wall.', vi: 'hóa thành bức tường. làm bức tường đi.' },
+            voice: {
+                en: 'i am a very convincing lamp. nobody has found me yet. it is lonely.',
+                vi: 'mình là một cái đèn rất thuyết phục. chưa ai tìm ra mình. hơi cô đơn.'
+            },
+            note: { en: 'no handle — you have to find me first.', vi: 'không có tài khoản — tìm ra mình trước đã.' },
+            art: {
+                src: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4704690/163e2a742e5fb8e1f5d1e3a890da98f04ab809d4/header.jpg?t=1789464996',
+                mode: 'banner'
+            }
+        },
+        {
+            id: 'musedash',
+            name: { en: 'Muse Dash', vi: 'Muse Dash' },
+            platform: 'steam // 774171',
+            rank: 'regular',
+            rankLabel: { en: 'regular', vi: 'thường xuyên' },
+            sub: { en: 'rhythm · run, jump, tap', vi: 'nhịp điệu · chạy, nhảy, bấm' },
+            flavour: { en: 'pastel colours, brutal timing.', vi: 'màu pastel, canh nhịp tàn nhẫn.' },
+            voice: {
+                en: 'it is so cute that i forget it is also extremely hard.',
+                vi: 'nó dễ thương tới mức mình quên mất nó cũng cực kỳ khó.'
+            },
+            note: { en: 'no handle — the girls do not need my name.', vi: 'không có tài khoản — mấy bé gái đâu cần tên mình.' },
+            art: { src: steamHeader('774171'), mode: 'banner' }
+        },
+        {
+            id: 'superanimalroyale',
+            name: { en: 'Super Animal Royale', vi: 'Super Animal Royale' },
+            platform: 'steam // 843380',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'battle royale · tiny animals, big guns', vi: 'battle royale · thú nhỏ, súng to' },
+            flavour: { en: 'a fox with a rifle. i am the fox.', vi: 'một bé cáo cầm súng. mình là bé cáo đó.' },
+            voice: {
+                en: 'i hide in a bush the entire match and i am not ashamed.',
+                vi: 'mình trốn trong bụi cả ván và mình không thấy xấu hổ.'
+            },
+            note: { en: 'no handle — the bush is my address.', vi: 'không có tài khoản — bụi cây là địa chỉ của mình.' },
+            art: { src: steamHeader('843380'), mode: 'banner' }
+        },
+        {
+            id: 'amongus',
+            name: { en: 'Among Us', vi: 'Among Us' },
+            platform: 'steam // 945360',
+            rank: 'library',
+            rankLabel: { en: 'library', vi: 'thư viện' },
+            sub: { en: 'social deduction · trust nobody', vi: 'suy luận xã hội · đừng tin ai' },
+            flavour: { en: 'i was in electrical. i swear.', vi: 'mình ở phòng điện mà. mình thề.' },
+            voice: {
+                en: 'i am a terrible liar and an even worse crewmate.',
+                vi: 'mình nói dối dở lắm mà làm crewmate còn dở hơn.'
+            },
+            note: { en: 'no handle — the impostor does not need my name.', vi: 'không có tài khoản — kẻ giả mạo đâu cần tên mình.' },
+            art: { src: steamHeader('945360'), mode: 'banner' }
+        },
+        {
+            id: 'devour',
+            name: { en: 'DEVOUR', vi: 'DEVOUR' },
+            platform: 'steam // 1274570',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'co-op horror · burn the goats', vi: 'kinh dị co-op · đốt mấy con dê' },
+            flavour: { en: 'do not look at her. do not look.', vi: 'đừng nhìn bà ta. đừng nhìn.' },
+            voice: {
+                en: 'i carry the fuel. i also scream the whole time.',
+                vi: 'mình cầm bình xăng. mà mình cũng hét suốt.'
+            },
+            note: { en: 'no handle — the ritual does not need a username.', vi: 'không có tài khoản — nghi lễ đâu cần tên người dùng.' },
+            art: { src: steamHeader('1274570'), mode: 'banner' }
+        },
+        {
+            id: 'changed',
+            name: { en: 'Changed', vi: 'Changed' },
+            platform: 'steam // 814540',
+            rank: 'library',
+            rankLabel: { en: 'library', vi: 'thư viện' },
+            sub: { en: 'puzzle · escape the facility', vi: 'giải đố · thoát khỏi cơ sở' },
+            flavour: { en: 'a strange place, a stranger body.', vi: 'một nơi lạ, một cơ thể lạ.' },
+            voice: {
+                en: 'i solve the puzzles and then apologise to everyone i meet.',
+                vi: 'mình giải đố xong rồi xin lỗi tất cả những ai mình gặp.'
+            },
+            note: { en: 'no handle — the facility keeps its own records.', vi: 'không có tài khoản — cơ sở tự lưu hồ sơ riêng.' },
+            art: { src: steamHeader('814540'), mode: 'banner' }
+        },
+        {
+            id: 'deadisland2',
+            name: { en: 'Dead Island 2', vi: 'Dead Island 2' },
+            platform: 'steam // 934700',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'zombie action · hello, LA', vi: 'hành động zombie · chào LA' },
+            flavour: { en: 'the apocalypse, but make it sunny.', vi: 'tận thế, nhưng mà nắng đẹp.' },
+            voice: {
+                en: 'i use a fire axe and i am having a lovely time, actually.',
+                vi: 'mình dùng rìu cứu hỏa và thật ra mình đang rất vui.'
+            },
+            note: { en: 'no handle — the zombies do not check usernames.', vi: 'không có tài khoản — zombie đâu có kiểm tra tên người dùng.' },
+            art: { src: steamHeader('934700'), mode: 'banner' }
+        },
+        {
+            id: 'partyanimals',
+            name: { en: 'Party Animals', vi: 'Party Animals' },
+            platform: 'steam // 1260320',
+            rank: 'regular',
+            rankLabel: { en: 'regular', vi: 'thường xuyên' },
+            sub: { en: 'party brawler · floppy physics', vi: 'đánh nhau tiệc tùng · vật lý mềm nhũn' },
+            flavour: { en: 'a puppy with a hammer. chaos.', vi: 'một bé cún cầm búa. hỗn loạn.' },
+            voice: {
+                en: 'i laugh so hard i forget to actually play the game.',
+                vi: 'mình cười tới mức quên chơi game luôn.'
+            },
+            note: { en: 'no handle — you will hear me laughing anyway.', vi: 'không có tài khoản — kiểu gì cũng nghe mình cười.' },
+            art: { src: steamHeader('1260320'), mode: 'banner' }
+        },
+        {
+            id: 'contentwarning',
+            name: { en: 'Content Warning', vi: 'Content Warning' },
+            platform: 'steam // 2881650',
+            rank: 'rotation',
+            rankLabel: { en: 'on rotation', vi: 'xoay vòng' },
+            sub: { en: 'co-op horror · film it or it didn\'t happen', vi: 'kinh dị co-op · quay lại không thì không tính' },
+            flavour: { en: 'views are nice. surviving is nicer.', vi: 'nhiều view thì tốt. sống sót thì tốt hơn.' },
+            voice: {
+                en: 'i hold the camera and narrate. my narration is mostly screaming.',
+                vi: 'mình cầm máy quay và bình luận. bình luận của mình chủ yếu là hét.'
+            },
+            note: { en: 'no handle — the footage is enough.', vi: 'không có tài khoản — có cảnh quay là đủ.' },
+            art: { src: steamHeader('2881650'), mode: 'banner' }
         }
     ];
 
-    const N = DECK.length;
+    /* The five account cards are badged, not floated; the twenty-two Steam
+       games are the floating field. Splitting them here is what lets the two
+       groups have different layouts without either knowing about the other. */
+    const HANDLES = DECK.filter((g) => !!g.handle);
+    const GAMES = DECK.filter((g) => !g.handle);
+
+    /* -----------------------------------------------------------------------
+       The slots — six loose rows for the twenty-two Steam games
+       --------------------------------------------------------------------- */
+    /* x/y/w are percentages of the stage, so the composition survives any
+       desktop width; rot/z/drift are hand-tuned per card so no two neighbours
+       share a line or a speed. The order is the order GAMES is rendered in.
+       Rows run 4 / 4 / 4 / 4 / 3 / 3, which is 22. */
+    const GAME_SLOTS = [
+        /* row 1 — 4 */
+        { x: 1,    y: 0,  w: 21.4, rot: -1.6, z: 6,  dx: 6, dy: -8,  dur: 13, delay: -2 },
+        { x: 24,   y: 1,  w: 20.8, rot: 1.4,  z: 8,  dx: 5, dy: -7,  dur: 15, delay: -5 },
+        { x: 47,   y: 0,  w: 21.6, rot: -1.1, z: 4,  dx: 8, dy: -9,  dur: 12, delay: -1 },
+        { x: 70,   y: 1,  w: 21.2, rot: 1.8,  z: 7,  dx: 6, dy: -6,  dur: 16, delay: -7 },
+        /* row 2 — 4 */
+        { x: 6,    y: 17, w: 21.0, rot: 1.2,  z: 9,  dx: 7, dy: -6,  dur: 12, delay: -4 },
+        { x: 29,   y: 18, w: 21.6, rot: -1.7, z: 3,  dx: 5, dy: -9,  dur: 15, delay: -8 },
+        { x: 52,   y: 17, w: 20.8, rot: 1.0,  z: 10, dx: 9, dy: -7,  dur: 13, delay: -2 },
+        { x: 75,   y: 18, w: 21.4, rot: -1.4, z: 6,  dx: 6, dy: -8,  dur: 16, delay: -6 },
+        /* row 3 — 4 */
+        { x: 1,    y: 34, w: 21.2, rot: -1.3, z: 7,  dx: 7, dy: -9,  dur: 14, delay: -5 },
+        { x: 24,   y: 35, w: 21.6, rot: 1.6,  z: 5,  dx: 5, dy: -7,  dur: 13, delay: -2 },
+        { x: 47,   y: 34, w: 21.0, rot: -1.8, z: 9,  dx: 8, dy: -6,  dur: 16, delay: -9 },
+        { x: 70,   y: 35, w: 21.4, rot: 1.1,  z: 3,  dx: 6, dy: -10, dur: 12, delay: -4 },
+        /* row 4 — 4 */
+        { x: 6,    y: 51, w: 21.6, rot: -1.5, z: 8,  dx: 5, dy: -8,  dur: 15, delay: -7 },
+        { x: 29,   y: 52, w: 20.8, rot: 1.7,  z: 4,  dx: 7, dy: -6,  dur: 11, delay: -3 },
+        { x: 52,   y: 51, w: 21.2, rot: -1.2, z: 10, dx: 5, dy: -9,  dur: 14, delay: -6 },
+        { x: 75,   y: 52, w: 21.4, rot: 1.5,  z: 6,  dx: 8, dy: -7,  dur: 16, delay: -1 },
+        /* row 5 — 3, centred */
+        { x: 14.5, y: 68, w: 21.4, rot: 1.2,  z: 5,  dx: 6, dy: -8,  dur: 13, delay: -8 },
+        { x: 39.5, y: 69, w: 21.0, rot: -1.6, z: 9,  dx: 5, dy: -6,  dur: 15, delay: -4 },
+        { x: 64.5, y: 68, w: 21.6, rot: 1.4,  z: 3,  dx: 7, dy: -10, dur: 12, delay: -2 },
+        /* row 6 — 3, centred */
+        { x: 14.5, y: 85, w: 21.2, rot: -1.4, z: 7,  dx: 6, dy: -7,  dur: 14, delay: -5 },
+        { x: 39.5, y: 86, w: 21.6, rot: 1.3,  z: 4,  dx: 5, dy: -9,  dur: 13, delay: -1 },
+        { x: 64.5, y: 85, w: 20.8, rot: -1.1, z: 8,  dx: 8, dy: -6,  dur: 15, delay: -6 }
+    ];
 
     /* -----------------------------------------------------------------------
        Small helpers
@@ -200,8 +606,6 @@
     const bi = (pair, cls = '') => `<span${cls ? ` class="${cls}"` : ''}>`
         + `<span lang="en">${esc(pair.en)}</span>`
         + `<span lang="vi">${esc(pair.vi)}</span></span>`;
-
-    const pad2 = (n) => String(n).padStart(2, '0');
 
     async function fetchJSON(url, opts, ms = 6500) {
         const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -222,86 +626,66 @@
     /* -----------------------------------------------------------------------
        The render
        --------------------------------------------------------------------- */
-    /* A card is: an outer box (perspective + lift) → a tilt plane → the flip
-       plane → two faces. Three elements, three jobs, because a single element
-       cannot be perspective, spring and flip at once without fighting itself.
+    /* A game card is: an outer box (perspective + lift) → a tilt plane → the
+       picture, a dark fade, and the name. There is no flip plane and no second
+       face, because there is nothing to reveal: the card is the game and its
+       name, and that is the whole object. */
+    function gameMarkup(g, i) {
+        const slot = GAME_SLOTS[i] || {};
 
-       The front is a real <button> rather than a div with role="button": the
-       whole face is the affordance, and a button gets Enter/Space and a focus
-       ring for free. The back cannot live inside it (a button may not contain
-       interactive content), so the back is a sibling with its own controls —
-       which is also why it gets a `inert` toggle instead of pointer-events
-       games. */
-    function faceMarkup(g, i) {
-        const sigil = g.sigil
-            ? `<span class="gc-sigil" data-sigil>
-                 <img alt="" decoding="async" loading="lazy">
-                 <span class="gc-sigil-name">${esc(g.sigil.label)}</span>
-               </span>`
-            : '';
-        const tint = g.art.tint ? ` is-tint-${g.art.tint}` : '';
+        const style = `--x:${slot.x ?? 0}%;--y:${slot.y ?? 0}%;--w:${slot.w ?? 16}%;`
+            + `--rot:${slot.rot ?? 0}deg;--z:${slot.z ?? 1};--dx:${slot.dx ?? 6}px;`
+            + `--dy:${slot.dy ?? -8}px;--dur:${slot.dur ?? 12}s;--delay:${slot.delay ?? 0}s;`
+            /* The sway is derived from the card's resting rotation, so it
+               leans the way the card is already printed; a card at rest at
+               -3deg drifts with a -1deg sway rather than against its tilt. */
+            + `--sway:${((slot.rot ?? 0) / 3).toFixed(2)}deg`;
+
+        /* One picture, one fade, one name. No rank, serial, platform code,
+           flavour line or flip: those were a database view of a game, and this
+           card is meant to be a poster of it. */
         return `
-        <div class="game-card" role="listitem" data-game="${g.id}" data-art-mode="${g.art.mode}" style="--i:${i}">
+        <div class="float-card" role="listitem" data-slot="${i}" style="${style}">
+        <div class="float-drift">
+        <div class="game-card" data-game="${g.id}" style="--i:${i}">
           <div class="gc-tilt">
-            <div class="gc-flip">
-              <div class="gc-face gc-front">
-                <button class="gc-flipbtn" type="button" data-flip="front"
-                        aria-label="Flip the ${esc(g.name.en)} card to see the account handle">
-                  <span class="gc-art gc-art--${g.art.mode}${tint}" data-art>
-                    <img alt="" decoding="async" loading="lazy">
-                    <span class="gc-art-scan" aria-hidden="true"></span>
-                    <span class="gc-art-marks" aria-hidden="true"></span>
-                    <span class="gc-art-veil" aria-hidden="true"></span>
-                    <span class="gc-serial" aria-hidden="true">${pad2(i + 1)}<i>/</i>${pad2(N)}</span>
-                  </span>
-                  <span class="gc-rank is-${g.rank}">${bi(g.rankLabel)}</span>
-                  <span class="gc-body">
-                    <span class="gc-kicker">${esc(g.platform)}</span>
-                    <span class="gc-name">${esc(g.name.en)}</span>
-                    <span class="gc-flavour">${bi(g.flavour)}</span>
-                    <span class="gc-foot">
-                      ${sigil}
-                      <span class="gc-flipkey" aria-hidden="true">
-                        <i class="fas fa-arrows-rotate"></i>
-                        <span class="gc-flipkey-txt"><span lang="en">flip</span><span lang="vi">lật</span></span>
-                      </span>
-                    </span>
-                  </span>
-                  <span class="gc-foil" aria-hidden="true">
-                    <span class="gc-foil-holo"></span>
-                    <span class="gc-foil-spark"></span>
-                  </span>
-                  <span class="gc-glare" aria-hidden="true"></span>
-                </button>
-              </div>
-
-              <div class="gc-face gc-back" inert>
-                <div class="gc-back-inner">
-                  <div class="gc-back-head">
-                    <span class="gc-kicker">${bi({ en: 'account', vi: 'tài khoản' })}</span>
-                    <button class="gc-flipback" type="button" data-flip="back"
-                            aria-label="Flip the ${esc(g.name.en)} card back over">
-                      <i class="fas fa-rotate-left" aria-hidden="true"></i>
-                    </button>
-                  </div>
-                  <div class="gc-handle" data-handle>${handleMarkup(g.handle)}</div>
-                  <p class="gc-sub" data-sub>${bi(g.sub)}</p>
-                  <button class="gc-copy" type="button" data-copy
-                          aria-label="Copy ${esc(g.copyValue || g.handle)}">
-                    <i class="far fa-copy" aria-hidden="true"></i>
-                    <span class="gc-copy-label">${bi({ en: 'copy', vi: 'chép' })}</span>
-                  </button>
-                  ${g.link ? `<a class="gc-link" href="${esc(g.link)}" target="_blank" rel="noopener noreferrer">
-                    <span>${bi({ en: 'open profile', vi: 'mở trang' })}</span>
-                    <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
-                  </a>` : ''}
-                  <p class="gc-voice">${bi(g.voice)}</p>
-                  <span class="gc-foil is-back" aria-hidden="true"><span class="gc-foil-holo"></span></span>
-                </div>
-              </div>
-            </div>
+            <span class="gcard-art" data-art>
+              <img alt="" decoding="async" loading="lazy">
+            </span>
+            <span class="gcard-shade" aria-hidden="true"></span>
+            <span class="gcard-name">${esc(g.name.en)}</span>
           </div>
+        </div>
+        </div>
         </div>`;
+    }
+
+    /* The badge for one of the five real accounts. Deliberately a different
+       object from a trading card: flat, pinned, landscape, with no tilt, drift
+       or flip. The game's own wordmark sits on the plate, the name is set big
+       beneath it, and the handle is the largest line on the badge. */
+    function handleCardMarkup(g, i) {
+        const accents = ['cyan', 'gold', 'magenta', 'cyan', 'gold'];
+        const accent = accents[i] || 'cyan';
+        const copyLabel = g.copyValue
+            ? { en: 'copy link', vi: 'chép liên kết' }
+            : { en: 'copy handle', vi: 'chép tài khoản' };
+        return `
+        <article class="handle-card" role="listitem" data-game="${g.id}"
+                 data-accent="${accent}" style="--i:${i}">
+          <div class="hc-main">
+            <span class="hc-logo" data-art>
+              <img alt="" decoding="async" loading="lazy">
+            </span>
+          </div>
+          <span class="hc-name">${esc(g.name.en)}</span>
+          <span class="hc-handle" data-handle>${handleMarkup(g.handle)}</span>
+          <button class="gc-copy" type="button" data-copy
+                  aria-label="Copy ${esc(g.copyValue || g.handle)}">
+            <i class="far fa-copy" aria-hidden="true"></i>
+            <span class="gc-copy-label">${bi(copyLabel)}</span>
+          </button>
+        </article>`;
     }
 
     /* `Cobbi#GRRR` — the discriminator is the part you actually paste, so it
@@ -313,15 +697,18 @@
             + `<span class="gc-handle-tag"><i>#</i>${esc(handle.slice(i + 1))}</span>`;
     }
 
-    deck.innerHTML = DECK.map(faceMarkup).join('');
+    handleDeck.innerHTML = HANDLES.map(handleCardMarkup).join('');
+    deck.innerHTML = GAMES.map(gameMarkup).join('');
 
     const cards = Array.from(deck.querySelectorAll('.game-card'));
+    const handleCards = Array.from(handleDeck.querySelectorAll('.handle-card'));
+    const allCards = handleCards.concat(cards);
     const byId = new Map(DECK.map((g) => [g.id, g]));
 
     /* Art is written straight after the markup, before paint. The <img> has no
        src until now, so the browser never gets the chance to show a broken
        icon — and `data-art-state` is what the verification harness reads. */
-    cards.forEach((cardEl) => {
+    allCards.forEach((cardEl) => {
         const g = byId.get(cardEl.dataset.game);
         const holder = cardEl.querySelector('[data-art]');
         const img = holder.querySelector('img');
@@ -331,9 +718,14 @@
                registration marks and gains a mono monogram instead. */
             holder.dataset.artState = 'error';
             holder.classList.add('is-missing');
-            holder.style.setProperty('--mono-mark', `"${(g.platform.split(' ')[0] || '?').toUpperCase()}"`);
+            /* Two initials from the title, not the platform: fifteen cards all
+               reading "STEAM" would look like one broken template. */
+            const initials = (g.name.en.match(/[A-Za-z0-9]/g) || ['?']).slice(0, 2).join('').toUpperCase();
+            holder.style.setProperty('--mono-mark', `"${initials}"`);
         });
-        img.src = g.art.src;
+        /* A badge carries the game's wordmark; a game card carries its art. */
+        const isBadge = cardEl.classList.contains('handle-card');
+        img.src = isBadge ? (g.logo?.src || g.art.src) : g.art.src;
 
         /* The sigil is a small icon, not a hero: it is set from the verified
            fallback immediately so it is never an empty box, and the live patch
@@ -355,8 +747,12 @@
        awaited before the shelf is usable: this runs after the cards are on
        screen and only ever replaces a URL that already works. */
     function upgradeArt(id, url) {
-        const cardEl = cards.find((c) => c.dataset.game === id);
+        const cardEl = allCards.find((c) => c.dataset.game === id);
         if (!cardEl || !url) return;
+        /* A badge shows the game's wordmark. The live APIs answer with an
+           avatar or an agent bust, so upgrading a badge would replace a logo
+           with a picture of a person — never do that. */
+        if (cardEl.classList.contains('handle-card')) return;
         const holder = cardEl.querySelector('[data-art]');
         const img = holder.querySelector('img');
         if (!img || img.getAttribute('src') === url) return;
@@ -364,14 +760,14 @@
     }
 
     function setSub(id, pair) {
-        const cardEl = cards.find((c) => c.dataset.game === id);
+        const cardEl = allCards.find((c) => c.dataset.game === id);
         if (!cardEl || !pair) return;
         const el = cardEl.querySelector('[data-sub]');
         if (el) el.innerHTML = bi(pair);
     }
 
     function setSigil(id, url, label) {
-        const cardEl = cards.find((c) => c.dataset.game === id);
+        const cardEl = allCards.find((c) => c.dataset.game === id);
         if (!cardEl) return;
         const holder = cardEl.querySelector('[data-sigil]');
         if (!holder) return;
@@ -403,7 +799,7 @@
             if (role) {
                 /* The role is a real field from the same response, so the card
                    can say what she actually does instead of guessing. */
-                cards.find((c) => c.dataset.game === 'valorant')
+                allCards.find((c) => c.dataset.game === 'valorant')
                     ?.style.setProperty('--role', '1');
                 setSub('valorant', {
                     en: `${(agent.displayName || 'Fade').toLowerCase()} — ${role.toLowerCase()}. i hunt with hounds.`,
@@ -526,8 +922,7 @@
         s.tmy = my;
         /* Tip away from the pointer, the way a card held by its far edge
            tips: the corner nearest the eye comes toward you. */
-        const base = cardEl.dataset.flipped === 'true' ? 1 : 0;
-        s.ty = (base ? -1 : 1) * (mx - 0.5) * 2 * MAX_TILT;
+        s.ty = (mx - 0.5) * 2 * MAX_TILT;
         s.tx = -(my - 0.5) * 2 * MAX_TILT;
         s.hot = true;
         wake();
@@ -569,129 +964,16 @@
     }
 
     /* -----------------------------------------------------------------------
-       The shelf light — one glow on the shelf lip, under the card you are on
+       The live region
        --------------------------------------------------------------------- */
-    /* Cheaper than five per-card glows and it reads as one lamp: the pool
-       slides along the shelf rather than each card glowing about itself. */
-    function moveShelfLight(cardEl) {
-        const deckRect = deck.getBoundingClientRect();
-        const r = cardEl.getBoundingClientRect();
-        deck.style.setProperty('--shelf-x', `${(r.left - deckRect.left) + r.width / 2}px`);
-        deck.style.setProperty('--shelf-o', '1');
-    }
-
-    function dimShelfLight() {
-        deck.style.setProperty('--shelf-o', '0');
-    }
-
-    deck.addEventListener('pointerover', (ev) => {
-        const cardEl = ev.target.closest?.('.game-card');
-        if (!cardEl) return;
-        moveShelfLight(cardEl);
-    }, { passive: true });
-
-    deck.addEventListener('pointerleave', dimShelfLight, { passive: true });
-    deck.addEventListener('focusin', (ev) => {
-        const cardEl = ev.target.closest?.('.game-card');
-        if (cardEl) moveShelfLight(cardEl);
-    });
-    deck.addEventListener('focusout', (ev) => {
-        if (!deck.contains(ev.relatedTarget)) dimShelfLight();
-    });
-
-    /* -----------------------------------------------------------------------
-       The flip
-       --------------------------------------------------------------------- */
-    /* Flipping is state, so it lives on the card element as `data-flipped`.
-       The CSS does the rotation; this function only decides which face is
-       allowed to exist in the accessibility tree. `inert` is doing the heavy
-       lifting: without it a keyboard visitor tabbing forward from the front
-       would land on a copy button that is facing away from them. */
-    const flipCard = (cardEl, want) => {
-        const next = typeof want === 'boolean' ? want : cardEl.dataset.flipped !== 'true';
-        if ((cardEl.dataset.flipped === 'true') === next) return;
-
-        const front = cardEl.querySelector('.gc-front');
-        const back = cardEl.querySelector('.gc-back');
-        cardEl.dataset.flipped = next ? 'true' : 'false';
-        cardEl.classList.toggle('is-flipped', next);
-
-        if (next) {
-            front?.setAttribute('inert', '');
-            front?.setAttribute('aria-hidden', 'true');
-            back?.removeAttribute('inert');
-            back?.removeAttribute('aria-hidden');
-        } else {
-            back?.setAttribute('inert', '');
-            back?.setAttribute('aria-hidden', 'true');
-            front?.removeAttribute('inert');
-            front?.removeAttribute('aria-hidden');
-        }
-
-        const g = byId.get(cardEl.dataset.game);
-        if (g) announce(next
-            ? `${g.name.en}: ${g.handle}`
-            : `${g.name.en} card, front`);
-
-        /* A face that just turned away must not keep focus, and the face that
-           just turned toward you is where the visitor was already going. */
-        const box = next ? back : front;
-        if (!box) return;
-        const target = next ? box.querySelector('.gc-copy') : box.querySelector('.gc-flipbtn');
-        const active = document.activeElement;
-        const wasHere = cardEl.contains(active);
-        if (wasHere || document.activeElement === document.body) {
-            /* Do not yank the page. Only take focus when it was already inside
-               this card (a keyboard flip) or was dropped by `inert` (a click
-               flip), which are exactly the two cases where focus has nowhere
-               sensible to be. */
-            target?.focus({ preventScroll: true });
-        }
-    };
-
-    /* One polite live region for the whole deck, announced on flip and copy.
-       Five live regions would talk over each other. */
+    /* The game cards no longer flip, but the badge copy key still announces
+       its result. One polite live region is enough for the tab. */
     const live = document.createElement('p');
     live.className = 'sr-only';
     live.setAttribute('aria-live', 'polite');
     live.setAttribute('aria-atomic', 'true');
     panel.appendChild(live);
     const announce = (msg) => { live.textContent = msg; };
-
-    deck.addEventListener('click', (ev) => {
-        const cardEl = ev.target.closest?.('.game-card');
-        if (!cardEl) return;
-
-        /* The copy key and the outbound link are their own verbs. */
-        if (ev.target.closest('[data-copy]') || ev.target.closest('a')) return;
-
-        const flipBtn = ev.target.closest('[data-flip]');
-        if (flipBtn) {
-            flipCard(cardEl);
-            return;
-        }
-
-        /* Convenience only: on the back, a click on dead space turns the card
-           over. The handle and the voice line are excluded so text stays
-           selectable, which is the whole point of putting a handle on a card. */
-        if (cardEl.dataset.flipped === 'true'
-            && !ev.target.closest('.gc-handle')
-            && !ev.target.closest('.gc-sub')
-            && !ev.target.closest('.gc-voice')) {
-            flipCard(cardEl, false);
-        }
-    });
-
-    /* The front button is a real <button>, so Enter and Space already click
-       it. The back's dead-space flip is a click anywhere, which needs the two
-       keys spelled out for a visitor who is on the card and not on a button. */
-    deck.addEventListener('keydown', (ev) => {
-        if (ev.key !== 'Escape') return;
-        const cardEl = ev.target.closest?.('.game-card');
-        if (!cardEl || cardEl.dataset.flipped !== 'true') return;
-        ev.preventDefault();
-        flipCard(cardEl, false);
-    });
 
     /* -----------------------------------------------------------------------
        The copy
@@ -741,13 +1023,15 @@
     }
 
     let copyTimer = 0;
-    deck.addEventListener('click', (ev) => {
+    /* The copy key is the one interaction the badge rack and the card field
+       share, so the handler is one function bound to both containers. */
+    const onCopy = (ev) => {
         const btn = ev.target.closest('[data-copy]');
         if (!btn) return;
         ev.preventDefault();
         ev.stopPropagation();
 
-        const cardEl = btn.closest('.game-card');
+        const cardEl = btn.closest('[data-game]');
         const g = byId.get(cardEl?.dataset.game);
         if (!g) return;
         const value = g.copyValue || g.handle;
@@ -769,7 +1053,9 @@
             if (typeof window.showToast === 'function') window.showToast(`could not copy — it is “${value}”`);
             else announce(`could not copy. it is ${value}`);
         });
-    });
+    };
+    deck.addEventListener('click', onCopy);
+    handleDeck.addEventListener('click', onCopy);
 
     /* -----------------------------------------------------------------------
        The reveal — stagger in, once, on first sight
@@ -793,35 +1079,43 @@
 
     function endEntrance() {
         deck.classList.remove('is-in');
+        handleDeck.classList.remove('is-in');
     }
 
     function reveal() {
         if (revealed) return;
         revealed = true;
         deck.classList.remove('is-pending');
+        handleDeck.classList.remove('is-pending');
         if (staggerOn()) {
             deck.classList.add('is-in');
-            /* Five cards, 72ms apart, 0.58s each — the last one lands at
-               ~0.87s. The listener is the authority; the timer is a floor in
-               case `animationend` never arrives (it does not fire when the
-               element is display:none when the animation would have ended). */
+            handleDeck.classList.add('is-in');
+            /* The badges land first (48ms apart), then the fifteen game cards
+               follow at 52ms. The listener is the authority; the timer is a
+               floor in case `animationend` never arrives (it does not fire
+               when the element is display:none when the animation would have
+               ended). */
             let done = false;
             const finish = () => {
                 if (done) return;
                 done = true;
                 deck.removeEventListener('animationend', onEnd);
+                handleDeck.removeEventListener('animationend', onEnd);
                 endEntrance();
             };
             const onEnd = (ev) => {
-                if (ev.target.closest?.('.game-card')) finish();
+                if (ev.target.closest?.('.game-card, .handle-card')) finish();
             };
             deck.addEventListener('animationend', onEnd);
-            setTimeout(finish, 2400);
+            handleDeck.addEventListener('animationend', onEnd);
+            setTimeout(finish, 2600);
         }
-        pokePong();
     }
 
-    if (staggerOn()) deck.classList.add('is-pending');
+    if (staggerOn()) {
+        deck.classList.add('is-pending');
+        handleDeck.classList.add('is-pending');
+    }
 
     if (panel.classList.contains('active')) {
         reveal();
@@ -839,47 +1133,22 @@
         document.getElementById('tab-btn-gaming')?.addEventListener('click', reveal);
     }
 
-    /* -----------------------------------------------------------------------
-       The pong nudge
-       --------------------------------------------------------------------- */
-    /* main.js sizes the pong canvas once, at a moment when this tab is
-       `display: none` — so `offsetWidth` is 0 and the backing store falls back
-       to 300x52, then gets stretched across the real 60px strip. The drawing
-       loop reads `canvas.width` every frame, so the fix is one honest resize
-       the first time the tab is actually on screen. No main.js edit, no
-       synthetic window resize (which would also drag ScrollTrigger into it). */
-    let pongPoked = false;
-    function pokePong() {
-        if (pongPoked) return;
-        requestAnimationFrame(() => {
-            const cv = document.getElementById('pong-canvas');
-            if (!cv) return;
-            const w = cv.offsetWidth;
-            const h = cv.offsetHeight;
-            if (!w || !h) return;          /* still hidden: try again next time */
-            if (cv.width !== w) cv.width = w;
-            if (cv.height !== h) cv.height = h;
-            pongPoked = true;
-        });
-    }
-
-    /* A viewport change re-lays the deck; the springs hold degrees, not
+    /* A viewport change re-lays the field; the springs hold degrees, not
        pixels, so nothing needs recomputing, but a card caught mid-tilt while
        the window is resized should unwind. */
     window.addEventListener('resize', () => {
         springs.forEach((s, cardEl) => releasePointer(cardEl));
-        dimShelfLight();
     }, { passive: true });
 
     /* Debug/verification handle. Read-only, and small: the harness needs to
        assert the deck's real state without scraping markup. */
     window.CobbyShelf = {
         get cards() { return cards.length; },
+        get handles() { return handleCards.length; },
         get pending() { return deck.classList.contains('is-pending'); },
         get revealed() { return revealed; },
-        get flipped() { return cards.filter((c) => c.dataset.flipped === 'true').length; },
         get artStates() {
-            return cards.map((c) => ({
+            return allCards.map((c) => ({
                 game: c.dataset.game,
                 state: c.querySelector('[data-art]')?.dataset.artState || 'pending',
                 src: c.querySelector('[data-art] img')?.currentSrc || ''

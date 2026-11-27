@@ -1,113 +1,447 @@
-?@charset "UTF-8";
+@charset "UTF-8";
 /* =============================================================================
-   THE SHELF — css/gaming.css
+   THE FLOATING SHELF — css/gaming.css
 
-   Five games as five physical cards on a shelf. This sheet replaces the old
-   "GAME ACCOUNTS" list (`.game-account-row`, `.game-icon-wrap`) entirely; the
-   only thing carried over is the copied-state colour behaviour of
-   `.copy-game-btn`, which the back's copy key reuses.
+   Twenty-seven titles in two instruments. Five are flat handle badges in a
+   rack; twenty-two are Steam posters in a floating field — full-bleed art,
+   a dark fade up from the foot, and the game's name on that fade. No flip,
+   no rank, no serial, no platform code, no flavour line.
 
    The design thesis, in this component:
-     · Holograms cast no shadows. Nothing here uses box-shadow or filter:
-       drop-shadow. Depth is a 1px lit edge, a border-colour shift, and a real
-       3D transform. The only glow is emitted light, drawn as a gradient.
-     · The holo gradient is the shimmer metal. It is NOT on the page at rest:
-       the foil strip, the face glare and the rank chip's active state are the
-       only places cyan→magenta→gold appears, and all three are hover/active.
+     · The picture is the card. A poster card is art, a fade and a name; every
+       other line that used to live on it was a database row in disguise.
+     · The fade is the whole gesture: the art dissolves into the card's own
+       darkness at the foot, and the name is printed on that darkness rather
+       than laid over the photograph.
      · The card must feel like an object with mass: it tips toward the pointer
-       on a spring, the foil's reflection slides with the hand, and it lifts
-       4px when you go to pick it up. All of that is caused by the visitor;
-       nothing shimmers on a timer.
+       on a spring and lifts 4px when you go to pick it up. The idle drift is
+       tiny and slow (a card in still air), and it stops the moment you reach
+       for the card.
 
    Everything below is scoped to #tab-gaming / .game-card so nothing else on
    the page can be caught by it.
    ========================================================================== */
 
 /* -----------------------------------------------------------------------------
-   0. Registered properties
-   The shelf lamp's opacity has to *transition*, and an unregistered custom
-   property cannot. Registering it is the whole mechanism for "the lamp slides
-   along the shelf rather than blinking".
+   1. The field — cards float over the page, not in a panel
+   The old tab was a shelf inside a boxed HUD panel: five cards in a five-column
+   grid. This is the opposite on purpose. There is no panel, no grid and no
+   container edge — the cards are scattered across the tab and drift a few
+   pixels on their own, so the page reads as a constellation of games rather
+   than as a table of them.
    -------------------------------------------------------------------------- */
-@property --shelf-o {
-    syntax: "<number>";
-    inherits: true;
-    initial-value: 0;
+.game-field {
+    position: relative;
+    width: 100%;
+    padding: clamp(16px, 2.6vw, 30px) 0 clamp(48px, 7vw, 96px);
+    isolation: isolate;
+    /* The light and the ghost word are allowed to bleed; nothing else is.
+       `clip` keeps the decorative bleed from adding a horizontal scrollbar
+       without turning the field into a scroll container. */
+    overflow-x: clip;
+}
+
+/* The giant ghost word behind the cards. It is a registration mark, not a
+   heading: outlined, almost transparent, and it never takes the pointer. */
+.field-ghost {
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    z-index: 0;
+    translate: -50% -50%;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(9rem, 24vw, 21rem);
+    line-height: 0.8;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(var(--holo-1-rgb), 0.055);
+    pointer-events: none;
+    user-select: none;
+}
+
+/* The header is a label on the field, not a boxed panel rail. */
+.field-head {
+    position: relative;
+    z-index: 40;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--gap-3, 18px);
+    padding: 0 clamp(2px, 1vw, 10px) clamp(22px, 3vw, 38px);
+}
+
+.field-kicker {
+    margin-bottom: 8px;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: rgba(var(--holo-1-rgb), 0.7);
+}
+
+.field-head h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(1.6rem, 4.4vw, 2.7rem);
+    line-height: 0.98;
+    letter-spacing: 0.04em;
+    color: var(--text-bright);
 }
 
 /* -----------------------------------------------------------------------------
-   1. The deck — a shelf, not a grid
+   1a. The badge row — the five real accounts, deliberately NOT trading cards
+   The Steam games below are posters in a scattered field. These five are the
+   opposite object on purpose: flat landscape badges with the game's wordmark
+   on a plate, the game name set large, the handle and a copy key. No
+   perspective, no tilt, no drift, no flip — a name tag is not a collectible.
+
+   The badges sit directly on the page. There is no tray, no panel and no clip
+   around them, so their hover light is not fenced in by anything.
    -------------------------------------------------------------------------- */
-.shelf-deck {
+.handle-rack {
+    position: relative;
+    z-index: 2;
+    margin: 0 clamp(2px, 1vw, 10px) clamp(44px, 5vw, 72px);
+    padding: 0;
+}
+
+.rack-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: clamp(14px, 1.8vw, 20px);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--edge-soft);
+}
+
+.rack-head h3,
+.library-head h3 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(1.05rem, 1.9vw, 1.34rem);
+    line-height: 1.02;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-bright);
+}
+
+/* The rack's heading is a sentence in the owner's voice, so it keeps its own
+   case rather than the technical all-caps the Steam head uses. */
+.rack-head h3.rack-title {
+    font-size: clamp(1.1rem, 2.1vw, 1.5rem);
+    letter-spacing: 0.01em;
+    text-transform: none;
+}
+
+/* Five badges across on desktop; each is a row, not a portrait. */
+.handle-deck {
     position: relative;
     display: grid;
-    /* Five across on wide screens, but each card is given a floor: below that
-       floor the deck drops a column rather than shrinking the object. A card
-       that is too small to read is not a card, it is a swatch. */
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: clamp(12px, 1.5vw, 18px);
-    /* Room under the last row for the ledge line the shelf stands on. */
-    padding-bottom: 16px;
+    gap: clamp(10px, 1.2vw, 14px);
     isolation: isolate;
 }
 
-/* The lamp under the shelf. It is a pool of *emitted* light (a gradient), not
-   a shadow, and it lives under the card the pointer is on so the deck reads as
-   one lit surface rather than five independently glowing objects.
-   Position is set by js/gaming.js as --shelf-x. */
-.shelf-deck::before {
-    content: "";
-    position: absolute;
-    z-index: 0;
-    inset: 0 -8px;
-    pointer-events: none;
-    opacity: var(--shelf-o);
-    transition: opacity 0.32s ease;
-    background: radial-gradient(240px 150px at var(--shelf-x, 50%) 100%,
-            rgba(var(--holo-1-rgb), 0.13) 0%,
-            rgba(var(--holo-1-rgb), 0.045) 42%,
-            transparent 72%);
+.handle-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* The copy key is pinned to the foot, so badges of different heights still
+       line their buttons up across the rack. */
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    padding: 12px 12px 11px;
+    background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
+    /* The lit-edge gradient at badge scale. A flat border would read as a
+       drawn rectangle; this reads as a plate catching the room light. */
+    border: 1px solid transparent;
+    border-image: linear-gradient(160deg,
+            color-mix(in srgb, var(--edge) 100%, #ffffff 22%),
+            var(--edge) 52%,
+            color-mix(in srgb, var(--edge) 100%, #000000 30%)) 1;
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
 
-/* The ledge: one hairline the cards stand on, brightest in the middle where
-   the light is. */
-.shelf-deck::after {
+/* The accent rail down the left edge: one hairline, coloured per account, so
+   the five badges are told apart at a glance without a rank chip. */
+.handle-card::before {
     content: "";
     position: absolute;
-    z-index: 0;
-    left: 2px;
-    right: 2px;
-    bottom: 5px;
-    height: 1px;
+    left: 0;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
     pointer-events: none;
-    background: linear-gradient(90deg,
-            transparent 0%,
-            var(--edge) 9%,
-            rgba(var(--holo-1-rgb), 0.34) 50%,
-            var(--edge) 91%,
-            transparent 100%);
+    background: linear-gradient(180deg,
+            transparent,
+            var(--hc-accent, var(--holo-1)) 18%,
+            var(--hc-accent, var(--holo-1)) 82%,
+            transparent);
+    opacity: 0.55;
+    transition: opacity 0.3s ease;
+}
+
+.handle-card[data-accent="cyan"] {
+    --hc-accent: var(--holo-1);
+    --hc-accent-rgb: var(--holo-1-rgb);
+}
+
+.handle-card[data-accent="gold"] {
+    --hc-accent: var(--holo-3);
+    --hc-accent-rgb: var(--holo-3-rgb);
+}
+
+.handle-card[data-accent="magenta"] {
+    --hc-accent: var(--holo-2);
+    --hc-accent-rgb: var(--holo-2-rgb);
+}
+
+.handle-card:hover,
+.handle-card:focus-within {
+    background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-raised) 100%);
+}
+
+.handle-card:hover::before,
+.handle-card:focus-within::before {
+    opacity: 1;
+}
+
+.handle-card:focus-within {
+    outline: 1px solid var(--hc-accent, var(--holo-1));
+    outline-offset: -2px;
+}
+
+/* The plate that carries the game's own wordmark. A logo is a mark, not a
+   photograph, so it is drawn whole at its own aspect ratio on a sunk plate
+   rather than cropped to a square tile; the hatch shows through the margins. */
+.hc-main {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    /* Set height, not aspect: five logos with wildly different ratios (a 1.78
+       plate, a 2.6 wordmark, a 5.77 wordmark, a square icon) still have to sit
+       on the same baseline across the rack. */
+    height: clamp(58px, 6vw, 72px);
+    padding: 9px 11px;
+    overflow: hidden;
+    /* The sunk plate the mark is mounted on: a hairline frame and a faint
+       hatch, which is what stops a transparent PNG floating on nothing. */
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(var(--hc-accent-rgb, 0, 240, 212), 0.035) 0 1px,
+            transparent 1px 9px),
+        var(--surface-sunk);
+    border: 1px solid var(--edge-soft);
+}
+
+.hc-logo {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    line-height: 0;
+}
+
+/* `width/height: 100%` + `object-fit: contain` is what makes a mark of ANY
+   ratio fit the plate: the element fills the frame and the picture is
+   letterboxed inside it. A bare `max-width/max-height` is not enough — an SVG
+   with a viewBox but no intrinsic size collapses to 0×0 under it. */
+.hc-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    /* Marks are drawn full strength on their own plate; there is no photograph
+       to desaturate here. */
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.5));
+    transition: transform 0.4s var(--ease-out), filter 0.3s ease;
+}
+
+.handle-card:hover .hc-logo img {
+    transform: scale(1.04);
+    filter: drop-shadow(0 0 6px rgba(var(--hc-accent-rgb, 0, 240, 212), 0.35));
+}
+
+/* A logo that fails to load leaves a mono wordmark on the plate rather than a
+   broken frame. */
+.hc-logo.is-missing img {
+    display: none;
+}
+
+.hc-logo.is-missing::after {
+    content: var(--mono-mark, "");
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    font-family: var(--mono);
+    font-size: 0.86rem;
+    letter-spacing: 0.22em;
+    color: var(--faint);
+}
+
+/* The game name, set big: it is the badge's headline, and the first thing a
+   visitor reads after the mark. */
+.hc-name {
+    display: block;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(1.35rem, 2.3vw, 1.75rem);
+    line-height: 1.02;
+    letter-spacing: 0.005em;
+    color: var(--text-bright);
+    /* Two lines is the full allowance for a name this size. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* The handle, in the mono face, is the account line under the name. */
+.hc-handle {
+    display: block;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: clamp(0.82rem, 1.15vw, 0.94rem);
+    line-height: 1.2;
+    letter-spacing: -0.005em;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+.hc-handle .gc-handle-tag {
+    color: var(--hc-accent, var(--holo-1));
+}
+
+/* The copy key fills the badge's foot: full width, one line, and the same
+   copied-gold confirmation the cards use. */
+.handle-card .gc-copy {
+    margin-top: 1px;
+    padding: 6px 8px;
+    font-size: 0.54rem;
+    letter-spacing: 0.13em;
+}
+
+.handle-card .gc-copy:hover {
+    color: var(--hc-accent, var(--holo-1));
+    border-color: color-mix(in srgb, var(--hc-accent, var(--holo-1)) 55%, transparent);
+}
+
+/* Badge entrance: a shorter lift than a card's, and badge-first on the tab. */
+.handle-deck.is-in .handle-card {
+    animation: hc-in 0.44s var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 48ms);
+}
+
+@keyframes hc-in {
+    from {
+        opacity: 0;
+        translate: 0 10px;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+/* The library head sits between the rack and the floating field. */
+.library-head {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 clamp(2px, 1vw, 10px) clamp(18px, 2.2vw, 26px);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--edge-soft);
+}
+
+/* -----------------------------------------------------------------------------
+   1b. The stage — a hand-scattered constellation on desktop
+   Slots come from js/gaming.js as custom properties; the CSS only reads them.
+   -------------------------------------------------------------------------- */
+.float-stage {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    /* Five loose rows of five/five/four/four/four. The floor is generous on
+       purpose: the cards are absolutely placed, so the stage has to reserve
+       the room they occupy. */
+    min-height: 1150px;
+}
+
+/* One wrapper per card. It owns position, width, rotation and stacking; its
+   child owns the ambient drift, so the hover lift and the pointer tilt on the
+   card itself never have to share a transform with the idle motion. */
+.float-card {
+    position: absolute;
+    left: var(--x, 0%);
+    top: var(--y, 0%);
+    width: var(--w, 17%);
+    z-index: var(--z, 1);
+    rotate: var(--rot, 0deg);
+}
+
+.float-drift {
+    display: block;
+    animation: float-drift var(--dur, 12s) ease-in-out var(--delay, 0s) infinite alternate;
+}
+
+/* A card being looked at stops drifting: a card you are reading should be
+   still, the way a card in your hand is still. */
+.float-card:hover .float-drift,
+.float-card:focus-within .float-drift {
+    animation-play-state: paused;
+}
+
+@keyframes float-drift {
+    from {
+        translate: 0 0;
+        rotate: 0deg;
+    }
+
+    to {
+        /* The multiplier is the deliberate exaggeration: the slot values stay
+           small numbers, the motion is ~1.6× that, which is the difference
+           between "alive" and "twitching". */
+        translate: calc(var(--dx, 6px) * 1.6) calc(var(--dy, -8px) * 1.6);
+        rotate: var(--sway, 0.6deg);
+    }
 }
 
 /* -----------------------------------------------------------------------------
    2. The card shell
-   Four nested boxes, each with exactly one job:
+   A game card is now one full-bleed picture with a dark fade up from its foot
+   and the game's name sitting in that fade. There is no flip, no second face,
+   no rank chip, no serial, no platform code and no flavour line: the card is
+   the game and its name, nothing else.
 
-     .game-card  perspective + lift + hover state (no transform of its own)
+     .game-card  perspective + lift + hover state
      .gc-tilt    rotateX/rotateY, spring-driven, set as --rx/--ry by js
-     .gc-flip    the 180° turn
-     .gc-face    the two painted sides
-
-   Splitting them is what lets the tilt and the flip compose without either
-   fighting the other: a card that has been flipped still tips toward the
-   pointer, and it does so about its own centre.
+     .gcard-*    the art, the fade, the name
    -------------------------------------------------------------------------- */
 .game-card {
     position: relative;
     z-index: 1;
-    /* A 5:7 card is tall enough to be an object. The min-height is the floor
-       below which the type stops being readable, and the aspect ratio is what
-       keeps the shape honest between breakpoints. */
-    aspect-ratio: 5 / 7;
+    width: 100%;
+    /* Landscape, because the art it carries is landscape. 1.9 is close to a
+       Steam header's own 2.14, so the wordmark in the art survives the crop. */
+    aspect-ratio: 1.9;
     min-height: 0;
     perspective: 1000px;
     perspective-origin: 50% 45%;
@@ -116,30 +450,119 @@
        spring settles, so every consumer needs a sensible fallback. */
     --mx: 0.5;
     --my: 0.5;
-    --gc-edge: var(--edge);
-    --gc-face: var(--surface);
     --gc-lift: 0px;
     translate: 0 var(--gc-lift);
     transition: translate 0.34s var(--ease-out);
+    /* The reference card is a soft rectangle, not a chamfer: rounding the
+       corner lets the picture run to the edge without the plate reading as a
+       hard cut-out. */
+    border-radius: 16px;
 }
 
 .gc-tilt {
     position: absolute;
     inset: 0;
+    border-radius: inherit;
+    overflow: hidden;
     transform-style: preserve-3d;
     transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
 }
 
-.gc-flip {
+/* The picture. `cover` fills the whole card; the fade does the blending. */
+.gcard-art {
     position: absolute;
     inset: 0;
-    transform-style: preserve-3d;
-    transform: rotateY(0deg);
-    transition: transform 0.62s cubic-bezier(0.3, 0.72, 0.24, 1);
+    display: block;
+    overflow: hidden;
+    background: var(--surface-sunk);
 }
 
+.gcard-art img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: 50% 45%;
+    /* Slightly recessed at rest so the hover brightening has somewhere to go. */
+    filter: saturate(0.9) contrast(1.05) brightness(0.82);
+    transition: filter 0.45s ease, transform 0.7s var(--ease-out);
+}
+
+/* The dark fade. This is the whole reference gesture: the picture dissolves
+   into the card's own darkness at the foot, and the name is printed on it. */
+.gcard-shade {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+    background:
+        linear-gradient(to top,
+            rgba(6, 8, 15, 0.97) 0%,
+            rgba(6, 8, 15, 0.88) 12%,
+            rgba(6, 8, 15, 0.52) 32%,
+            rgba(6, 8, 15, 0.14) 54%,
+            rgba(6, 8, 15, 0) 72%);
+}
+
+/* The name, on the fade. Bottom-left, as in the reference. */
+.gcard-name {
+    position: absolute;
+    left: clamp(12px, 1.2vw, 17px);
+    right: clamp(12px, 1.2vw, 17px);
+    bottom: clamp(10px, 1vw, 14px);
+    z-index: 2;
+    display: block;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(0.98rem, 1.3vw, 1.24rem);
+    line-height: 1.06;
+    letter-spacing: 0.005em;
+    color: var(--text-bright);
+    /* Two lines is the allowance; a game title is a title. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* A hairline ring so the rounded picture still reads as an object on the
+   field. Drawn as an inset border, never a shadow. */
+.game-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    border-radius: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    transition: border-color 0.3s ease;
+}
+
+.game-card:hover {
+    --gc-lift: -4px;
+}
+
+.game-card:hover::after,
+.game-card:focus-within::after {
+    border-color: rgba(var(--holo-1-rgb), 0.38);
+}
+
+.game-card:hover .gcard-art img,
+.game-card:focus-within .gcard-art img {
+    filter: saturate(1.02) contrast(1.04) brightness(0.97);
+    transform: scale(1.045);
+}
+
+/* Keyboard focus: the card is not interactive, so this only matters if a
+   future control lands inside it. */
+.game-card:focus-within {
+    outline: none;
+}
+
+/* The old flip plane still exists as a harmless wrapper in the markup's
+   history; nothing renders it now. */
 .game-card.is-flipped .gc-flip {
-    transform: rotateY(180deg);
+    transform: none;
 }
 
 /* -----------------------------------------------------------------------------
@@ -298,7 +721,13 @@
     display: grid;
     place-items: center;
     padding: 9px 9px 0;
-    background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-sunk) 100%);
+    /* While a capsule is still arriving (or if the CDN is blocked) the mount
+       keeps a printed hatch instead of showing an empty black hole. */
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(var(--holo-1-rgb), 0.03) 0 1px,
+            transparent 1px 9px),
+        linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-sunk) 100%);
     border-bottom: 1px solid var(--edge-soft);
 }
 
@@ -356,6 +785,9 @@
     flex: 1 1 auto;
     min-height: var(--art-min, 150px);
     background:
+        repeating-linear-gradient(135deg,
+            rgba(var(--holo-1-rgb), 0.03) 0 1px,
+            transparent 1px 9px),
         radial-gradient(ellipse 58% 46% at 50% 58%, rgba(var(--holo-1-rgb), 0.1), transparent 72%),
         linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-sunk) 100%);
     border-bottom: 1px solid var(--edge-soft);
@@ -370,12 +802,18 @@
 
 .gc-art--niche.is-tint-magenta {
     background:
+        repeating-linear-gradient(135deg,
+            rgba(var(--holo-2-rgb), 0.03) 0 1px,
+            transparent 1px 9px),
         radial-gradient(ellipse 58% 46% at 50% 58%, rgba(var(--holo-2-rgb), 0.14), transparent 72%),
         linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-sunk) 100%);
 }
 
 .gc-art--niche.is-tint-cyan {
     background:
+        repeating-linear-gradient(135deg,
+            rgba(var(--holo-1-rgb), 0.03) 0 1px,
+            transparent 1px 9px),
         radial-gradient(ellipse 58% 46% at 50% 58%, rgba(var(--holo-1-rgb), 0.14), transparent 72%),
         linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-sunk) 100%);
 }
@@ -1233,124 +1671,109 @@
    returns to its declared (visible) state so the hover lift transitions keep
    working. With `both`, the animation would own `translate` forever.
    -------------------------------------------------------------------------- */
-.shelf-deck.is-in .game-card {
-    animation: gc-in 0.58s var(--ease-out) backwards;
-    animation-delay: calc(var(--i, 0) * 72ms);
+.float-stage.is-in .game-card {
+    animation: gc-in 0.62s var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 52ms);
 }
 
 @keyframes gc-in {
     from {
         opacity: 0;
-        translate: 0 20px;
+        translate: 0 34px;
+        scale: 0.94;
     }
 
     to {
         opacity: 1;
         translate: 0 0;
+        scale: 1;
     }
 }
 
 /* -----------------------------------------------------------------------------
-   8. The footer — the note and the pong set
+   8. The back of a card that carries no handle
+   Five cards are real accounts; the other fifteen are games Cobby plays with no
+   public handle. Those backs trade the handle plate for an honest note and a
+   private-handle stamp, so the card never invents an account that does not
+   exist.
    -------------------------------------------------------------------------- */
-.shelf-footer {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: clamp(14px, 2vw, 24px);
-    margin-top: clamp(14px, 1.8vw, 20px);
+.gc-note {
+    margin: 10px 0 2px;
+    font-family: var(--ui);
+    font-size: 0.9rem;
+    line-height: 1.38;
+    color: var(--text-bright);
+    overflow-wrap: anywhere;
 }
 
-.shelf-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    flex: 1 1 240px;
-    max-width: 46ch;
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    line-height: 1.6;
-    letter-spacing: 0.06em;
-    color: var(--faint);
-}
-
-.shelf-note i {
-    margin-top: 2px;
-    font-size: 0.6rem;
-    color: rgba(var(--holo-1-rgb), 0.6);
-}
-
-/* The pong set is an instrument bolted to the shelf, not a widget: a sunk
-   window in a chamfered housing with registration ticks at the corners. */
-.shelf-pong {
-    position: relative;
-    flex: 0 1 330px;
-    min-width: 210px;
-    padding: 1px;
-    background: var(--edge);
-    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-}
-
-.shelf-pong::before {
-    content: "";
-    position: absolute;
-    inset: 1px;
-    z-index: -1;
-    background: var(--surface-sunk);
-    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-}
-
-/* The housing's own corner ticks. */
-.shelf-pong::after {
-    content: "";
-    position: absolute;
-    inset: 5px;
-    z-index: 2;
-    pointer-events: none;
-    --arm: 7px;
-    --w: 1px;
-    --mk: rgba(var(--holo-1-rgb), 0.34);
-    background-repeat: no-repeat;
-    background-image:
-        linear-gradient(var(--mk), var(--mk)),
-        linear-gradient(var(--mk), var(--mk)),
-        linear-gradient(var(--mk), var(--mk)),
-        linear-gradient(var(--mk), var(--mk));
-    background-size:
-        var(--arm) var(--w),
-        var(--w) var(--arm),
-        var(--arm) var(--w),
-        var(--w) var(--arm);
-    background-position:
-        0 0,
-        0 0,
-        100% 100%,
-        100% 100%;
-}
-
-#pong-canvas {
-    position: relative;
-    z-index: 1;
+.gc-note>span>span {
     display: block;
-    width: 100%;
-    height: 66px;
-    border: none;
-    background: var(--void-deep);
+}
+
+.gc-key-absent {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 6px 9px;
+    flex: none;
+    font-family: var(--mono);
+    font-size: 0.53rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    border: 1px dashed var(--edge);
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+
+.gc-key-absent i {
+    font-size: 0.56rem;
+    color: rgba(var(--holo-2-rgb), 0.8);
+}
+
+.gc-key-absent span>span {
+    display: inline;
 }
 
 /* -----------------------------------------------------------------------------
-   9. Responsive — 1440px down to 390px, no horizontal overflow anywhere
-   The card is never allowed to get narrower than a handle can live in, so the
-   deck drops a column at a time instead of squeezing five into a phone.
+   9. Responsive — the free scatter is a desktop luxury. Below 1024px the cards
+   return to a flow grid so nothing can overlap, clip or overflow; the drift is
+   turned off with it.
    -------------------------------------------------------------------------- */
-@media (max-width: 1180px) {
-    .shelf-deck {
+@media (max-width: 1023px) {
+    /* The rack keeps five across for as long as the handles still fit, then
+       drops to two and finally one; a name tag that wraps a long handle into
+       three lines is worse than a rack that is taller. */
+    .handle-deck {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
+    .float-stage {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: clamp(14px, 2.2vw, 24px);
+        min-height: 0;
+    }
+
+    .float-card {
+        position: relative;
+        left: auto;
+        top: auto;
+        width: auto;
+        z-index: auto;
+        rotate: 0deg;
+    }
+
+    .float-drift {
+        animation: none;
+    }
+
+    .field-ghost {
+        display: none;
+    }
+
     .game-card {
-        aspect-ratio: 5 / 6.4;
+        aspect-ratio: 1.9;
     }
 
     .gc-name {
@@ -1360,71 +1783,84 @@
     .gc-handle {
         font-size: 1.16rem;
     }
-}
 
-@media (max-width: 820px) {
-    .shelf-deck {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-    }
-
-    .game-card {
-        aspect-ratio: 5 / 6.8;
+    .field-head {
+        align-items: flex-start;
     }
 }
 
-@media (max-width: 560px) {
-    .shelf-deck {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 12px;
-    }
-
-    .game-card {
-        aspect-ratio: 5 / 5.6;
-    }
-
-    /* One column means the card is wide and short: the art gets a side-by-side
-       window instead of a band on top, so the card does not become a tall
-       poster that has to be scrolled past five times. */
-    .gc-flipbtn {
+@media (max-width: 700px) {
+    .field-head {
         flex-direction: column;
     }
 
-    .gc-art {
-        aspect-ratio: 16 / 8;
+    .rack-head,
+    .library-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .handle-deck {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .float-stage {
+        gap: 12px;
+    }
+}
+
+@media (max-width: 620px) {
+    .game-card {
+        aspect-ratio: 1.9;
     }
 
     .gc-name {
-        font-size: 1.06rem;
+        font-size: 0.94rem;
     }
 
     .gc-handle {
-        font-size: 1.22rem;
+        font-size: 1.05rem;
     }
 
     .gc-voice {
         -webkit-line-clamp: 2;
     }
+}
 
-    .shelf-footer {
-        align-items: stretch;
+@media (max-width: 460px) {
+    .handle-deck {
+        grid-template-columns: minmax(0, 1fr);
     }
 
-    .shelf-note {
-        flex-basis: 100%;
-        max-width: none;
+    .handle-rack {
+        margin-left: 0;
+        margin-right: 0;
     }
 
-    .shelf-pong {
-        flex-basis: 100%;
-        min-width: 0;
+    .hc-main {
+        height: 54px;
+    }
+}
+
+@media (max-width: 420px) {
+    .float-stage {
+        gap: 10px;
+    }
+
+    .game-card {
+        aspect-ratio: 1.9;
+    }
+
+    .gc-flavour {
+        -webkit-line-clamp: 1;
+        font-size: 0.64rem;
     }
 }
 
 /* Very short viewports (landscape phones): the card stops being a poster. */
-@media (max-height: 520px) and (min-width: 561px) {
+@media (max-height: 520px) and (min-width: 1024px) {
     .game-card {
-        aspect-ratio: 5 / 6;
+        aspect-ratio: 1.9;
     }
 
     .gc-flavour {
@@ -1434,11 +1870,18 @@
 
 /* -----------------------------------------------------------------------------
    10. Performance tiers
-   The shelf's cost is: one composited layer per card while it tilts, one
-   gradient paint per hovered card, and nothing at all while idle. Below `full`
-   the governors say the device cannot afford the gradients, so the shimmer
-   collapses to a flat accent and the tilt is already off in JS.
+   The field's cost is: one composited layer per card while it drifts or tilts,
+   one gradient paint per hovered card, and nothing at all while idle. Below
+   `full` the governors say the device cannot afford the gradients or twenty
+   animations, so the idle drift stops and the shimmer collapses to a flat
+   accent — the tilt is already off in JS.
    -------------------------------------------------------------------------- */
+/* The idle drift is transform-only and slow, so it survives the mid tier; it
+   is the first thing to go on a device that has already asked for less. */
+html[data-perf="lite"] .float-drift {
+    animation: none;
+}
+
 html.perf-lowish .gc-glare,
 html[data-perf="lite"] .gc-glare {
     display: none;
@@ -1460,7 +1903,10 @@ html[data-perf="lite"] .gc-art-scan {
 }
 
 /* At lite the entrance is a fade, not a lift: no movement at all. */
-html[data-perf="lite"] .shelf-deck.is-in .game-card {
+html[data-perf="lite"] .float-stage.is-in .game-card,
+html.perf-lowish .float-stage.is-in .game-card,
+html[data-perf="lite"] .handle-deck.is-in .handle-card,
+html.perf-lowish .handle-deck.is-in .handle-card {
     animation: gc-in-flat 0.4s ease backwards;
     animation-delay: calc(var(--i, 0) * 40ms);
 }
@@ -1475,11 +1921,17 @@ html[data-perf="lite"] .shelf-deck.is-in .game-card {
     }
 }
 
-/* Reduced motion is orthogonal to the tier: no travel, no sheen, no lift. */
+/* Reduced motion is orthogonal to the tier: no travel, no sheen, no lift,
+   and no idle drift. */
 @media (prefers-reduced-motion: reduce) {
-    .shelf-deck.is-in .game-card {
+    .float-stage.is-in .game-card,
+    .handle-deck.is-in .handle-card {
         animation: gc-in-flat 0.3s ease backwards;
         animation-delay: 0ms;
+    }
+
+    .float-drift {
+        animation: none;
     }
 
     .game-card {
